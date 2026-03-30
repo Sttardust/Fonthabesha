@@ -7,8 +7,9 @@
     "doc": "docs"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "start": "node dist/main.js",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "db:seed": "tsx prisma/seed.ts",
+    "start": "node dist/src/main.js",
     "start:dev": "tsx watch src/main.ts",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",

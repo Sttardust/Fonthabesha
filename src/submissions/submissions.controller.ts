@@ -1,4 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
+import { SubmissionStatus } from '@prisma/client';
 
 import { SubmissionsService } from './submissions.service';
 
@@ -7,8 +8,7 @@ export class SubmissionsController {
   constructor(private readonly submissionsService: SubmissionsService) {}
 
   @Get('summary')
-  getWorkflowSummary(): Promise<Record<string, number>> {
+  getWorkflowSummary(): Promise<Record<SubmissionStatus, number>> {
     return this.submissionsService.getWorkflowSummary();
   }
 }
-
