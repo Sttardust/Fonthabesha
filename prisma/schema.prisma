@@ -1,0 +1,473 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  admin
+  reviewer
+  contributor
+}
+
+enum UserStatus {
+  active
+  invited
+  suspended
+  disabled
+}
+
+enum FamilyStatus {
+  draft
+  approved
+  archived
+}
+
+enum SubmissionStatus {
+  draft
+  uploaded
+  processing
+  processing_failed
+  ready_for_submission
+  needs_review
+  changes_requested
+  approved
+  rejected
+  archived
+}
+
+enum StyleStatus {
+  draft
+  approved
+  archived
+}
+
+enum UploadProcessingStatus {
+  queued
+  processing
+  completed
+  failed
+}
+
+enum OwnershipEvidenceType {
+  source_url
+  repository_url
+  license_file
+  ownership_statement
+  other_document
+}
+
+enum ReviewAction {
+  submitted
+  processing_failed
+  request_changes
+  approved
+  rejected
+  archived
+  reprocessed
+  metadata_updated
+}
+
+enum CollectionStatus {
+  draft
+  published
+  archived
+}
+
+enum EventSource {
+  public_api
+  admin_dashboard
+  contributor_dashboard
+  system_job
+}
+
+model User {
+  id               String   @id @default(uuid()) @db.Uuid
+  email            String   @unique
+  passwordHash     String   @map("password_hash")
+  displayName      String   @map("display_name")
+  legalFullName    String?  @map("legal_full_name")
+  countryCode      String?  @db.Char(2) @map("country_code")
+  organizationName String?  @map("organization_name")
+  phoneNumber      String?  @map("phone_number")
+  role             UserRole
+  status           UserStatus @default(active)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  createdCollections Collection[] @relation("CollectionCreatedBy")
+  ownedSubmissions   Submission[] @relation("SubmissionOwner")
+  reviewedSubmissions Submission[] @relation("SubmissionReviewer")
+  uploads            Upload[]
+  reviewEvents       ReviewEvent[]
+  downloadEvents     DownloadEvent[]
+  viewEvents         ViewEvent[]
+  searchEvents       SearchEvent[]
+
+  @@map("users")
+}
+
+model Publisher {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  slug        String   @unique
+  bioEn       String?  @map("bio_en")
+  bioAm       String?  @map("bio_am")
+  websiteUrl  String?  @map("website_url")
+  countryCode String?  @db.Char(2) @map("country_code")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  families FontFamily[]
+
+  @@map("publishers")
+}
+
+model Designer {
+  id              String   @id @default(uuid()) @db.Uuid
+  name            String
+  slug            String   @unique
+  bioEn           String?  @map("bio_en")
+  bioAm           String?  @map("bio_am")
+  websiteUrl      String?  @map("website_url")
+  socialLinksJson Json?    @map("social_links_json")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  fontFamilyDesigners FontFamilyDesigner[]
+
+  @@map("designers")
+}
+
+model License {
+  id                    String   @id @default(uuid()) @db.Uuid
+  code                  String   @unique
+  name                  String
+  summaryEn             String?  @map("summary_en")
+  summaryAm             String?  @map("summary_am")
+  fullTextUrl           String?  @map("full_text_url")
+  allowsRedistribution  Boolean  @map("allows_redistribution")
+  allowsCommercialUse   Boolean  @map("allows_commercial_use")
+  requiresAttribution   Boolean  @map("requires_attribution")
+  isActive              Boolean  @default(true) @map("is_active")
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  families             FontFamily[]
+  declaredSubmissions  Submission[] @relation("SubmissionDeclaredLicense")
+
+  @@map("licenses")
+}
+
+model ContributorTermsVersion {
+  id         String   @id @default(uuid()) @db.Uuid
+  version    String   @unique
+  title      String
+  documentUrl String  @map("document_url")
+  checksum   String
+  effectiveAt DateTime @map("effective_at") @db.Timestamptz(6)
+  isActive   Boolean  @default(false) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("contributor_terms_versions")
+}
+
+model Category {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  families FontFamily[]
+
+  @@map("categories")
+}
+
+model Tag {
+  id        String   @id @default(uuid()) @db.Uuid
+  nameEn    String   @map("name_en")
+  nameAm    String?  @map("name_am")
+  slug      String   @unique
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  fontFamilyTags FontFamilyTag[]
+
+  @@map("tags")
+}
+
+model FontFamily {
+  id                   String      @id @default(uuid()) @db.Uuid
+  slug                 String      @unique
+  nameEn               String      @map("name_en")
+  nameAm               String?     @map("name_am")
+  nativeName           String?     @map("native_name")
+  descriptionEn        String?     @map("description_en")
+  descriptionAm        String?     @map("description_am")
+  script               String
+  primaryLanguage      String?     @map("primary_language")
+  categoryId           String?     @db.Uuid @map("category_id")
+  licenseId            String?     @db.Uuid @map("license_id")
+  publisherId          String?     @db.Uuid @map("publisher_id")
+  status               FamilyStatus @default(draft)
+  isVariableFamily     Boolean     @default(false) @map("is_variable_family")
+  supportsEthiopic     Boolean     @default(false) @map("supports_ethiopic")
+  supportsLatin        Boolean     @default(false) @map("supports_latin")
+  versionLabel         String?     @map("version_label")
+  coverImageKey        String?     @map("cover_image_key")
+  specimenTextDefaultAm String?    @map("specimen_text_default_am")
+  specimenTextDefaultEn String?    @map("specimen_text_default_en")
+  insertedAt           DateTime    @default(now()) @map("inserted_at") @db.Timestamptz(6)
+  publishedAt          DateTime?   @map("published_at") @db.Timestamptz(6)
+  updatedAt            DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  category          Category?          @relation(fields: [categoryId], references: [id])
+  license           License?           @relation(fields: [licenseId], references: [id])
+  publisher         Publisher?         @relation(fields: [publisherId], references: [id])
+  styles            FontStyle[]
+  submissions       Submission[]
+  designers         FontFamilyDesigner[]
+  tags              FontFamilyTag[]
+  collectionItems   CollectionItem[]
+  uploads           Upload[]
+  reviewEvents      ReviewEvent[]
+  downloadEvents    DownloadEvent[]
+  viewEvents        ViewEvent[]
+  dailyAnalytics    DailyFamilyAnalytics[]
+
+  @@index([status, publishedAt(sort: Desc)])
+  @@index([publisherId, status])
+  @@index([categoryId, status])
+  @@map("font_families")
+}
+
+model Submission {
+  id                     String               @id @default(uuid()) @db.Uuid
+  familyId               String               @db.Uuid @map("family_id")
+  ownerUserId            String               @db.Uuid @map("owner_user_id")
+  status                 SubmissionStatus     @default(draft)
+  declaredLicenseId      String?              @db.Uuid @map("declared_license_id")
+  ownershipEvidenceType  OwnershipEvidenceType? @map("ownership_evidence_type")
+  ownershipEvidenceValue String?              @map("ownership_evidence_value")
+  contributorStatementText String             @map("contributor_statement_text")
+  termsVersion           String?              @map("terms_version")
+  termsAcceptedAt        DateTime?            @map("terms_accepted_at") @db.Timestamptz(6)
+  termsAcceptedIpHash    String?              @map("terms_accepted_ip_hash")
+  termsAcceptanceName    String?              @map("terms_acceptance_name")
+  submittedAt            DateTime?            @map("submitted_at") @db.Timestamptz(6)
+  reviewedAt             DateTime?            @map("reviewed_at") @db.Timestamptz(6)
+  reviewedByUserId       String?              @db.Uuid @map("reviewed_by_user_id")
+  lastActionAt           DateTime?            @map("last_action_at") @db.Timestamptz(6)
+  createdAt              DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  family            FontFamily   @relation(fields: [familyId], references: [id])
+  owner             User         @relation("SubmissionOwner", fields: [ownerUserId], references: [id])
+  reviewedBy        User?        @relation("SubmissionReviewer", fields: [reviewedByUserId], references: [id])
+  declaredLicense   License?     @relation("SubmissionDeclaredLicense", fields: [declaredLicenseId], references: [id])
+  uploads           Upload[]
+  reviewEvents      ReviewEvent[]
+
+  @@index([ownerUserId, status, updatedAt(sort: Desc)])
+  @@index([familyId, createdAt(sort: Desc)])
+  @@index([status, updatedAt(sort: Desc)])
+  @@map("submissions")
+}
+
+model FontStyle {
+  id               String      @id @default(uuid()) @db.Uuid
+  familyId         String      @db.Uuid @map("family_id")
+  name             String
+  slug             String
+  weightClass      Int?        @map("weight_class")
+  weightLabel      String?     @map("weight_label")
+  isItalic         Boolean     @default(false) @map("is_italic")
+  isVariable       Boolean     @default(false) @map("is_variable")
+  isDefault        Boolean     @default(false) @map("is_default")
+  fileKey          String?     @map("file_key")
+  format           String?
+  versionLabel     String?     @map("version_label")
+  fileSizeBytes    BigInt?     @map("file_size_bytes")
+  sha256           String?
+  metricsJson      Json?       @map("metrics_json")
+  axesJson         Json?       @map("axes_json")
+  featuresJson     Json?       @map("features_json")
+  glyphCoverageJson Json?      @map("glyph_coverage_json")
+  status           StyleStatus @default(draft)
+  publishedAt      DateTime?   @map("published_at") @db.Timestamptz(6)
+  createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  family         FontFamily      @relation(fields: [familyId], references: [id])
+  downloadEvents DownloadEvent[]
+
+  @@unique([familyId, slug])
+  @@index([familyId, isDefault(sort: Desc)])
+  @@index([sha256])
+  @@map("font_styles")
+}
+
+model FontFamilyDesigner {
+  familyId   String @db.Uuid @map("family_id")
+  designerId String @db.Uuid @map("designer_id")
+  sortOrder  Int    @default(0) @map("sort_order")
+
+  family   FontFamily @relation(fields: [familyId], references: [id])
+  designer Designer   @relation(fields: [designerId], references: [id])
+
+  @@id([familyId, designerId])
+  @@map("font_family_designers")
+}
+
+model FontFamilyTag {
+  familyId String @db.Uuid @map("family_id")
+  tagId    String @db.Uuid @map("tag_id")
+
+  family FontFamily @relation(fields: [familyId], references: [id])
+  tag    Tag        @relation(fields: [tagId], references: [id])
+
+  @@id([familyId, tagId])
+  @@map("font_family_tags")
+}
+
+model Collection {
+  id          String           @id @default(uuid()) @db.Uuid
+  slug        String           @unique
+  titleEn     String           @map("title_en")
+  titleAm     String?          @map("title_am")
+  descriptionEn String?        @map("description_en")
+  descriptionAm String?        @map("description_am")
+  isFeatured  Boolean          @default(false) @map("is_featured")
+  status      CollectionStatus @default(draft)
+  createdById String?          @db.Uuid @map("created_by")
+  publishedAt DateTime?        @map("published_at") @db.Timestamptz(6)
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  createdBy User?            @relation("CollectionCreatedBy", fields: [createdById], references: [id])
+  items     CollectionItem[]
+
+  @@index([status, publishedAt(sort: Desc)])
+  @@map("collections")
+}
+
+model CollectionItem {
+  collectionId String @db.Uuid @map("collection_id")
+  familyId     String @db.Uuid @map("family_id")
+  sortOrder    Int    @default(0) @map("sort_order")
+
+  collection Collection @relation(fields: [collectionId], references: [id])
+  family     FontFamily @relation(fields: [familyId], references: [id])
+
+  @@id([collectionId, familyId])
+  @@map("collection_items")
+}
+
+model Upload {
+  id               String                 @id @default(uuid()) @db.Uuid
+  uploaderId       String                 @db.Uuid @map("uploader_id")
+  submissionId     String                 @db.Uuid @map("submission_id")
+  familyId         String                 @db.Uuid @map("family_id")
+  originalFilename String                 @map("original_filename")
+  storageKey       String                 @map("storage_key")
+  mimeType         String?                @map("mime_type")
+  fileSizeBytes    BigInt?                @map("file_size_bytes")
+  sha256           String?
+  processingStatus UploadProcessingStatus @default(queued) @map("processing_status")
+  processingError  String?                @map("processing_error")
+  uploadedAt       DateTime               @default(now()) @map("uploaded_at") @db.Timestamptz(6)
+  processedAt      DateTime?              @map("processed_at") @db.Timestamptz(6)
+
+  uploader   User       @relation(fields: [uploaderId], references: [id])
+  submission Submission @relation(fields: [submissionId], references: [id])
+  family     FontFamily @relation(fields: [familyId], references: [id])
+
+  @@index([submissionId, processingStatus])
+  @@index([familyId, processingStatus])
+  @@map("uploads")
+}
+
+model ReviewEvent {
+  id          String       @id @default(uuid()) @db.Uuid
+  submissionId String      @db.Uuid @map("submission_id")
+  familyId    String       @db.Uuid @map("family_id")
+  actorUserId String?      @db.Uuid @map("actor_user_id")
+  action      ReviewAction
+  notes       String?
+  metadataJson Json?       @map("metadata_json")
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  submission Submission @relation(fields: [submissionId], references: [id])
+  family     FontFamily @relation(fields: [familyId], references: [id])
+  actorUser  User?      @relation(fields: [actorUserId], references: [id])
+
+  @@index([submissionId, createdAt(sort: Desc)])
+  @@index([familyId, createdAt(sort: Desc)])
+  @@map("review_events")
+}
+
+model DownloadEvent {
+  id            String      @id @default(uuid()) @db.Uuid
+  familyId      String      @db.Uuid @map("family_id")
+  styleId       String?     @db.Uuid @map("style_id")
+  userId        String?     @db.Uuid @map("user_id")
+  ipHash        String?     @map("ip_hash")
+  userAgentHash String?     @map("user_agent_hash")
+  countryCode   String?     @db.Char(2) @map("country_code")
+  source        EventSource?
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  family FontFamily  @relation(fields: [familyId], references: [id])
+  style  FontStyle?  @relation(fields: [styleId], references: [id])
+  user   User?       @relation(fields: [userId], references: [id])
+
+  @@index([familyId, createdAt(sort: Desc)])
+  @@map("download_events")
+}
+
+model ViewEvent {
+  id        String      @id @default(uuid()) @db.Uuid
+  familyId  String      @db.Uuid @map("family_id")
+  userId    String?     @db.Uuid @map("user_id")
+  ipHash    String?     @map("ip_hash")
+  source    EventSource?
+  createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  family FontFamily @relation(fields: [familyId], references: [id])
+  user   User?      @relation(fields: [userId], references: [id])
+
+  @@index([familyId, createdAt(sort: Desc)])
+  @@map("view_events")
+}
+
+model SearchEvent {
+  id                  String      @id @default(uuid()) @db.Uuid
+  queryText           String?     @map("query_text")
+  normalizedQueryText String?     @map("normalized_query_text")
+  resultCount         Int?        @map("result_count")
+  ipHash              String?     @map("ip_hash")
+  userId              String?     @db.Uuid @map("user_id")
+  source              EventSource?
+  createdAt           DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([createdAt(sort: Desc)])
+  @@map("search_events")
+}
+
+model DailyFamilyAnalytics {
+  familyId       String   @db.Uuid @map("family_id")
+  date           DateTime @db.Date
+  viewsCount     Int      @default(0) @map("views_count")
+  downloadsCount Int      @default(0) @map("downloads_count")
+
+  family FontFamily @relation(fields: [familyId], references: [id])
+
+  @@id([familyId, date])
+  @@map("daily_family_analytics")
+}
