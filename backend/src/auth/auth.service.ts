@@ -400,7 +400,7 @@ export class AuthService {
     success: true;
     expiresInMinutes: number;
     alreadyVerified: boolean;
-    emailDelivery?: 'smtp' | 'preview';
+    emailDelivery?: 'queued' | 'smtp' | 'preview';
   }> {
     const user = (await this.authContext.requireUserFromRequest(request)) as AuthUser;
     const expiresInMinutes = 60;
@@ -597,7 +597,7 @@ export class AuthService {
   ): Promise<{
     success: true;
     expiresInMinutes: number;
-    emailDelivery?: 'smtp' | 'preview';
+    emailDelivery?: 'queued' | 'smtp' | 'preview';
   }> {
     const email = payload.email.trim().toLowerCase();
     try {

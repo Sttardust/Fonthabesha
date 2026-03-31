@@ -61,6 +61,7 @@ Useful commands:
 - uploaded font assets can be served from the backend during local development
 - the frontend reads the backend URL from `VITE_API_URL`
 - backend auth emails use `SMTP_URL` when configured, or a staff-only dev preview inbox at `GET /api/v1/internal/mail/previews`
+- backend auth mail requests are queued through Redis/BullMQ when Redis is available
 - backend auth routes are rate limited for registration, login, verification email requests, and password reset requests
 - repeated failed logins now trigger temporary account and network lockouts on the backend
 - backend auth also writes persistent audit rows for security-relevant account events
