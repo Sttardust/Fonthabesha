@@ -1,21 +1,21 @@
-name: API CI
+name: Frontend CI
 
 on:
   push:
     paths:
-      - "backend/**"
-      - ".github/workflows/api-ci.yml"
+      - "frontend/**"
+      - ".github/workflows/frontend-ci.yml"
       - "package.json"
       - "package-lock.json"
   pull_request:
     paths:
-      - "backend/**"
-      - ".github/workflows/api-ci.yml"
+      - "frontend/**"
+      - ".github/workflows/frontend-ci.yml"
       - "package.json"
       - "package-lock.json"
 
 jobs:
-  api:
+  frontend:
     runs-on: ubuntu-latest
 
     steps:
@@ -27,6 +27,4 @@ jobs:
           cache: "npm"
 
       - run: npm ci
-      - run: npm run prisma:generate:backend
-      - run: npm run prisma:validate:backend
-      - run: npm run build:backend
+      - run: npm run build:frontend
