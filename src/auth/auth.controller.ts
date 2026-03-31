@@ -4,6 +4,7 @@ import { AuthService } from './auth.service';
 import type { AuthenticatedRequest } from './auth-request';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { RegisterContributorDto } from './dto/register-contributor.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Controller('auth')
@@ -13,6 +14,11 @@ export class AuthController {
   @Post('login')
   login(@Body() payload: LoginDto, @Req() request: AuthenticatedRequest) {
     return this.authService.login(payload, request);
+  }
+
+  @Post('register')
+  register(@Body() payload: RegisterContributorDto, @Req() request: AuthenticatedRequest) {
+    return this.authService.registerContributor(payload, request);
   }
 
   @Post('refresh')

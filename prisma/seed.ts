@@ -121,7 +121,6 @@ async function seedUsers(): Promise<void> {
   const passwordHashes = {
     admin: await argon2.hash('AdminPass123!'),
     reviewer: await argon2.hash('ReviewerPass123!'),
-    contributor: await argon2.hash('ContributorPass123!'),
   };
 
   const users = [
@@ -146,17 +145,6 @@ async function seedUsers(): Promise<void> {
       countryCode: 'ET',
       organizationName: 'Fonthabesha',
       phoneNumber: '+251911111111',
-    },
-    {
-      email: 'contributor@fonthabesha.local',
-      displayName: 'Sample Contributor',
-      passwordHash: passwordHashes.contributor,
-      role: UserRole.contributor,
-      status: UserStatus.active,
-      legalFullName: null,
-      countryCode: null,
-      organizationName: null,
-      phoneNumber: null,
     },
   ];
 

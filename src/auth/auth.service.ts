@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 
-import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type { RefreshSession, User, UserRole } from '@prisma/client';
 import argon2 from 'argon2';
@@ -12,6 +12,7 @@ import { AuthContextService } from './auth-context.service';
 import type { AuthenticatedRequest } from './auth-request';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { RegisterContributorDto } from './dto/register-contributor.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
 type CurrentUserProfile = Pick<
@@ -43,6 +44,54 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService<AppEnvironment, true>,
   ) {}
+
+  async registerContributor(payload: RegisterContributorDto, request: AuthenticatedRequest) {
+    const email = payload.email.trim().toLowerCase();
+    const existingUser = await this.prisma.user.findUnique({
+      where: {
+        email,
+      },
+    });
+
+    if (existingUser) {
+      throw new ConflictException('An account already exists for this email address');
+    }
+
+    const passwordHash = await argon2.hash(payload.password);
+    const user = await this.prisma.user.create({
+      data: {
+        email,
+        passwordHash,
+        displayName: payload.displayName.trim(),
+        legalFullName: payload.legalFullName.trim(),
+        countryCode: payload.countryCode.trim().toUpperCase(),
+        organizationName: this.normalizeOptionalString(payload.organizationName, null),
+        phoneNumber: this.normalizeOptionalString(payload.phoneNumber, null),
+        role: 'contributor',
+        status: 'active',
+      },
+    });
+
+    const sessionId = randomUUID();
+    const refreshToken = await this.signRefreshToken(user, sessionId);
+    const accessToken = await this.signAccessToken(user);
+
+    await this.prisma.refreshSession.create({
+      data: {
+        id: sessionId,
+        userId: user.id,
+        tokenHash: this.hashToken(refreshToken),
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        createdByIpHash: this.hashValue(request.ip),
+      },
+    });
+
+    return {
+      accessToken,
+      refreshToken,
+      user: this.toCurrentUserProfile(user),
+    };
+  }
 
   async login(payload: LoginDto, request: AuthenticatedRequest) {
     const email = payload.email.trim().toLowerCase();
