@@ -11,7 +11,10 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type {
+  AuthAuditAction,
+  AuthAuditOutcome,
   PasswordResetToken,
+  Prisma,
   RefreshSession,
   User,
   UserRole,
@@ -85,20 +88,30 @@ export class AuthService {
 
   async registerContributor(payload: RegisterContributorDto, request: AuthenticatedRequest) {
     const email = payload.email.trim().toLowerCase();
-    await this.assertRateLimit({
-      scope: 'register-ip',
-      identifier: this.getRequestIdentifier(request),
-      limit: 10,
-      windowSeconds: 60 * 60,
-      message: 'Too many registration attempts. Please try again later.',
-    });
-    await this.assertRateLimit({
-      scope: 'register-email',
-      identifier: email,
-      limit: 5,
-      windowSeconds: 60 * 60,
-      message: 'Too many registration attempts for this email. Please try again later.',
-    });
+    try {
+      await this.assertRateLimit({
+        scope: 'register-ip',
+        identifier: this.getRequestIdentifier(request),
+        limit: 10,
+        windowSeconds: 60 * 60,
+        message: 'Too many registration attempts. Please try again later.',
+      });
+      await this.assertRateLimit({
+        scope: 'register-email',
+        identifier: email,
+        limit: 5,
+        windowSeconds: 60 * 60,
+        message: 'Too many registration attempts for this email. Please try again later.',
+      });
+    } catch (error) {
+      await this.recordAuthAuditEvent({
+        request,
+        action: 'register',
+        outcome: 'throttled',
+        email,
+      });
+      throw error;
+    }
 
     const existingUser = await this.prisma.user.findUnique({
       where: {
@@ -107,6 +120,14 @@ export class AuthService {
     });
 
     if (existingUser) {
+      await this.recordAuthAuditEvent({
+        request,
+        action: 'register',
+        outcome: 'failure',
+        userId: existingUser.id,
+        email,
+        metadataJson: { reason: 'email_already_exists' },
+      });
       throw new ConflictException('An account already exists for this email address');
     }
 
@@ -147,6 +168,17 @@ export class AuthService {
       expiresInMinutes: verification.expiresInMinutes,
     });
 
+    await this.recordAuthAuditEvent({
+      request,
+      action: 'register',
+      outcome: 'success',
+      userId: user.id,
+      email: user.email,
+      metadataJson: {
+        emailDelivery: delivery.delivery,
+      },
+    });
+
     return {
       accessToken,
       refreshToken,
@@ -159,21 +191,31 @@ export class AuthService {
   async login(payload: LoginDto, request: AuthenticatedRequest) {
     const email = payload.email.trim().toLowerCase();
     const requestIdentifier = this.getRequestIdentifier(request);
-    await this.assertLoginNotLocked(email, requestIdentifier);
-    await this.assertRateLimit({
-      scope: 'login-ip',
-      identifier: requestIdentifier,
-      limit: 20,
-      windowSeconds: 15 * 60,
-      message: 'Too many login attempts. Please try again later.',
-    });
-    await this.assertRateLimit({
-      scope: 'login-email',
-      identifier: email,
-      limit: 10,
-      windowSeconds: 15 * 60,
-      message: 'Too many login attempts for this account. Please try again later.',
-    });
+    try {
+      await this.assertLoginNotLocked(email, requestIdentifier);
+      await this.assertRateLimit({
+        scope: 'login-ip',
+        identifier: requestIdentifier,
+        limit: 20,
+        windowSeconds: 15 * 60,
+        message: 'Too many login attempts. Please try again later.',
+      });
+      await this.assertRateLimit({
+        scope: 'login-email',
+        identifier: email,
+        limit: 10,
+        windowSeconds: 15 * 60,
+        message: 'Too many login attempts for this account. Please try again later.',
+      });
+    } catch (error) {
+      await this.recordAuthAuditEvent({
+        request,
+        action: 'login',
+        outcome: 'throttled',
+        email,
+      });
+      throw error;
+    }
 
     const user = await this.prisma.user.findUnique({
       where: {
@@ -182,18 +224,63 @@ export class AuthService {
     });
 
     if (!user || user.status !== 'active') {
-      await this.recordFailedLogin(email, requestIdentifier);
+      try {
+        await this.recordFailedLogin(email, requestIdentifier);
+      } catch (error) {
+        await this.recordAuthAuditEvent({
+          request,
+          action: 'login',
+          outcome: 'throttled',
+          email,
+          metadataJson: { reason: 'failed_login_lockout' },
+        });
+        throw error;
+      }
+      await this.recordAuthAuditEvent({
+        request,
+        action: 'login',
+        outcome: 'failure',
+        email,
+        metadataJson: { reason: 'invalid_credentials' },
+      });
       throw new UnauthorizedException('Invalid email or password');
     }
 
     const passwordMatches = await argon2.verify(user.passwordHash, payload.password);
 
     if (!passwordMatches) {
-      await this.recordFailedLogin(email, requestIdentifier);
+      try {
+        await this.recordFailedLogin(email, requestIdentifier);
+      } catch (error) {
+        await this.recordAuthAuditEvent({
+          request,
+          action: 'login',
+          outcome: 'throttled',
+          userId: user.id,
+          email,
+          metadataJson: { reason: 'failed_login_lockout' },
+        });
+        throw error;
+      }
+      await this.recordAuthAuditEvent({
+        request,
+        action: 'login',
+        outcome: 'failure',
+        userId: user.id,
+        email,
+        metadataJson: { reason: 'invalid_credentials' },
+      });
       throw new UnauthorizedException('Invalid email or password');
     }
 
     await this.clearFailedLogin(email);
+    await this.recordAuthAuditEvent({
+      request,
+      action: 'login',
+      outcome: 'success',
+      userId: user.id,
+      email,
+    });
 
     const sessionId = randomUUID();
     const refreshToken = await this.signRefreshToken(user, sessionId);
@@ -262,6 +349,14 @@ export class AuthService {
       }),
     ]);
 
+    await this.recordAuthAuditEvent({
+      request,
+      action: 'refresh',
+      outcome: 'success',
+      userId: session.user.id,
+      email: session.user.email,
+    });
+
     return {
       accessToken,
       refreshToken: newRefreshToken,
@@ -289,6 +384,13 @@ export class AuthService {
       });
     }
 
+    await this.recordAuthAuditEvent({
+      action: 'logout',
+      outcome: 'success',
+      userId: session?.userId,
+      email: tokenPayload.email,
+    });
+
     return {
       success: true,
     };
@@ -302,15 +404,34 @@ export class AuthService {
   }> {
     const user = (await this.authContext.requireUserFromRequest(request)) as AuthUser;
     const expiresInMinutes = 60;
-    await this.assertRateLimit({
-      scope: 'email-verification-user',
-      identifier: user.id,
-      limit: 5,
-      windowSeconds: 60 * 60,
-      message: 'Too many verification emails requested. Please try again later.',
-    });
+    try {
+      await this.assertRateLimit({
+        scope: 'email-verification-user',
+        identifier: user.id,
+        limit: 5,
+        windowSeconds: 60 * 60,
+        message: 'Too many verification emails requested. Please try again later.',
+      });
+    } catch (error) {
+      await this.recordAuthAuditEvent({
+        request,
+        action: 'email_verification_request',
+        outcome: 'throttled',
+        userId: user.id,
+        email: user.email,
+      });
+      throw error;
+    }
 
     if (user.emailVerifiedAt) {
+      await this.recordAuthAuditEvent({
+        request,
+        action: 'email_verification_request',
+        outcome: 'success',
+        userId: user.id,
+        email: user.email,
+        metadataJson: { alreadyVerified: true },
+      });
       return {
         success: true,
         expiresInMinutes,
@@ -324,6 +445,18 @@ export class AuthService {
       displayName: user.displayName,
       token: verification.token,
       expiresInMinutes: verification.expiresInMinutes,
+    });
+
+    await this.recordAuthAuditEvent({
+      request,
+      action: 'email_verification_request',
+      outcome: 'success',
+      userId: user.id,
+      email: user.email,
+      metadataJson: {
+        alreadyVerified: false,
+        delivery: delivery.delivery,
+      },
     });
 
     return {
@@ -379,6 +512,13 @@ export class AuthService {
       }),
     ]);
 
+    await this.recordAuthAuditEvent({
+      action: 'email_verification_confirm',
+      outcome: 'success',
+      userId: token.user.id,
+      email: token.user.email,
+    });
+
     return {
       success: true,
       emailVerifiedAt: now.toISOString(),
@@ -390,6 +530,14 @@ export class AuthService {
     const passwordMatches = await argon2.verify(user.passwordHash, payload.currentPassword);
 
     if (!passwordMatches) {
+      await this.recordAuthAuditEvent({
+        request,
+        action: 'password_change',
+        outcome: 'failure',
+        userId: user.id,
+        email: user.email,
+        metadataJson: { reason: 'invalid_current_password' },
+      });
       throw new UnauthorizedException('Current password is incorrect');
     }
 
@@ -429,6 +577,14 @@ export class AuthService {
       }),
     ]);
 
+    await this.recordAuthAuditEvent({
+      request,
+      action: 'password_change',
+      outcome: 'success',
+      userId: user.id,
+      email: user.email,
+    });
+
     return {
       success: true,
       revokedRefreshSessions: true,
@@ -444,20 +600,30 @@ export class AuthService {
     emailDelivery?: 'smtp' | 'preview';
   }> {
     const email = payload.email.trim().toLowerCase();
-    await this.assertRateLimit({
-      scope: 'password-reset-ip',
-      identifier: this.getRequestIdentifier(request),
-      limit: 10,
-      windowSeconds: 60 * 60,
-      message: 'Too many password reset requests. Please try again later.',
-    });
-    await this.assertRateLimit({
-      scope: 'password-reset-email',
-      identifier: email,
-      limit: 5,
-      windowSeconds: 60 * 60,
-      message: 'Too many password reset requests for this account. Please try again later.',
-    });
+    try {
+      await this.assertRateLimit({
+        scope: 'password-reset-ip',
+        identifier: this.getRequestIdentifier(request),
+        limit: 10,
+        windowSeconds: 60 * 60,
+        message: 'Too many password reset requests. Please try again later.',
+      });
+      await this.assertRateLimit({
+        scope: 'password-reset-email',
+        identifier: email,
+        limit: 5,
+        windowSeconds: 60 * 60,
+        message: 'Too many password reset requests for this account. Please try again later.',
+      });
+    } catch (error) {
+      await this.recordAuthAuditEvent({
+        request,
+        action: 'password_reset_request',
+        outcome: 'throttled',
+        email,
+      });
+      throw error;
+    }
 
     const user = await this.prisma.user.findUnique({
       where: {
@@ -467,6 +633,13 @@ export class AuthService {
     const expiresInMinutes = 30;
 
     if (!user || user.status !== 'active') {
+      await this.recordAuthAuditEvent({
+        request,
+        action: 'password_reset_request',
+        outcome: 'success',
+        email,
+        metadataJson: { accountFound: false },
+      });
       return {
         success: true,
         expiresInMinutes,
@@ -500,6 +673,18 @@ export class AuthService {
       displayName: user.displayName,
       token: resetToken,
       expiresInMinutes,
+    });
+
+    await this.recordAuthAuditEvent({
+      request,
+      action: 'password_reset_request',
+      outcome: 'success',
+      userId: user.id,
+      email: user.email,
+      metadataJson: {
+        accountFound: true,
+        delivery: delivery.delivery,
+      },
     });
 
     return {
@@ -564,6 +749,13 @@ export class AuthService {
         },
       }),
     ]);
+
+    await this.recordAuthAuditEvent({
+      action: 'password_reset_confirm',
+      outcome: 'success',
+      userId: token.user.id,
+      email: token.user.email,
+    });
 
     return {
       success: true,
@@ -759,6 +951,31 @@ export class AuthService {
     await this.authRateLimitService.clearFailures('login-email', email);
   }
 
+  private async recordAuthAuditEvent(args: {
+    action: AuthAuditAction;
+    outcome: AuthAuditOutcome;
+    request?: AuthenticatedRequest;
+    userId?: string | null;
+    email?: string | null;
+    metadataJson?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      await this.prisma.authAuditEvent.create({
+        data: {
+          userId: args.userId ?? null,
+          email: args.email?.trim().toLowerCase() ?? null,
+          action: args.action,
+          outcome: args.outcome,
+          ipHash: this.hashValue(args.request ? this.getRequestIdentifier(args.request) : null),
+          userAgentHash: this.hashValue(this.getUserAgent(args.request)),
+          metadataJson: (args.metadataJson ?? undefined) as Prisma.InputJsonValue | undefined,
+        },
+      });
+    } catch {
+      return;
+    }
+  }
+
   private getRequestIdentifier(request: AuthenticatedRequest): string {
     const forwardedFor = request.headers['x-forwarded-for'];
 
@@ -771,6 +988,24 @@ export class AuthService {
     }
 
     return request.ip ?? 'unknown';
+  }
+
+  private getUserAgent(request: AuthenticatedRequest | undefined): string | null {
+    if (!request) {
+      return null;
+    }
+
+    const rawUserAgent = request.headers['user-agent'];
+
+    if (typeof rawUserAgent === 'string') {
+      return rawUserAgent;
+    }
+
+    if (Array.isArray(rawUserAgent)) {
+      return rawUserAgent[0] ?? null;
+    }
+
+    return null;
   }
 
   private assertEmailVerificationTokenIsUsable(

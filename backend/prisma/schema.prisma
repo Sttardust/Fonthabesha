@@ -83,6 +83,24 @@ enum EventSource {
   system_job
 }
 
+enum AuthAuditAction {
+  register
+  login
+  password_change
+  password_reset_request
+  password_reset_confirm
+  email_verification_request
+  email_verification_confirm
+  refresh
+  logout
+}
+
+enum AuthAuditOutcome {
+  success
+  failure
+  throttled
+}
+
 model User {
   id               String   @id @default(uuid()) @db.Uuid
   email            String   @unique
@@ -109,6 +127,7 @@ model User {
   downloadEvents     DownloadEvent[]
   viewEvents         ViewEvent[]
   searchEvents       SearchEvent[]
+  authAuditEvents    AuthAuditEvent[]
 
   @@map("users")
 }
@@ -164,6 +183,25 @@ model EmailVerificationToken {
   @@index([userId, expiresAt])
   @@index([userId, consumedAt])
   @@map("email_verification_tokens")
+}
+
+model AuthAuditEvent {
+  id            String           @id @default(uuid()) @db.Uuid
+  userId        String?          @db.Uuid @map("user_id")
+  email         String?          @map("email")
+  action        AuthAuditAction
+  outcome       AuthAuditOutcome
+  ipHash        String?          @map("ip_hash")
+  userAgentHash String?          @map("user_agent_hash")
+  metadataJson  Json?            @map("metadata_json")
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([email, createdAt(sort: Desc)])
+  @@index([action, outcome, createdAt(sort: Desc)])
+  @@map("auth_audit_events")
 }
 
 model Publisher {
