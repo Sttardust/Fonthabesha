@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { AuthContextService } from '../auth/auth-context.service';
 import type { AuthenticatedRequest } from '../auth/auth-request';
 import { PrismaService } from '../prisma/prisma.service';
+import { SearchIndexService } from '../search/search-index.service';
 import type { AppEnvironment } from '../shared/config/app-env';
 import { ListFontsDto } from './dto/list-fonts.dto';
 
@@ -15,6 +16,7 @@ export class CatalogService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly authContext: AuthContextService,
+    private readonly searchIndex: SearchIndexService,
     private readonly configService: ConfigService<AppEnvironment, true>,
   ) {}
 
@@ -23,7 +25,9 @@ export class CatalogService {
   }
 
   async searchFonts(query: ListFontsDto, request: AuthenticatedRequest) {
-    const result = await this.getFonts(query);
+    const result = query.q?.trim()
+      ? await this.getFontsFromSearchIndex(query)
+      : await this.getFonts(query);
     const currentUser = await this.authContext.findActiveUserFromRequest(request);
     const normalizedQuery = this.normalizeSearchQuery(query.q);
 
@@ -352,6 +356,86 @@ export class CatalogService {
         page,
         pageSize,
         totalItems,
+        totalPages,
+        hasNext: page < totalPages,
+      },
+    };
+  }
+
+  private async getFontsFromSearchIndex(query: ListFontsDto) {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 20;
+    const searchResult = await this.searchIndex.searchFamilies({
+      query: query.q,
+      category: query.category,
+      script: query.script,
+      license: query.license,
+      publisher: query.publisher,
+      variable: query.variable,
+      sort: query.sort,
+      page,
+      pageSize,
+    });
+
+    if (searchResult.ids.length === 0) {
+      return {
+        items: [],
+        pagination: {
+          page,
+          pageSize,
+          totalItems: 0,
+          totalPages: 0,
+          hasNext: false,
+        },
+      };
+    }
+
+    const families = await this.prisma.fontFamily.findMany({
+      where: {
+        id: {
+          in: searchResult.ids,
+        },
+        status: 'approved',
+      },
+      include: {
+        category: true,
+        license: true,
+        publisher: true,
+        designers: {
+          include: {
+            designer: true,
+          },
+          orderBy: {
+            sortOrder: 'asc',
+          },
+        },
+        tags: {
+          include: {
+            tag: true,
+          },
+        },
+        styles: {
+          where: {
+            status: 'approved',
+          },
+          orderBy: [{ isDefault: 'desc' }, { weightClass: 'asc' }, { name: 'asc' }],
+        },
+      },
+    });
+
+    const orderedFamilies = searchResult.ids
+      .map((familyId) => families.find((family) => family.id === familyId))
+      .filter((family): family is NonNullable<typeof family> => Boolean(family));
+
+    const totalPages =
+      searchResult.totalItems === 0 ? 0 : Math.ceil(searchResult.totalItems / pageSize);
+
+    return {
+      items: orderedFamilies.map((family) => this.mapFamilyListItem(family)),
+      pagination: {
+        page,
+        pageSize,
+        totalItems: searchResult.totalItems,
         totalPages,
         hasNext: page < totalPages,
       },

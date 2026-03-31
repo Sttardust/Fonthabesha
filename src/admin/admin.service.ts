@@ -10,6 +10,7 @@ import { Prisma, ReviewAction, SubmissionStatus, UserRole } from '@prisma/client
 import { AuthContextService } from '../auth/auth-context.service';
 import type { AuthenticatedRequest } from '../auth/auth-request';
 import { PrismaService } from '../prisma/prisma.service';
+import { SearchIndexService } from '../search/search-index.service';
 import { FontInspectionService } from '../uploads/font-inspection.service';
 import { FontStyleSyncService } from '../uploads/font-style-sync.service';
 import { S3StorageService } from '../uploads/s3-storage.service';
@@ -20,6 +21,7 @@ export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly authContext: AuthContextService,
+    private readonly searchIndex: SearchIndexService,
     private readonly fontInspection: FontInspectionService,
     private readonly fontStyleSync: FontStyleSyncService,
     private readonly storageService: S3StorageService,
@@ -532,6 +534,11 @@ export class AdminService {
     };
   }
 
+  async reindexApprovedFamilies(request: AuthenticatedRequest) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
+    return this.searchIndex.syncAllApprovedFamilies();
+  }
+
   private async applyReviewDecision(
     actorUserId: string,
     submissionId: string,
@@ -618,6 +625,12 @@ export class AdminService {
         },
       }),
     ]);
+
+    if (action === 'approved') {
+      await this.searchIndex.syncFamilyById(submission.familyId);
+    } else {
+      await this.searchIndex.removeFamilyById(submission.familyId);
+    }
 
     return {
       submissionId: submission.id,

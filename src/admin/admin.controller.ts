@@ -79,4 +79,9 @@ export class AdminController {
   ) {
     return this.adminService.directUploadToSubmission(request, submissionId, file, payload.notes);
   }
+
+  @Post('search/reindex')
+  reindexApprovedFamilies(@Req() request: AuthenticatedRequest) {
+    return this.adminService.reindexApprovedFamilies(request);
+  }
 }
