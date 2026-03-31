@@ -9,6 +9,6 @@ import { UploadsService } from './uploads.service';
   imports: [AuthModule],
   controllers: [UploadsController],
   providers: [S3StorageService, UploadsService],
-  exports: [UploadsService],
+  exports: [S3StorageService, UploadsService],
 })
 export class UploadsModule {}

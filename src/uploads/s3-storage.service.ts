@@ -54,6 +54,17 @@ export class S3StorageService {
     );
   }
 
+  async putRawObject(storageKey: string, body: Buffer, contentType: string): Promise<void> {
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.rawBucket,
+        Key: storageKey,
+        Body: body,
+        ContentType: contentType,
+      }),
+    );
+  }
+
   async getRawObjectMetadata(storageKey: string) {
     const response = await this.client.send(
       new HeadObjectCommand({
