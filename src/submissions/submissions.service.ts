@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import {
   BadRequestException,
   Injectable,
+  NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { SubmissionStatus, UserRole } from '@prisma/client';
@@ -10,6 +11,8 @@ import { SubmissionStatus, UserRole } from '@prisma/client';
 import { AuthContextService } from '../auth/auth-context.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSubmissionDto } from './dto/create-submission.dto';
+import { UpdateSubmissionMetadataDto } from './dto/update-submission-metadata.dto';
+import { UpdateSubmissionStyleDto } from './dto/update-submission-style.dto';
 
 @Injectable()
 export class SubmissionsService {
@@ -69,6 +72,82 @@ export class SubmissionsService {
         },
       },
     });
+  }
+
+  async getContributorSubmissionDetail(userEmail: string | undefined, submissionId: string) {
+    const submission = await this.getOwnedSubmissionWithDetails(userEmail, submissionId);
+    const completedUploadCount = submission.uploads.filter(
+      (upload) => upload.processingStatus === 'completed',
+    ).length;
+    const processingWarnings = submission.uploads.flatMap(
+      (upload) => (upload.processingWarningsJson as unknown[] | null) ?? [],
+    );
+    const blockingIssues = submission.uploads
+      .filter((upload) => Boolean(upload.processingError))
+      .map((upload) => ({
+        uploadId: upload.id,
+        message: upload.processingError,
+      }));
+
+    return {
+      id: submission.id,
+      status: submission.status,
+      createdAt: submission.createdAt,
+      updatedAt: submission.updatedAt,
+      submittedAt: submission.submittedAt,
+      family: {
+        id: submission.family.id,
+        slug: submission.family.slug,
+        nameEn: submission.family.nameEn,
+        nameAm: submission.family.nameAm,
+        nativeName: submission.family.nativeName,
+        descriptionEn: submission.family.descriptionEn,
+        descriptionAm: submission.family.descriptionAm,
+        primaryLanguage: submission.family.primaryLanguage,
+        supportsEthiopic: submission.family.supportsEthiopic,
+        supportsLatin: submission.family.supportsLatin,
+        category: submission.family.category,
+      },
+      declaredLicense: submission.declaredLicense,
+      uploads: submission.uploads.map((upload) => ({
+        id: upload.id,
+        originalFilename: upload.originalFilename,
+        mimeType: upload.mimeType,
+        fileSizeBytes: Number(upload.fileSizeBytes ?? 0n),
+        sha256: upload.sha256,
+        metadata: upload.metadataJson,
+        warnings: upload.processingWarningsJson ?? [],
+        processingError: upload.processingError,
+        processingStatus: upload.processingStatus,
+        uploadedAt: upload.uploadedAt,
+        processedAt: upload.processedAt,
+      })),
+      styles: submission.family.styles.map((style) => ({
+        id: style.id,
+        name: style.name,
+        slug: style.slug,
+        weightClass: style.weightClass,
+        weightLabel: style.weightLabel,
+        isItalic: style.isItalic,
+        isDefault: style.isDefault,
+        format: style.format,
+        fileSizeBytes: Number(style.fileSizeBytes ?? 0n),
+        sha256: style.sha256,
+        status: style.status,
+      })),
+      analysis: {
+        completedUploadCount,
+        processingWarnings,
+        blockingIssues,
+      },
+      permissions: {
+        canEditMetadata: this.isContributorEditableStatus(submission.status),
+        canEditStyles: this.isContributorEditableStatus(submission.status),
+        canSubmitForReview:
+          ['ready_for_submission', 'changes_requested'].includes(submission.status) &&
+          completedUploadCount > 0,
+      },
+    };
   }
 
   async createDraftSubmission(
@@ -206,8 +285,10 @@ export class SubmissionsService {
       throw new BadRequestException('Submission not found');
     }
 
-    if (submission.status !== 'ready_for_submission') {
-      throw new BadRequestException('Submission must be ready_for_submission before submission');
+    if (!['ready_for_submission', 'changes_requested'].includes(submission.status)) {
+      throw new BadRequestException(
+        'Submission must be ready_for_submission or changes_requested before submission',
+      );
     }
 
     const completedUploadCount = submission.uploads.filter(
@@ -253,7 +334,198 @@ export class SubmissionsService {
     };
   }
 
+  async updateContributorSubmissionMetadata(
+    userEmail: string | undefined,
+    submissionId: string,
+    payload: UpdateSubmissionMetadataDto,
+  ) {
+    const submission = await this.getOwnedSubmissionWithDetails(userEmail, submissionId);
+
+    if (!this.isContributorEditableStatus(submission.status)) {
+      throw new BadRequestException('Submission metadata can no longer be edited in the current status');
+    }
+
+    if (payload.categoryId) {
+      const category = await this.prisma.category.findUnique({
+        where: {
+          id: payload.categoryId,
+        },
+      });
+
+      if (!category) {
+        throw new BadRequestException('The selected category does not exist');
+      }
+    }
+
+    if (payload.slug && payload.slug !== submission.family.slug) {
+      const existing = await this.prisma.fontFamily.findUnique({
+        where: {
+          slug: payload.slug,
+        },
+      });
+
+      if (existing && existing.id !== submission.familyId) {
+        throw new BadRequestException('The selected slug is already in use');
+      }
+    }
+
+    const updatedFamily = await this.prisma.fontFamily.update({
+      where: {
+        id: submission.familyId,
+      },
+      data: {
+        slug: payload.slug ?? undefined,
+        nameEn: payload.familyNameEn?.trim() ?? undefined,
+        nameAm: this.normalizePatchString(payload.familyNameAm),
+        nativeName: this.normalizePatchString(payload.nativeName),
+        descriptionEn: this.normalizePatchString(payload.descriptionEn),
+        descriptionAm: this.normalizePatchString(payload.descriptionAm),
+        primaryLanguage: this.normalizePatchString(payload.primaryLanguage),
+        categoryId: payload.categoryId === undefined ? undefined : payload.categoryId,
+        supportsLatin: payload.supportsLatin ?? undefined,
+      },
+      select: {
+        id: true,
+        slug: true,
+        nameEn: true,
+        nameAm: true,
+        nativeName: true,
+        descriptionEn: true,
+        descriptionAm: true,
+        primaryLanguage: true,
+        supportsLatin: true,
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+      },
+    });
+
+    await this.prisma.submission.update({
+      where: {
+        id: submission.id,
+      },
+      data: {
+        lastActionAt: new Date(),
+      },
+    });
+
+    return {
+      submissionId: submission.id,
+      status: submission.status,
+      family: updatedFamily,
+    };
+  }
+
+  async updateContributorStyle(
+    userEmail: string | undefined,
+    submissionId: string,
+    styleId: string,
+    payload: UpdateSubmissionStyleDto,
+  ) {
+    const submission = await this.getOwnedSubmissionWithDetails(userEmail, submissionId);
+
+    if (!this.isContributorEditableStatus(submission.status)) {
+      throw new BadRequestException('Submission styles can no longer be edited in the current status');
+    }
+
+    const style = submission.family.styles.find((candidate) => candidate.id === styleId);
+
+    if (!style) {
+      throw new NotFoundException('Style not found for this submission');
+    }
+
+    if (payload.slug && payload.slug !== style.slug) {
+      const existingStyle = await this.prisma.fontStyle.findFirst({
+        where: {
+          familyId: submission.familyId,
+          slug: payload.slug,
+          id: {
+            not: styleId,
+          },
+        },
+      });
+
+      if (existingStyle) {
+        throw new BadRequestException('The selected style slug is already in use in this family');
+      }
+    }
+
+    const normalizedIsDefault = payload.isDefault ?? false;
+
+    if (payload.isDefault === true) {
+      await this.prisma.fontStyle.updateMany({
+        where: {
+          familyId: submission.familyId,
+          id: {
+            not: styleId,
+          },
+        },
+        data: {
+          isDefault: false,
+        },
+      });
+    }
+
+    const updatedStyle = await this.prisma.fontStyle.update({
+      where: {
+        id: styleId,
+      },
+      data: {
+        name: payload.name?.trim() ?? undefined,
+        slug: payload.slug ?? undefined,
+        weightClass: payload.weightClass ?? undefined,
+        weightLabel: payload.weightLabel?.trim() ?? undefined,
+        isItalic: payload.isItalic ?? undefined,
+        isDefault: payload.isDefault === undefined ? undefined : normalizedIsDefault,
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        weightClass: true,
+        weightLabel: true,
+        isItalic: true,
+        isDefault: true,
+        format: true,
+        fileSizeBytes: true,
+        sha256: true,
+        status: true,
+      },
+    });
+
+    await this.prisma.submission.update({
+      where: {
+        id: submission.id,
+      },
+      data: {
+        lastActionAt: new Date(),
+      },
+    });
+
+    return {
+      submissionId: submission.id,
+      status: submission.status,
+      style: {
+        ...updatedStyle,
+        fileSizeBytes: Number(updatedStyle.fileSizeBytes ?? 0n),
+      },
+    };
+  }
+
   private normalizeOptionalString(value: string | undefined): string | null {
+    const trimmed = value?.trim();
+    return trimmed ? trimmed : null;
+  }
+
+  private normalizePatchString(value: string | null | undefined): string | null | undefined {
+    if (value === undefined) {
+      return undefined;
+    }
+
     const trimmed = value?.trim();
     return trimmed ? trimmed : null;
   }
@@ -294,5 +566,64 @@ export class SubmissionsService {
     }
 
     return normalized;
+  }
+
+  private async getOwnedSubmissionWithDetails(userEmail: string | undefined, submissionId: string) {
+    const user = await this.authContext.requireUserByEmail(userEmail, [UserRole.contributor]);
+    const submission = await this.prisma.submission.findUnique({
+      where: {
+        id: submissionId,
+      },
+      include: {
+        declaredLicense: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
+        uploads: {
+          orderBy: {
+            uploadedAt: 'asc',
+          },
+        },
+        family: {
+          select: {
+            id: true,
+            slug: true,
+            nameEn: true,
+            nameAm: true,
+            nativeName: true,
+            descriptionEn: true,
+            descriptionAm: true,
+            primaryLanguage: true,
+            supportsEthiopic: true,
+            supportsLatin: true,
+            category: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+              },
+            },
+            styles: {
+              orderBy: [{ isDefault: 'desc' }, { weightClass: 'asc' }, { name: 'asc' }],
+            },
+          },
+        },
+      },
+    });
+
+    if (!submission || submission.ownerUserId !== user.id) {
+      throw new NotFoundException('Submission not found');
+    }
+
+    return submission;
+  }
+
+  private isContributorEditableStatus(status: SubmissionStatus): boolean {
+    return ['draft', 'uploaded', 'ready_for_submission', 'changes_requested', 'processing_failed'].includes(
+      status,
+    );
   }
 }
