@@ -5,6 +5,7 @@ import { AdminModule } from './admin/admin.module';
 import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
 import { ContributorModule } from './contributor/contributor.module';
+import { DownloadsModule } from './downloads/downloads.module';
 import { HealthModule } from './health/health.module';
 import { LicensesModule } from './licenses/licenses.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -25,6 +26,7 @@ import { UsersModule } from './users/users.module';
     AdminModule,
     AuthModule,
     ContributorModule,
+    DownloadsModule,
     HealthModule,
     UsersModule,
     LicensesModule,

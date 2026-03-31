@@ -1,6 +1,12 @@
 import { randomUUID } from 'node:crypto';
 
-import { GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  GetObjectCommand,
+  HeadObjectCommand,
+  NoSuchKey,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -54,6 +60,29 @@ export class S3StorageService {
     );
   }
 
+  async createRawDownloadUrl(
+    storageKey: string,
+    downloadName: string,
+    expiresInSeconds = 15 * 60,
+  ): Promise<{ url: string; expiresAt: string }> {
+    const url = await getSignedUrl(
+      this.client,
+      new GetObjectCommand({
+        Bucket: this.rawBucket,
+        Key: storageKey,
+        ResponseContentDisposition: `attachment; filename="${downloadName}"`,
+      }),
+      {
+        expiresIn: expiresInSeconds,
+      },
+    );
+
+    return {
+      url,
+      expiresAt: new Date(Date.now() + expiresInSeconds * 1000).toISOString(),
+    };
+  }
+
   async putRawObject(storageKey: string, body: Buffer, contentType: string): Promise<void> {
     await this.client.send(
       new PutObjectCommand({
@@ -80,6 +109,32 @@ export class S3StorageService {
     }
 
     return Buffer.from(byteArray);
+  }
+
+  async rawObjectExists(storageKey: string): Promise<boolean> {
+    try {
+      await this.client.send(
+        new HeadObjectCommand({
+          Bucket: this.rawBucket,
+          Key: storageKey,
+        }),
+      );
+
+      return true;
+    } catch (error) {
+      if (
+        error instanceof NoSuchKey ||
+        (typeof error === 'object' &&
+          error !== null &&
+          'name' in error &&
+          typeof error.name === 'string' &&
+          ['NotFound', 'NoSuchKey', 'UnknownError'].includes(error.name))
+      ) {
+        return false;
+      }
+
+      throw error;
+    }
   }
 
   async getRawObjectMetadata(storageKey: string) {
