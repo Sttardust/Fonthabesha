@@ -1,18 +1,22 @@
 import { Injectable } from '@nestjs/common';
 import * as opentype from 'opentype.js';
 
-type FontInspectionWarning = {
+export type FontInspectionWarning = {
   code: string;
   message: string;
   severity: 'warning';
 };
 
-type FontInspectionResult = {
+export type FontInspectionResult = {
   metadata: {
     familyName: string | null;
     subfamilyName: string | null;
     fullName: string | null;
     postScriptName: string | null;
+    styleName: string;
+    weightClass: number;
+    weightLabel: string;
+    isItalic: boolean;
     unitsPerEm: number | null;
     glyphCount: number;
     ascender: number | null;
@@ -35,6 +39,7 @@ export class FontInspectionService {
     const subfamilyName = this.readEnglishName(font.names.fontSubfamily);
     const fullName = this.readEnglishName(font.names.fullName);
     const postScriptName = this.readEnglishName(font.names.postScriptName);
+    const derivedStyle = this.deriveStyleMetadata(subfamilyName, fullName);
     const warnings: FontInspectionWarning[] = [];
     const supportedUnicodeRanges = this.detectSupportedUnicodeRanges(font);
 
@@ -68,6 +73,10 @@ export class FontInspectionService {
         subfamilyName,
         fullName,
         postScriptName,
+        styleName: derivedStyle.styleName,
+        weightClass: derivedStyle.weightClass,
+        weightLabel: derivedStyle.weightLabel,
+        isItalic: derivedStyle.isItalic,
         unitsPerEm: font.unitsPerEm ?? null,
         glyphCount: font.glyphs.length,
         ascender: font.ascender ?? null,
@@ -120,5 +129,38 @@ export class FontInspectionService {
   private detectFileFormat(filename: string): string {
     const extension = filename.split('.').pop()?.toLowerCase();
     return extension || 'unknown';
+  }
+
+  private deriveStyleMetadata(subfamilyName: string | null, fullName: string | null) {
+    const basis = `${subfamilyName ?? ''} ${fullName ?? ''}`.toLowerCase();
+    const isItalic = /\b(italic|oblique)\b/.test(basis);
+    const weightScale: Array<{ label: string; weightClass: number; patterns: RegExp[] }> = [
+      { label: 'Thin', weightClass: 100, patterns: [/\bthin\b/] },
+      { label: 'Extra Light', weightClass: 200, patterns: [/\b(extra[- ]light|ultra[- ]light)\b/] },
+      { label: 'Light', weightClass: 300, patterns: [/\blight\b/] },
+      { label: 'Medium', weightClass: 500, patterns: [/\bmedium\b/] },
+      { label: 'Semi Bold', weightClass: 600, patterns: [/\b(semi[- ]bold|demi[- ]bold)\b/] },
+      { label: 'Bold', weightClass: 700, patterns: [/\bbold\b/] },
+      { label: 'Extra Bold', weightClass: 800, patterns: [/\b(extra[- ]bold|ultra[- ]bold)\b/] },
+      { label: 'Black', weightClass: 900, patterns: [/\b(black|heavy)\b/] },
+    ];
+
+    for (const entry of weightScale) {
+      if (entry.patterns.some((pattern) => pattern.test(basis))) {
+        return {
+          styleName: subfamilyName ?? entry.label,
+          weightClass: entry.weightClass,
+          weightLabel: entry.label,
+          isItalic,
+        };
+      }
+    }
+
+    return {
+      styleName: subfamilyName ?? 'Regular',
+      weightClass: 400,
+      weightLabel: 'Regular',
+      isItalic,
+    };
   }
 }

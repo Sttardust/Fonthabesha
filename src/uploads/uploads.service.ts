@@ -9,6 +9,7 @@ import { AuthContextService } from '../auth/auth-context.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CompleteUploadDto } from './dto/complete-upload.dto';
 import { FontInspectionService } from './font-inspection.service';
+import { FontStyleSyncService } from './font-style-sync.service';
 import { InitUploadDto } from './dto/init-upload.dto';
 import { S3StorageService } from './s3-storage.service';
 
@@ -18,6 +19,7 @@ export class UploadsService {
     private readonly prisma: PrismaService,
     private readonly authContext: AuthContextService,
     private readonly fontInspection: FontInspectionService,
+    private readonly fontStyleSync: FontStyleSyncService,
     private readonly storageService: S3StorageService,
   ) {}
 
@@ -114,6 +116,15 @@ export class UploadsService {
 
     try {
       const inspection = this.fontInspection.inspectFont(objectBuffer, upload.originalFilename);
+      const styleSync = await this.fontStyleSync.syncFromInspection({
+        familyId: upload.familyId,
+        storageKey: upload.storageKey,
+        originalFilename: upload.originalFilename,
+        fileSizeBytes: BigInt(objectMetadata.contentLength),
+        sha256: payload.sha256?.toLowerCase() ?? null,
+        inspection,
+      });
+      const warnings = [...inspection.warnings, ...styleSync.warnings];
 
       const [, updatedUpload] = await this.prisma.$transaction([
         this.prisma.submission.update({
@@ -134,7 +145,7 @@ export class UploadsService {
             mimeType: objectMetadata.contentType,
             sha256: payload.sha256?.toLowerCase() ?? null,
             metadataJson: inspection.metadata,
-            processingWarningsJson: inspection.warnings,
+            processingWarningsJson: warnings,
             processingStatus: 'completed',
             processingError: null,
             processedAt: new Date(),
@@ -151,6 +162,7 @@ export class UploadsService {
           sha256: updatedUpload.sha256,
           metadata: updatedUpload.metadataJson,
           warnings: updatedUpload.processingWarningsJson,
+          styleId: styleSync.styleId,
         },
         submission: {
           id: upload.submissionId,

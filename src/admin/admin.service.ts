@@ -10,6 +10,7 @@ import { Prisma, ReviewAction, SubmissionStatus, UserRole } from '@prisma/client
 import { AuthContextService } from '../auth/auth-context.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { FontInspectionService } from '../uploads/font-inspection.service';
+import { FontStyleSyncService } from '../uploads/font-style-sync.service';
 import { S3StorageService } from '../uploads/s3-storage.service';
 import { ReviewDecisionDto } from './dto/review-decision.dto';
 
@@ -19,6 +20,7 @@ export class AdminService {
     private readonly prisma: PrismaService,
     private readonly authContext: AuthContextService,
     private readonly fontInspection: FontInspectionService,
+    private readonly fontStyleSync: FontStyleSyncService,
     private readonly storageService: S3StorageService,
   ) {}
 
@@ -292,6 +294,30 @@ export class AdminService {
           acceptanceName: submission.termsAcceptanceName,
         },
       },
+      styles: (
+        await this.prisma.fontStyle.findMany({
+          where: {
+            familyId: submission.familyId,
+          },
+          orderBy: [{ isDefault: 'desc' }, { weightClass: 'asc' }, { name: 'asc' }],
+          select: {
+          id: true,
+          name: true,
+          slug: true,
+          weightClass: true,
+          weightLabel: true,
+          isItalic: true,
+          isDefault: true,
+          format: true,
+            fileSizeBytes: true,
+            sha256: true,
+            status: true,
+          },
+        })
+      ).map((style) => ({
+        ...style,
+        fileSizeBytes: Number(style.fileSizeBytes ?? 0n),
+      })),
       processing: {
         status: processingStatus,
         warnings: processingWarnings,
@@ -432,6 +458,15 @@ export class AdminService {
     await this.storageService.putRawObject(storageKey, file.buffer, file.mimetype);
 
     const nextStatus = 'needs_review';
+    const styleSync = await this.fontStyleSync.syncFromInspection({
+      familyId: submission.familyId,
+      storageKey,
+      originalFilename: file.originalname,
+      fileSizeBytes: BigInt(file.size),
+      sha256,
+      inspection,
+    });
+    const warnings = [...inspection.warnings, ...styleSync.warnings];
 
     const [createdUpload] = await this.prisma.$transaction([
       this.prisma.upload.create({
@@ -446,7 +481,7 @@ export class AdminService {
           fileSizeBytes: BigInt(file.size),
           sha256,
           metadataJson: inspection.metadata,
-          processingWarningsJson: inspection.warnings,
+          processingWarningsJson: warnings,
           processingStatus: 'completed',
           processingError: null,
           processedAt: now,
@@ -491,6 +526,7 @@ export class AdminService {
         sha256: createdUpload.sha256,
         metadata: createdUpload.metadataJson,
         warnings: createdUpload.processingWarningsJson,
+        styleId: styleSync.styleId,
       },
     };
   }
@@ -555,6 +591,21 @@ export class AdminService {
           id: submission.familyId,
         },
         data: familyUpdate,
+      }),
+      this.prisma.fontStyle.updateMany({
+        where: {
+          familyId: submission.familyId,
+        },
+        data:
+          action === 'approved'
+            ? {
+                status: 'approved',
+                publishedAt: now,
+              }
+            : {
+                status: 'draft',
+                publishedAt: null,
+              },
       }),
       this.prisma.reviewEvent.create({
         data: {
