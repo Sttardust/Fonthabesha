@@ -16,6 +16,11 @@ This folder contains the NestJS backend, Prisma schema, Docker setup, and backen
 - staff can inspect development previews at `GET /api/v1/internal/mail/previews`
 - preview links are built from `FRONTEND_URL`, `FRONTEND_VERIFY_EMAIL_PATH`, and `FRONTEND_RESET_PASSWORD_PATH`
 
+## Auth Hardening
+
+- login, registration, verification-mail, and password-reset requests are rate limited
+- rate limiting uses Redis when available and falls back to in-memory counters if Redis is unavailable
+
 ## Local Files
 
 - `src/` application code

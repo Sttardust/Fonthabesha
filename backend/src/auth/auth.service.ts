@@ -3,6 +3,8 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import {
   BadRequestException,
   ConflictException,
+  HttpException,
+  HttpStatus,
   Inject,
   Injectable,
   UnauthorizedException,
@@ -20,6 +22,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AppEnvironment } from '../shared/config/app-env';
 import { MailService } from '../mail/mail.service';
+import { AuthRateLimitService } from './auth-rate-limit.service';
 import { AuthContextService } from './auth-context.service';
 import type { AuthenticatedRequest } from './auth-request';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -73,6 +76,7 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mailService: MailService,
+    private readonly authRateLimitService: AuthRateLimitService,
     private readonly authContext: AuthContextService,
     private readonly jwtService: JwtService,
     @Inject(ConfigService)
@@ -81,6 +85,21 @@ export class AuthService {
 
   async registerContributor(payload: RegisterContributorDto, request: AuthenticatedRequest) {
     const email = payload.email.trim().toLowerCase();
+    await this.assertRateLimit({
+      scope: 'register-ip',
+      identifier: this.getRequestIdentifier(request),
+      limit: 10,
+      windowSeconds: 60 * 60,
+      message: 'Too many registration attempts. Please try again later.',
+    });
+    await this.assertRateLimit({
+      scope: 'register-email',
+      identifier: email,
+      limit: 5,
+      windowSeconds: 60 * 60,
+      message: 'Too many registration attempts for this email. Please try again later.',
+    });
+
     const existingUser = await this.prisma.user.findUnique({
       where: {
         email,
@@ -139,6 +158,21 @@ export class AuthService {
 
   async login(payload: LoginDto, request: AuthenticatedRequest) {
     const email = payload.email.trim().toLowerCase();
+    await this.assertRateLimit({
+      scope: 'login-ip',
+      identifier: this.getRequestIdentifier(request),
+      limit: 20,
+      windowSeconds: 15 * 60,
+      message: 'Too many login attempts. Please try again later.',
+    });
+    await this.assertRateLimit({
+      scope: 'login-email',
+      identifier: email,
+      limit: 10,
+      windowSeconds: 15 * 60,
+      message: 'Too many login attempts for this account. Please try again later.',
+    });
+
     const user = await this.prisma.user.findUnique({
       where: {
         email,
@@ -262,6 +296,13 @@ export class AuthService {
   }> {
     const user = (await this.authContext.requireUserFromRequest(request)) as AuthUser;
     const expiresInMinutes = 60;
+    await this.assertRateLimit({
+      scope: 'email-verification-user',
+      identifier: user.id,
+      limit: 5,
+      windowSeconds: 60 * 60,
+      message: 'Too many verification emails requested. Please try again later.',
+    });
 
     if (user.emailVerifiedAt) {
       return {
@@ -397,6 +438,21 @@ export class AuthService {
     emailDelivery?: 'smtp' | 'preview';
   }> {
     const email = payload.email.trim().toLowerCase();
+    await this.assertRateLimit({
+      scope: 'password-reset-ip',
+      identifier: this.getRequestIdentifier(request),
+      limit: 10,
+      windowSeconds: 60 * 60,
+      message: 'Too many password reset requests. Please try again later.',
+    });
+    await this.assertRateLimit({
+      scope: 'password-reset-email',
+      identifier: email,
+      limit: 5,
+      windowSeconds: 60 * 60,
+      message: 'Too many password reset requests for this account. Please try again later.',
+    });
+
     const user = await this.prisma.user.findUnique({
       where: {
         email,
@@ -618,6 +674,39 @@ export class AuthService {
     if (token.expiresAt.getTime() <= Date.now()) {
       throw new UnauthorizedException('Password reset token has expired');
     }
+  }
+
+  private async assertRateLimit(args: {
+    scope: string;
+    identifier: string;
+    limit: number;
+    windowSeconds: number;
+    message: string;
+  }): Promise<void> {
+    const result = await this.authRateLimitService.consume(args);
+
+    if (result.currentCount <= args.limit) {
+      return;
+    }
+
+    throw new HttpException(
+      `${args.message} Retry after ${result.retryAfterSeconds}s.`,
+      HttpStatus.TOO_MANY_REQUESTS,
+    );
+  }
+
+  private getRequestIdentifier(request: AuthenticatedRequest): string {
+    const forwardedFor = request.headers['x-forwarded-for'];
+
+    if (typeof forwardedFor === 'string' && forwardedFor.trim()) {
+      return forwardedFor.split(',')[0]?.trim() ?? request.ip ?? 'unknown';
+    }
+
+    if (Array.isArray(forwardedFor) && forwardedFor[0]?.trim()) {
+      return forwardedFor[0].split(',')[0]?.trim() ?? request.ip ?? 'unknown';
+    }
+
+    return request.ip ?? 'unknown';
   }
 
   private assertEmailVerificationTokenIsUsable(

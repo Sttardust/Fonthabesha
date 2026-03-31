@@ -61,3 +61,4 @@ Useful commands:
 - uploaded font assets can be served from the backend during local development
 - the frontend reads the backend URL from `VITE_API_URL`
 - backend auth emails use `SMTP_URL` when configured, or a staff-only dev preview inbox at `GET /api/v1/internal/mail/previews`
+- backend auth routes are rate limited for registration, login, verification email requests, and password reset requests
