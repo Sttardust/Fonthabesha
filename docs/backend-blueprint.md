@@ -531,4 +531,3 @@ Complete when:
 - public social features
 - public contributor dashboards
 - user-generated collections
-- font pair management

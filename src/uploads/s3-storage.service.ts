@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -63,6 +63,23 @@ export class S3StorageService {
         ContentType: contentType,
       }),
     );
+  }
+
+  async getRawObjectBuffer(storageKey: string): Promise<Buffer> {
+    const response = await this.client.send(
+      new GetObjectCommand({
+        Bucket: this.rawBucket,
+        Key: storageKey,
+      }),
+    );
+
+    const byteArray = await response.Body?.transformToByteArray();
+
+    if (!byteArray) {
+      throw new Error(`Failed to read uploaded object for key ${storageKey}`);
+    }
+
+    return Buffer.from(byteArray);
   }
 
   async getRawObjectMetadata(storageKey: string) {

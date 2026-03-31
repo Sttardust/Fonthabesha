@@ -16,5 +16,5 @@ Start here:
 Planning baseline:
 
 - The target product is a Fontshare-style font discovery and download site adapted for Amharic and Ethiopic-script fonts.
-- The public Fontshare surface reviewed on 2026-03-30 includes catalog browsing, family detail pages, font pairs, FAQ/about/license pages, and an API-driven frontend.
+- The public Fontshare surface reviewed on 2026-03-30 includes catalog browsing, family detail pages, FAQ/about/license pages, and an API-driven frontend.
 - For this project, the recommended MVP focuses on free font discovery, metadata-rich family pages, downloads, admin/reviewer workflow, and search. Commerce and checkout are intentionally deferred unless explicitly required.

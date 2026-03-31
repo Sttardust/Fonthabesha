@@ -665,7 +665,6 @@ These assumptions are now fixed for backend planning.
 - public browsing and downloads do not require end-user accounts
 - only `admin`, `reviewer`, and `contributor` roles exist in V1
 - only editorial collections are supported in V1
-- font pairs are out of scope for V1
 - primary launch support is `Amharic` on `Ethiopic` script, with schema extensibility for more Ethiopic-script languages later
 - previews use both server-side generated assets and client-side interactive rendering
 - accepted upload formats are `TTF`, `OTF`, `WOFF`, and `WOFF2`

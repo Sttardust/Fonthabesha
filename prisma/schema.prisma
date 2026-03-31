@@ -377,6 +377,8 @@ model Upload {
   mimeType         String?                @map("mime_type")
   fileSizeBytes    BigInt?                @map("file_size_bytes")
   sha256           String?
+  metadataJson     Json?                  @map("metadata_json")
+  processingWarningsJson Json?            @map("processing_warnings_json")
   processingStatus UploadProcessingStatus @default(queued) @map("processing_status")
   processingError  String?                @map("processing_error")
   uploadedAt       DateTime               @default(now()) @map("uploaded_at") @db.Timestamptz(6)

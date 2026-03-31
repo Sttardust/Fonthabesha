@@ -17,7 +17,7 @@ The backend must support:
 
 Public Fontshare behavior reviewed on 2026-03-30 shows these core surfaces:
 
-- public routes for home, font family details, font pairs, FAQ, licenses, and about
+- public routes for home, font family details, FAQ, licenses, and about
 - API-driven catalog listing and search
 - rich font metadata including styles, axes, tags, designers, publisher, categories, and download files
 - shortlist, account, and publisher flows in the frontend bundle
@@ -46,7 +46,6 @@ The first backend release should include:
 
 Build after MVP is stable:
 
-- curated font pairs
 - user bookmarks or shortlist
 - public contributor dashboards
 - specimen generation and preview images
@@ -338,15 +337,6 @@ Reason:
 
 Editorial collections are straightforward and useful for launch content, while user collections introduce ownership, privacy, and moderation concerns.
 
-### Font Pairs
-
-- Font pairs are deferred to Phase 2.
-- The backend should keep the schema and API design extensible enough to add curated pairs later without a major rewrite.
-
-Reason:
-
-Pairs are valuable, but they are not critical to getting a high-quality upload, review, search, and download platform live.
-
 ### Language And Script Support
 
 - V1 is optimized for `Amharic` and `Ethiopic` first.
@@ -397,4 +387,4 @@ Server-only previews are too rigid for a font discovery product, and client-only
 3. build upload, processing, and review before advanced discovery features
 4. add search and download workflows
 5. add collections and analytics
-6. defer pairs and user personalization until after launch
+6. defer user personalization until after launch

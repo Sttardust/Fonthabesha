@@ -9,6 +9,7 @@ import { Prisma, ReviewAction, SubmissionStatus, UserRole } from '@prisma/client
 
 import { AuthContextService } from '../auth/auth-context.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { FontInspectionService } from '../uploads/font-inspection.service';
 import { S3StorageService } from '../uploads/s3-storage.service';
 import { ReviewDecisionDto } from './dto/review-decision.dto';
 
@@ -17,6 +18,7 @@ export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly authContext: AuthContextService,
+    private readonly fontInspection: FontInspectionService,
     private readonly storageService: S3StorageService,
   ) {}
 
@@ -194,6 +196,9 @@ export class AdminService {
             mimeType: true,
             fileSizeBytes: true,
             sha256: true,
+            metadataJson: true,
+            processingWarningsJson: true,
+            processingError: true,
             processingStatus: true,
             uploadedAt: true,
             processedAt: true,
@@ -241,6 +246,15 @@ export class AdminService {
         : submission.uploads.some((upload) => upload.processingStatus === 'processing')
           ? 'processing'
           : 'queued';
+    const processingWarnings = submission.uploads.flatMap(
+      (upload) => (upload.processingWarningsJson as unknown[] | null) ?? [],
+    );
+    const blockingIssues = submission.uploads
+      .filter((upload) => Boolean(upload.processingError))
+      .map((upload) => ({
+        uploadId: upload.id,
+        message: upload.processingError,
+      }));
 
     return {
       family: {
@@ -280,8 +294,8 @@ export class AdminService {
       },
       processing: {
         status: processingStatus,
-        warnings: [],
-        blockingIssues: [],
+        warnings: processingWarnings,
+        blockingIssues,
       },
       uploads: submission.uploads.map((upload) => ({
         id: upload.id,
@@ -290,6 +304,9 @@ export class AdminService {
         mimeType: upload.mimeType,
         fileSizeBytes: Number(upload.fileSizeBytes ?? 0n),
         sha256: upload.sha256,
+        metadata: upload.metadataJson,
+        warnings: upload.processingWarningsJson ?? [],
+        processingError: upload.processingError,
         processingStatus: upload.processingStatus,
         uploadedAt: upload.uploadedAt,
         processedAt: upload.processedAt,
@@ -380,6 +397,37 @@ export class AdminService {
 
     const { uploadId, storageKey } = this.storageService.createRawUploadKey(submission.id, file.originalname);
     const sha256 = createHash('sha256').update(file.buffer).digest('hex');
+    const now = new Date();
+    let inspection: ReturnType<FontInspectionService['inspectFont']>;
+
+    try {
+      inspection = this.fontInspection.inspectFont(file.buffer, file.originalname);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      await this.prisma.$transaction([
+        this.prisma.submission.update({
+          where: {
+            id: submission.id,
+          },
+          data: {
+            status: 'processing_failed',
+            lastActionAt: now,
+          },
+        }),
+        this.prisma.reviewEvent.create({
+          data: {
+            submissionId: submission.id,
+            familyId: submission.familyId,
+            actorUserId: actor.id,
+            action: ReviewAction.processing_failed,
+            notes: `Admin direct upload failed inspection: ${message}`,
+          },
+        }),
+      ]);
+
+      throw new BadRequestException(`Uploaded file could not be parsed as a font: ${message}`);
+    }
 
     await this.storageService.putRawObject(storageKey, file.buffer, file.mimetype);
 
@@ -397,8 +445,11 @@ export class AdminService {
           mimeType: file.mimetype,
           fileSizeBytes: BigInt(file.size),
           sha256,
+          metadataJson: inspection.metadata,
+          processingWarningsJson: inspection.warnings,
           processingStatus: 'completed',
-          processedAt: new Date(),
+          processingError: null,
+          processedAt: now,
         },
       }),
       this.prisma.submission.update({
@@ -407,7 +458,7 @@ export class AdminService {
         },
         data: {
           status: nextStatus,
-          lastActionAt: new Date(),
+          lastActionAt: now,
         },
       }),
       this.prisma.reviewEvent.create({
@@ -438,6 +489,8 @@ export class AdminService {
         mimeType: createdUpload.mimeType,
         fileSizeBytes: Number(createdUpload.fileSizeBytes ?? 0n),
         sha256: createdUpload.sha256,
+        metadata: createdUpload.metadataJson,
+        warnings: createdUpload.processingWarningsJson,
       },
     };
   }
