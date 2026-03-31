@@ -8,7 +8,12 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import type { PasswordResetToken, RefreshSession, User, UserRole } from '@prisma/client';
+import type {
+  PasswordResetToken,
+  RefreshSession,
+  User,
+  UserRole,
+} from '@prisma/client';
 import argon2 from 'argon2';
 import { ConfigService } from '@nestjs/config';
 
@@ -17,6 +22,7 @@ import type { AppEnvironment } from '../shared/config/app-env';
 import { AuthContextService } from './auth-context.service';
 import type { AuthenticatedRequest } from './auth-request';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ConfirmEmailVerificationDto } from './dto/confirm-email-verification.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterContributorDto } from './dto/register-contributor.dto';
@@ -24,18 +30,34 @@ import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
-type CurrentUserProfile = Pick<
-  User,
-  | 'id'
-  | 'email'
-  | 'displayName'
-  | 'legalFullName'
-  | 'countryCode'
-  | 'organizationName'
-  | 'phoneNumber'
-  | 'role'
-  | 'status'
->;
+type CurrentUserProfile = {
+  id: string;
+  email: string;
+  emailVerifiedAt: Date | null;
+  displayName: string;
+  legalFullName: string | null;
+  countryCode: string | null;
+  organizationName: string | null;
+  phoneNumber: string | null;
+  role: UserRole;
+  status: User['status'];
+};
+
+type AuthUser = User & {
+  emailVerifiedAt: Date | null;
+};
+
+type EmailVerificationTokenRecord = {
+  id: string;
+  userId: string;
+  tokenHash: string;
+  expiresAt: Date;
+  consumedAt: Date | null;
+  createdByIpHash: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  user: AuthUser;
+};
 
 type AuthTokenPayload = {
   sub: string;
@@ -68,7 +90,7 @@ export class AuthService {
     }
 
     const passwordHash = await argon2.hash(payload.password);
-    const user = await this.prisma.user.create({
+    const user = (await this.prisma.user.create({
       data: {
         email,
         passwordHash,
@@ -80,7 +102,7 @@ export class AuthService {
         role: 'contributor',
         status: 'active',
       },
-    });
+    })) as AuthUser;
 
     const sessionId = randomUUID();
     const refreshToken = await this.signRefreshToken(user, sessionId);
@@ -96,10 +118,18 @@ export class AuthService {
       },
     });
 
+    const verification = await this.issueEmailVerificationToken(user.id, request.ip);
+
     return {
       accessToken,
       refreshToken,
       user: this.toCurrentUserProfile(user),
+      emailVerificationRequired: !user.emailVerifiedAt,
+      ...(this.isProduction()
+        ? {}
+        : {
+            emailVerificationToken: verification.token,
+          }),
     };
   }
 
@@ -220,8 +250,90 @@ export class AuthService {
     };
   }
 
+  async requestEmailVerification(request: AuthenticatedRequest): Promise<{
+    success: true;
+    expiresInMinutes: number;
+    alreadyVerified: boolean;
+    emailVerificationToken?: string;
+  }> {
+    const user = (await this.authContext.requireUserFromRequest(request)) as AuthUser;
+    const expiresInMinutes = 60;
+
+    if (user.emailVerifiedAt) {
+      return {
+        success: true,
+        expiresInMinutes,
+        alreadyVerified: true,
+      };
+    }
+
+    const verification = await this.issueEmailVerificationToken(user.id, request.ip, expiresInMinutes);
+
+    return {
+      success: true,
+      expiresInMinutes,
+      alreadyVerified: false,
+      ...(this.isProduction()
+        ? {}
+        : {
+            emailVerificationToken: verification.token,
+          }),
+    };
+  }
+
+  async confirmEmailVerification(payload: ConfirmEmailVerificationDto) {
+    const token = await this.emailVerificationTokenDelegate.findUnique({
+      where: {
+        tokenHash: this.hashToken(payload.token),
+      },
+      include: {
+        user: true,
+      },
+    });
+
+    this.assertEmailVerificationTokenIsUsable(token);
+
+    const now = new Date();
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: {
+          id: token.user.id,
+        },
+        data: {
+          emailVerifiedAt: now,
+        } as never,
+      }),
+      this.emailVerificationTokenDelegate.update({
+        where: {
+          id: token.id,
+        },
+        data: {
+          consumedAt: now,
+        },
+      }),
+      this.emailVerificationTokenDelegate.updateMany({
+        where: {
+          userId: token.user.id,
+          consumedAt: null,
+          id: {
+            not: token.id,
+          },
+        },
+        data: {
+          consumedAt: now,
+        },
+      }),
+    ]);
+
+    return {
+      success: true,
+      emailVerifiedAt: now.toISOString(),
+    };
+  }
+
   async changePassword(request: AuthenticatedRequest, payload: ChangePasswordDto) {
-    const user = await this.authContext.requireUserFromRequest(request);
+    const user = (await this.authContext.requireUserFromRequest(request)) as AuthUser;
     const passwordMatches = await argon2.verify(user.passwordHash, payload.currentPassword);
 
     if (!passwordMatches) {
@@ -499,6 +611,59 @@ export class AuthService {
     }
   }
 
+  private assertEmailVerificationTokenIsUsable(
+    token: EmailVerificationTokenRecord | null,
+  ): asserts token is EmailVerificationTokenRecord {
+    if (!token || token.user.status !== 'active') {
+      throw new UnauthorizedException('Email verification token is invalid');
+    }
+
+    if (token.user.emailVerifiedAt) {
+      throw new BadRequestException('Email address is already verified');
+    }
+
+    if (token.consumedAt) {
+      throw new UnauthorizedException('Email verification token has already been used');
+    }
+
+    if (token.expiresAt.getTime() <= Date.now()) {
+      throw new UnauthorizedException('Email verification token has expired');
+    }
+  }
+
+  private async issueEmailVerificationToken(
+    userId: string,
+    ipAddress: string | null | undefined,
+    expiresInMinutes = 60,
+  ): Promise<{ token: string; expiresInMinutes: number }> {
+    const token = randomBytes(32).toString('hex');
+
+    await this.prisma.$transaction([
+      this.emailVerificationTokenDelegate.updateMany({
+        where: {
+          userId,
+          consumedAt: null,
+        },
+        data: {
+          consumedAt: new Date(),
+        },
+      }),
+      this.emailVerificationTokenDelegate.create({
+        data: {
+          userId,
+          tokenHash: this.hashToken(token),
+          expiresAt: new Date(Date.now() + expiresInMinutes * 60 * 1000),
+          createdByIpHash: this.hashValue(ipAddress),
+        },
+      }),
+    ]);
+
+    return {
+      token,
+      expiresInMinutes,
+    };
+  }
+
   private hashToken(value: string): string {
     return createHash('sha256').update(value).digest('hex');
   }
@@ -541,17 +706,31 @@ export class AuthService {
     return this.configService.get('NODE_ENV', { infer: true }) === 'production';
   }
 
+  private get emailVerificationTokenDelegate() {
+    return (this.prisma as PrismaService & {
+      emailVerificationToken: {
+        updateMany(args: unknown): Promise<unknown>;
+        create(args: unknown): Promise<unknown>;
+        findUnique(args: unknown): Promise<EmailVerificationTokenRecord | null>;
+        update(args: unknown): Promise<unknown>;
+      };
+    }).emailVerificationToken;
+  }
+
   private toCurrentUserProfile(user: User): CurrentUserProfile {
+    const authUser = user as AuthUser;
+
     return {
-      id: user.id,
-      email: user.email,
-      displayName: user.displayName,
-      legalFullName: user.legalFullName,
-      countryCode: user.countryCode,
-      organizationName: user.organizationName,
-      phoneNumber: user.phoneNumber,
-      role: user.role,
-      status: user.status,
+      id: authUser.id,
+      email: authUser.email,
+      emailVerifiedAt: authUser.emailVerifiedAt ?? null,
+      displayName: authUser.displayName,
+      legalFullName: authUser.legalFullName,
+      countryCode: authUser.countryCode,
+      organizationName: authUser.organizationName,
+      phoneNumber: authUser.phoneNumber,
+      role: authUser.role,
+      status: authUser.status,
     };
   }
 }

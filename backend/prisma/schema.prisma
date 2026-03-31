@@ -87,6 +87,7 @@ model User {
   id               String   @id @default(uuid()) @db.Uuid
   email            String   @unique
   passwordHash     String   @map("password_hash")
+  emailVerifiedAt  DateTime? @map("email_verified_at") @db.Timestamptz(6)
   displayName      String   @map("display_name")
   legalFullName    String?  @map("legal_full_name")
   countryCode      String?  @db.Char(2) @map("country_code")
@@ -104,6 +105,7 @@ model User {
   reviewEvents       ReviewEvent[]
   refreshSessions    RefreshSession[]
   passwordResetTokens PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
   downloadEvents     DownloadEvent[]
   viewEvents         ViewEvent[]
   searchEvents       SearchEvent[]
@@ -145,6 +147,23 @@ model PasswordResetToken {
   @@index([userId, expiresAt])
   @@index([userId, consumedAt])
   @@map("password_reset_tokens")
+}
+
+model EmailVerificationToken {
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @db.Uuid @map("user_id")
+  tokenHash       String    @unique @map("token_hash")
+  expiresAt       DateTime  @map("expires_at") @db.Timestamptz(6)
+  consumedAt      DateTime? @map("consumed_at") @db.Timestamptz(6)
+  createdByIpHash String?   @map("created_by_ip_hash")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, expiresAt])
+  @@index([userId, consumedAt])
+  @@map("email_verification_tokens")
 }
 
 model Publisher {

@@ -3,6 +3,7 @@ import { Body, Controller, Get, Patch, Post, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import type { AuthenticatedRequest } from './auth-request';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ConfirmEmailVerificationDto } from './dto/confirm-email-verification.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterContributorDto } from './dto/register-contributor.dto';
@@ -32,6 +33,16 @@ export class AuthController {
   @Post('logout')
   logout(@Body() payload: RefreshTokenDto) {
     return this.authService.logout(payload);
+  }
+
+  @Post('email/verification/request')
+  requestEmailVerification(@Req() request: AuthenticatedRequest) {
+    return this.authService.requestEmailVerification(request);
+  }
+
+  @Post('email/verification/confirm')
+  confirmEmailVerification(@Body() payload: ConfirmEmailVerificationDto) {
+    return this.authService.confirmEmailVerification(payload);
   }
 
   @Post('password/change')
