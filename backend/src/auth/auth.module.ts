@@ -11,6 +11,6 @@ import { AuthService } from './auth.service';
   imports: [JwtModule.register({}), forwardRef(() => MailModule)],
   controllers: [AuthController],
   providers: [AuthContextService, AuthRateLimitService, AuthService],
-  exports: [AuthContextService],
+  exports: [AuthContextService, AuthRateLimitService],
 })
 export class AuthModule {}

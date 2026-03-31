@@ -24,6 +24,7 @@ This folder contains the NestJS backend, Prisma schema, Docker setup, and backen
 - sensitive auth actions are persisted to `auth_audit_events` for later review and incident investigation
 - staff can inspect auth audit activity through `GET /api/v1/admin/auth-audit` and `GET /api/v1/admin/auth-audit/summary`
 - staff can inspect and revoke persisted refresh sessions through the admin API
+- staff can inspect and clear account-level login lockouts through the admin API
 
 ## Local Files
 

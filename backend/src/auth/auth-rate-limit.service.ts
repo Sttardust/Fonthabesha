@@ -178,6 +178,28 @@ export class AuthRateLimitService implements OnModuleDestroy {
     this.memoryStore.delete(lockKey);
   }
 
+  async clearScopeState(scope: string, identifier: string): Promise<void> {
+    const rateLimitKey = this.buildKey(scope, identifier);
+    const failureKey = this.buildFailureKey(scope, identifier);
+    const lockKey = this.buildLockKey(scope, identifier);
+
+    if (this.redis && this.redisUsable) {
+      try {
+        await this.ensureRedisConnection();
+        await this.redis.del(rateLimitKey, failureKey, lockKey);
+        return;
+      } catch (error) {
+        this.redisUsable = false;
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`Falling back to in-memory auth scope clearing: ${message}`);
+      }
+    }
+
+    this.memoryStore.delete(rateLimitKey);
+    this.memoryStore.delete(failureKey);
+    this.memoryStore.delete(lockKey);
+  }
+
   private async ensureRedisConnection(): Promise<void> {
     if (!this.redis || this.redis.status === 'ready') {
       return;

@@ -66,3 +66,4 @@ Useful commands:
 - backend auth also writes persistent audit rows for security-relevant account events
 - staff can review those auth audit events through the admin API
 - staff can also inspect and revoke refresh sessions through the admin API
+- staff can inspect and clear account-level login lockouts through the admin API

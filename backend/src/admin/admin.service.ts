@@ -15,6 +15,7 @@ import {
 } from '@prisma/client';
 
 import { AuthContextService } from '../auth/auth-context.service';
+import { AuthRateLimitService } from '../auth/auth-rate-limit.service';
 import type { AuthenticatedRequest } from '../auth/auth-request';
 import { PrismaService } from '../prisma/prisma.service';
 import { SearchIndexService } from '../search/search-index.service';
@@ -30,6 +31,7 @@ export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly authContext: AuthContextService,
+    private readonly authRateLimitService: AuthRateLimitService,
     private readonly searchIndex: SearchIndexService,
     private readonly fontInspection: FontInspectionService,
     private readonly fontStyleSync: FontStyleSyncService,
@@ -376,6 +378,78 @@ export class AdminService {
         email: actor.email,
         role: actor.role,
       },
+    };
+  }
+
+  async getUserLoginLockout(request: AuthenticatedRequest, userId: string) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
+    const user = await this.prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+      select: {
+        id: true,
+        displayName: true,
+        email: true,
+        role: true,
+        status: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const lockout = await this.authRateLimitService.getLockout('login-email', user.email);
+
+    return {
+      user,
+      loginLockout: {
+        locked: lockout.locked,
+        retryAfterSeconds: lockout.retryAfterSeconds,
+      },
+    };
+  }
+
+  async clearUserLoginLockout(request: AuthenticatedRequest, userId: string) {
+    const actor = await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
+    const user = await this.prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+      select: {
+        id: true,
+        displayName: true,
+        email: true,
+        role: true,
+        status: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const before = await this.authRateLimitService.getLockout('login-email', user.email);
+    await this.authRateLimitService.clearScopeState('login-email', user.email);
+    const after = await this.authRateLimitService.getLockout('login-email', user.email);
+
+    return {
+      user,
+      clearedBy: {
+        id: actor.id,
+        email: actor.email,
+        role: actor.role,
+      },
+      before: {
+        locked: before.locked,
+        retryAfterSeconds: before.retryAfterSeconds,
+      },
+      after: {
+        locked: after.locked,
+        retryAfterSeconds: after.retryAfterSeconds,
+      },
+      clearedAt: new Date(),
     };
   }
 

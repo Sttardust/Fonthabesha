@@ -51,6 +51,16 @@ export class AdminController {
     return this.adminService.revokeUserAuthSessions(request, userId);
   }
 
+  @Get('users/:userId/login-lockout')
+  getUserLoginLockout(@Req() request: AuthenticatedRequest, @Param('userId') userId: string) {
+    return this.adminService.getUserLoginLockout(request, userId);
+  }
+
+  @Post('users/:userId/login-lockout/clear')
+  clearUserLoginLockout(@Req() request: AuthenticatedRequest, @Param('userId') userId: string) {
+    return this.adminService.clearUserLoginLockout(request, userId);
+  }
+
   @Get('reviews/summary')
   getReviewSummary(@Req() request: AuthenticatedRequest) {
     return this.adminService.getReviewSummary(request);
