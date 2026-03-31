@@ -9,6 +9,7 @@ import { LicensesModule } from './licenses/licenses.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { validateEnvironment } from './shared/config/app-env';
 import { SubmissionsModule } from './submissions/submissions.module';
+import { UploadsModule } from './uploads/uploads.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -26,6 +27,7 @@ import { UsersModule } from './users/users.module';
     UsersModule,
     LicensesModule,
     SubmissionsModule,
+    UploadsModule,
   ],
   controllers: [AppController],
 })

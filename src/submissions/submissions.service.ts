@@ -183,6 +183,76 @@ export class SubmissionsService {
     });
   }
 
+  async submitContributorSubmission(userEmail: string | undefined, submissionId: string) {
+    const user = await this.authContext.requireUserByEmail(userEmail, [UserRole.contributor]);
+    const submission = await this.prisma.submission.findUnique({
+      where: {
+        id: submissionId,
+      },
+      include: {
+        uploads: true,
+        family: {
+          select: {
+            id: true,
+            slug: true,
+            nameEn: true,
+            nameAm: true,
+          },
+        },
+      },
+    });
+
+    if (!submission || submission.ownerUserId !== user.id) {
+      throw new BadRequestException('Submission not found');
+    }
+
+    if (submission.status !== 'ready_for_submission') {
+      throw new BadRequestException('Submission must be ready_for_submission before submission');
+    }
+
+    const completedUploadCount = submission.uploads.filter(
+      (upload) => upload.processingStatus === 'completed',
+    ).length;
+
+    if (completedUploadCount === 0) {
+      throw new BadRequestException('At least one completed upload is required before submission');
+    }
+
+    const now = new Date();
+
+    await this.prisma.$transaction([
+      this.prisma.submission.update({
+        where: {
+          id: submission.id,
+        },
+        data: {
+          status: 'needs_review',
+          submittedAt: now,
+          lastActionAt: now,
+        },
+      }),
+      this.prisma.reviewEvent.create({
+        data: {
+          submissionId: submission.id,
+          familyId: submission.familyId,
+          actorUserId: user.id,
+          action: 'submitted',
+          metadataJson: {
+            completedUploadCount,
+          },
+        },
+      }),
+    ]);
+
+    return {
+      id: submission.id,
+      status: 'needs_review',
+      submittedAt: now,
+      family: submission.family,
+      completedUploadCount,
+    };
+  }
+
   private normalizeOptionalString(value: string | undefined): string | null {
     const trimmed = value?.trim();
     return trimmed ? trimmed : null;

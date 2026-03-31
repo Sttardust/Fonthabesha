@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Post, Req } from '@nestjs/common';
 
 import { CreateSubmissionDto } from './dto/create-submission.dto';
 import { SubmissionsService } from './submissions.service';
@@ -19,5 +19,13 @@ export class ContributorSubmissionsController {
     @Req() request: { ip?: string },
   ) {
     return this.submissionsService.createDraftSubmission(userEmail, payload, request.ip);
+  }
+
+  @Post(':submissionId/submit')
+  submitForReview(
+    @Headers('x-user-email') userEmail: string | undefined,
+    @Param('submissionId') submissionId: string,
+  ) {
+    return this.submissionsService.submitContributorSubmission(userEmail, submissionId);
   }
 }
