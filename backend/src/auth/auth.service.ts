@@ -158,9 +158,11 @@ export class AuthService {
 
   async login(payload: LoginDto, request: AuthenticatedRequest) {
     const email = payload.email.trim().toLowerCase();
+    const requestIdentifier = this.getRequestIdentifier(request);
+    await this.assertLoginNotLocked(email, requestIdentifier);
     await this.assertRateLimit({
       scope: 'login-ip',
-      identifier: this.getRequestIdentifier(request),
+      identifier: requestIdentifier,
       limit: 20,
       windowSeconds: 15 * 60,
       message: 'Too many login attempts. Please try again later.',
@@ -180,14 +182,18 @@ export class AuthService {
     });
 
     if (!user || user.status !== 'active') {
+      await this.recordFailedLogin(email, requestIdentifier);
       throw new UnauthorizedException('Invalid email or password');
     }
 
     const passwordMatches = await argon2.verify(user.passwordHash, payload.password);
 
     if (!passwordMatches) {
+      await this.recordFailedLogin(email, requestIdentifier);
       throw new UnauthorizedException('Invalid email or password');
     }
+
+    await this.clearFailedLogin(email);
 
     const sessionId = randomUUID();
     const refreshToken = await this.signRefreshToken(user, sessionId);
@@ -693,6 +699,64 @@ export class AuthService {
       `${args.message} Retry after ${result.retryAfterSeconds}s.`,
       HttpStatus.TOO_MANY_REQUESTS,
     );
+  }
+
+  private async assertLoginNotLocked(email: string, requestIdentifier: string): Promise<void> {
+    const [emailLock, ipLock] = await Promise.all([
+      this.authRateLimitService.getLockout('login-email', email),
+      this.authRateLimitService.getLockout('login-ip', requestIdentifier),
+    ]);
+
+    if (emailLock.locked) {
+      throw new HttpException(
+        `This account is temporarily locked due to repeated failed login attempts. Retry after ${emailLock.retryAfterSeconds}s.`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    if (ipLock.locked) {
+      throw new HttpException(
+        `Too many failed login attempts from this network. Retry after ${ipLock.retryAfterSeconds}s.`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
+
+  private async recordFailedLogin(email: string, requestIdentifier: string): Promise<void> {
+    const [emailFailure, ipFailure] = await Promise.all([
+      this.authRateLimitService.recordFailure({
+        scope: 'login-email',
+        identifier: email,
+        threshold: 5,
+        windowSeconds: 15 * 60,
+        lockoutSeconds: 30 * 60,
+      }),
+      this.authRateLimitService.recordFailure({
+        scope: 'login-ip',
+        identifier: requestIdentifier,
+        threshold: 15,
+        windowSeconds: 15 * 60,
+        lockoutSeconds: 30 * 60,
+      }),
+    ]);
+
+    if (emailFailure.locked) {
+      throw new HttpException(
+        `This account is temporarily locked due to repeated failed login attempts. Retry after ${emailFailure.retryAfterSeconds}s.`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    if (ipFailure.locked) {
+      throw new HttpException(
+        `Too many failed login attempts from this network. Retry after ${ipFailure.retryAfterSeconds}s.`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
+
+  private async clearFailedLogin(email: string): Promise<void> {
+    await this.authRateLimitService.clearFailures('login-email', email);
   }
 
   private getRequestIdentifier(request: AuthenticatedRequest): string {

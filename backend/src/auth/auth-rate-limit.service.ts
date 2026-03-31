@@ -72,6 +72,112 @@ export class AuthRateLimitService implements OnModuleDestroy {
     return this.consumeInMemory(key, args.limit, args.windowSeconds);
   }
 
+  async getLockout(
+    scope: string,
+    identifier: string,
+  ): Promise<{ locked: boolean; retryAfterSeconds: number }> {
+    const key = this.buildLockKey(scope, identifier);
+
+    if (this.redis && this.redisUsable) {
+      try {
+        await this.ensureRedisConnection();
+        const ttl = await this.redis.ttl(key);
+        return {
+          locked: ttl > 0,
+          retryAfterSeconds: ttl > 0 ? ttl : 0,
+        };
+      } catch (error) {
+        this.redisUsable = false;
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`Falling back to in-memory auth lockout tracking: ${message}`);
+      }
+    }
+
+    return this.getLockoutInMemory(key);
+  }
+
+  async recordFailure(args: {
+    scope: string;
+    identifier: string;
+    threshold: number;
+    windowSeconds: number;
+    lockoutSeconds: number;
+  }): Promise<{ currentCount: number; locked: boolean; retryAfterSeconds: number }> {
+    const failureKey = this.buildFailureKey(args.scope, args.identifier);
+    const lockKey = this.buildLockKey(args.scope, args.identifier);
+
+    if (this.redis && this.redisUsable) {
+      try {
+        await this.ensureRedisConnection();
+        const currentLockTtl = await this.redis.ttl(lockKey);
+
+        if (currentLockTtl > 0) {
+          return {
+            currentCount: args.threshold,
+            locked: true,
+            retryAfterSeconds: currentLockTtl,
+          };
+        }
+
+        const currentCount = await this.redis.incr(failureKey);
+
+        if (currentCount === 1) {
+          await this.redis.expire(failureKey, args.windowSeconds);
+        }
+
+        if (currentCount < args.threshold) {
+          const ttl = await this.redis.ttl(failureKey);
+          return {
+            currentCount,
+            locked: false,
+            retryAfterSeconds: ttl > 0 ? ttl : args.windowSeconds,
+          };
+        }
+
+        await this.redis.set(lockKey, '1', 'EX', args.lockoutSeconds);
+        await this.redis.del(failureKey);
+
+        return {
+          currentCount,
+          locked: true,
+          retryAfterSeconds: args.lockoutSeconds,
+        };
+      } catch (error) {
+        this.redisUsable = false;
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`Falling back to in-memory auth lockout tracking: ${message}`);
+      }
+    }
+
+    return this.recordFailureInMemory(
+      failureKey,
+      lockKey,
+      args.threshold,
+      args.windowSeconds,
+      args.lockoutSeconds,
+    );
+  }
+
+  async clearFailures(scope: string, identifier: string): Promise<void> {
+    const failureKey = this.buildFailureKey(scope, identifier);
+    const lockKey = this.buildLockKey(scope, identifier);
+
+    if (this.redis && this.redisUsable) {
+      try {
+        await this.ensureRedisConnection();
+        await this.redis.del(failureKey, lockKey);
+        return;
+      } catch (error) {
+        this.redisUsable = false;
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`Falling back to in-memory auth lockout clearing: ${message}`);
+      }
+    }
+
+    this.memoryStore.delete(failureKey);
+    this.memoryStore.delete(lockKey);
+  }
+
   private async ensureRedisConnection(): Promise<void> {
     if (!this.redis || this.redis.status === 'ready') {
       return;
@@ -133,6 +239,90 @@ export class AuthRateLimitService implements OnModuleDestroy {
       remaining: Math.max(limit - existing.count, 0),
       retryAfterSeconds: Math.max(Math.ceil((existing.expiresAt - now) / 1000), 1),
     };
+  }
+
+  private getLockoutInMemory(key: string): { locked: boolean; retryAfterSeconds: number } {
+    const now = Date.now();
+    const existing = this.memoryStore.get(key);
+
+    if (!existing || existing.expiresAt <= now) {
+      this.memoryStore.delete(key);
+      return {
+        locked: false,
+        retryAfterSeconds: 0,
+      };
+    }
+
+    return {
+      locked: true,
+      retryAfterSeconds: Math.max(Math.ceil((existing.expiresAt - now) / 1000), 1),
+    };
+  }
+
+  private recordFailureInMemory(
+    failureKey: string,
+    lockKey: string,
+    threshold: number,
+    windowSeconds: number,
+    lockoutSeconds: number,
+  ): { currentCount: number; locked: boolean; retryAfterSeconds: number } {
+    const currentLock = this.getLockoutInMemory(lockKey);
+
+    if (currentLock.locked) {
+      return {
+        currentCount: threshold,
+        locked: true,
+        retryAfterSeconds: currentLock.retryAfterSeconds,
+      };
+    }
+
+    const now = Date.now();
+    const existing = this.memoryStore.get(failureKey);
+
+    if (!existing || existing.expiresAt <= now) {
+      const expiresAt = now + windowSeconds * 1000;
+      this.memoryStore.set(failureKey, {
+        count: 1,
+        expiresAt,
+      });
+
+      return {
+        currentCount: 1,
+        locked: false,
+        retryAfterSeconds: windowSeconds,
+      };
+    }
+
+    existing.count += 1;
+    this.memoryStore.set(failureKey, existing);
+
+    if (existing.count < threshold) {
+      return {
+        currentCount: existing.count,
+        locked: false,
+        retryAfterSeconds: Math.max(Math.ceil((existing.expiresAt - now) / 1000), 1),
+      };
+    }
+
+    this.memoryStore.delete(failureKey);
+    this.memoryStore.set(lockKey, {
+      count: threshold,
+      expiresAt: now + lockoutSeconds * 1000,
+    });
+
+    return {
+      currentCount: existing.count,
+      locked: true,
+      retryAfterSeconds: lockoutSeconds,
+    };
+  }
+
+  private buildFailureKey(scope: string, identifier: string): string {
+    return this.buildKey(`failure:${scope}`, identifier);
+  }
+
+  private buildLockKey(scope: string, identifier: string): string {
+    return this.buildKey(`lock:${scope}`, identifier);
   }
 
   private buildKey(scope: string, identifier: string): string {

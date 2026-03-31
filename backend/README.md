@@ -20,6 +20,7 @@ This folder contains the NestJS backend, Prisma schema, Docker setup, and backen
 
 - login, registration, verification-mail, and password-reset requests are rate limited
 - rate limiting uses Redis when available and falls back to in-memory counters if Redis is unavailable
+- repeated failed logins temporarily lock the targeted account, with a separate network-level lockout for heavy abuse
 
 ## Local Files
 
