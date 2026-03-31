@@ -6,6 +6,7 @@ import {
 import { ReviewAction, UserRole } from '@prisma/client';
 
 import { AuthContextService } from '../auth/auth-context.service';
+import type { AuthenticatedRequest } from '../auth/auth-request';
 import { PrismaService } from '../prisma/prisma.service';
 import { CompleteUploadDto } from './dto/complete-upload.dto';
 import { FontInspectionService } from './font-inspection.service';
@@ -23,8 +24,8 @@ export class UploadsService {
     private readonly storageService: S3StorageService,
   ) {}
 
-  async initUpload(userEmail: string | undefined, payload: InitUploadDto) {
-    const user = await this.authContext.requireUserByEmail(userEmail, [UserRole.contributor]);
+  async initUpload(request: AuthenticatedRequest, payload: InitUploadDto) {
+    const user = await this.authContext.requireUserFromRequest(request, [UserRole.contributor]);
     const submission = await this.prisma.submission.findUnique({
       where: {
         id: payload.submissionId,
@@ -96,8 +97,8 @@ export class UploadsService {
     };
   }
 
-  async completeUpload(userEmail: string | undefined, payload: CompleteUploadDto) {
-    const user = await this.authContext.requireUserByEmail(userEmail, [UserRole.contributor]);
+  async completeUpload(request: AuthenticatedRequest, payload: CompleteUploadDto) {
+    const user = await this.authContext.requireUserFromRequest(request, [UserRole.contributor]);
     const upload = await this.prisma.upload.findUnique({
       where: {
         id: payload.uploadId,

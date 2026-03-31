@@ -1,5 +1,6 @@
-import { Controller, Headers, Param, Post } from '@nestjs/common';
+import { Controller, Param, Post, Req } from '@nestjs/common';
 
+import type { AuthenticatedRequest } from '../auth/auth-request';
 import { DownloadsService } from './downloads.service';
 
 @Controller('downloads')
@@ -9,26 +10,16 @@ export class DownloadsController {
   @Post('families/:familyId')
   issueFamilyDownload(
     @Param('familyId') familyId: string,
-    @Headers('x-user-email') userEmail: string | undefined,
-    @Headers('x-forwarded-for') forwardedFor: string | undefined,
-    @Headers('user-agent') userAgent: string | undefined,
+    @Req() request: AuthenticatedRequest,
   ) {
-    return this.downloadsService.issueFamilyDownload(userEmail, familyId, {
-      forwardedFor,
-      userAgent,
-    });
+    return this.downloadsService.issueFamilyDownload(request, familyId);
   }
 
   @Post('styles/:styleId')
   issueStyleDownload(
     @Param('styleId') styleId: string,
-    @Headers('x-user-email') userEmail: string | undefined,
-    @Headers('x-forwarded-for') forwardedFor: string | undefined,
-    @Headers('user-agent') userAgent: string | undefined,
+    @Req() request: AuthenticatedRequest,
   ) {
-    return this.downloadsService.issueStyleDownload(userEmail, styleId, {
-      forwardedFor,
-      userAgent,
-    });
+    return this.downloadsService.issueStyleDownload(request, styleId);
   }
 }

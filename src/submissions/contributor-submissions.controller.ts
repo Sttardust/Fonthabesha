@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Headers, Param, Patch, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Req } from '@nestjs/common';
 
+import type { AuthenticatedRequest } from '../auth/auth-request';
 import { CreateSubmissionDto } from './dto/create-submission.dto';
 import { UpdateSubmissionMetadataDto } from './dto/update-submission-metadata.dto';
 import { UpdateSubmissionStyleDto } from './dto/update-submission-style.dto';
@@ -10,35 +11,31 @@ export class ContributorSubmissionsController {
   constructor(private readonly submissionsService: SubmissionsService) {}
 
   @Get()
-  listMine(@Headers('x-user-email') userEmail?: string) {
-    return this.submissionsService.listContributorSubmissions(userEmail);
+  listMine(@Req() request: AuthenticatedRequest) {
+    return this.submissionsService.listContributorSubmissions(request);
   }
 
   @Get(':submissionId')
-  getSubmissionDetail(
-    @Headers('x-user-email') userEmail: string | undefined,
-    @Param('submissionId') submissionId: string,
-  ) {
-    return this.submissionsService.getContributorSubmissionDetail(userEmail, submissionId);
+  getSubmissionDetail(@Req() request: AuthenticatedRequest, @Param('submissionId') submissionId: string) {
+    return this.submissionsService.getContributorSubmissionDetail(request, submissionId);
   }
 
   @Post()
   createDraft(
-    @Headers('x-user-email') userEmail: string | undefined,
+    @Req() request: AuthenticatedRequest,
     @Body() payload: CreateSubmissionDto,
-    @Req() request: { ip?: string },
   ) {
-    return this.submissionsService.createDraftSubmission(userEmail, payload, request.ip);
+    return this.submissionsService.createDraftSubmission(request, payload, request.ip);
   }
 
   @Patch(':submissionId/metadata')
   updateSubmissionMetadata(
-    @Headers('x-user-email') userEmail: string | undefined,
+    @Req() request: AuthenticatedRequest,
     @Param('submissionId') submissionId: string,
     @Body() payload: UpdateSubmissionMetadataDto,
   ) {
     return this.submissionsService.updateContributorSubmissionMetadata(
-      userEmail,
+      request,
       submissionId,
       payload,
     );
@@ -46,19 +43,16 @@ export class ContributorSubmissionsController {
 
   @Patch(':submissionId/styles/:styleId')
   updateSubmissionStyle(
-    @Headers('x-user-email') userEmail: string | undefined,
+    @Req() request: AuthenticatedRequest,
     @Param('submissionId') submissionId: string,
     @Param('styleId') styleId: string,
     @Body() payload: UpdateSubmissionStyleDto,
   ) {
-    return this.submissionsService.updateContributorStyle(userEmail, submissionId, styleId, payload);
+    return this.submissionsService.updateContributorStyle(request, submissionId, styleId, payload);
   }
 
   @Post(':submissionId/submit')
-  submitForReview(
-    @Headers('x-user-email') userEmail: string | undefined,
-    @Param('submissionId') submissionId: string,
-  ) {
-    return this.submissionsService.submitContributorSubmission(userEmail, submissionId);
+  submitForReview(@Req() request: AuthenticatedRequest, @Param('submissionId') submissionId: string) {
+    return this.submissionsService.submitContributorSubmission(request, submissionId);
   }
 }

@@ -4,6 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AdminModule } from './admin/admin.module';
 import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
+import { CatalogModule } from './catalog/catalog.module';
 import { ContributorModule } from './contributor/contributor.module';
 import { DownloadsModule } from './downloads/downloads.module';
 import { HealthModule } from './health/health.module';
@@ -25,6 +26,7 @@ import { UsersModule } from './users/users.module';
     PrismaModule,
     AdminModule,
     AuthModule,
+    CatalogModule,
     ContributorModule,
     DownloadsModule,
     HealthModule,

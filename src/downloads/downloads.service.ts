@@ -9,15 +9,11 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { EventSource, Prisma } from '@prisma/client';
 
 import { AuthContextService } from '../auth/auth-context.service';
+import type { AuthenticatedRequest } from '../auth/auth-request';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3StorageService } from '../uploads/s3-storage.service';
 
 const execFileAsync = promisify(execFile);
-
-type DownloadRequestContext = {
-  forwardedFor?: string;
-  userAgent?: string;
-};
 
 @Injectable()
 export class DownloadsService {
@@ -28,11 +24,10 @@ export class DownloadsService {
   ) {}
 
   async issueFamilyDownload(
-    userEmail: string | undefined,
+    request: AuthenticatedRequest,
     familyId: string,
-    context: DownloadRequestContext,
   ) {
-    const user = await this.authContext.findActiveUserByEmail(userEmail);
+    const user = await this.authContext.findActiveUserFromRequest(request);
     const family = await this.prisma.fontFamily.findUnique({
       where: {
         id: familyId,
@@ -92,7 +87,7 @@ export class DownloadsService {
       styleId: null,
       userId: user?.id ?? null,
       source: EventSource.public_api,
-      context,
+      request,
     });
 
     return {
@@ -102,11 +97,10 @@ export class DownloadsService {
   }
 
   async issueStyleDownload(
-    userEmail: string | undefined,
+    request: AuthenticatedRequest,
     styleId: string,
-    context: DownloadRequestContext,
   ) {
-    const user = await this.authContext.findActiveUserByEmail(userEmail);
+    const user = await this.authContext.findActiveUserFromRequest(request);
     const style = await this.prisma.fontStyle.findUnique({
       where: {
         id: styleId,
@@ -148,7 +142,7 @@ export class DownloadsService {
       styleId: style.id,
       userId: user?.id ?? null,
       source: EventSource.public_api,
-      context,
+      request,
     });
 
     return {
@@ -223,23 +217,30 @@ export class DownloadsService {
     styleId: string | null;
     userId: string | null;
     source: EventSource;
-    context: DownloadRequestContext;
+    request: AuthenticatedRequest;
   }) {
     await this.prisma.downloadEvent.create({
       data: {
         familyId: args.familyId,
         styleId: args.styleId,
         userId: args.userId,
-        ipHash: this.hashValue(this.extractIpAddress(args.context.forwardedFor)),
-        userAgentHash: this.hashValue(args.context.userAgent),
+        ipHash: this.hashValue(this.extractIpAddress(args.request)),
+        userAgentHash: this.hashValue(this.extractUserAgent(args.request)),
         source: args.source,
       },
     });
   }
 
-  private extractIpAddress(forwardedFor: string | undefined): string | null {
-    const firstHop = forwardedFor?.split(',')[0]?.trim();
+  private extractIpAddress(request: AuthenticatedRequest): string | null {
+    const forwardedFor = request.headers['x-forwarded-for'];
+    const rawValue = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
+    const firstHop = rawValue?.split(',')[0]?.trim();
     return firstHop || null;
+  }
+
+  private extractUserAgent(request: AuthenticatedRequest): string | null {
+    const userAgent = request.headers['user-agent'];
+    return (Array.isArray(userAgent) ? userAgent[0] : userAgent) ?? null;
   }
 
   private hashValue(value: string | null | undefined): string | null {

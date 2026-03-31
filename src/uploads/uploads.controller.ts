@@ -1,5 +1,6 @@
-import { Body, Controller, Headers, Post } from '@nestjs/common';
+import { Body, Controller, Post, Req } from '@nestjs/common';
 
+import type { AuthenticatedRequest } from '../auth/auth-request';
 import { CompleteUploadDto } from './dto/complete-upload.dto';
 import { InitUploadDto } from './dto/init-upload.dto';
 import { UploadsService } from './uploads.service';
@@ -9,15 +10,12 @@ export class UploadsController {
   constructor(private readonly uploadsService: UploadsService) {}
 
   @Post('init')
-  initUpload(@Headers('x-user-email') userEmail: string | undefined, @Body() payload: InitUploadDto) {
-    return this.uploadsService.initUpload(userEmail, payload);
+  initUpload(@Req() request: AuthenticatedRequest, @Body() payload: InitUploadDto) {
+    return this.uploadsService.initUpload(request, payload);
   }
 
   @Post('complete')
-  completeUpload(
-    @Headers('x-user-email') userEmail: string | undefined,
-    @Body() payload: CompleteUploadDto,
-  ) {
-    return this.uploadsService.completeUpload(userEmail, payload);
+  completeUpload(@Req() request: AuthenticatedRequest, @Body() payload: CompleteUploadDto) {
+    return this.uploadsService.completeUpload(request, payload);
   }
 }

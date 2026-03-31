@@ -1,5 +1,6 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient, UserRole, UserStatus } from '@prisma/client';
+import argon2 from 'argon2';
 import pg from 'pg';
 
 const databaseUrl =
@@ -117,11 +118,17 @@ async function seedContributorTerms(): Promise<void> {
 }
 
 async function seedUsers(): Promise<void> {
+  const passwordHashes = {
+    admin: await argon2.hash('AdminPass123!'),
+    reviewer: await argon2.hash('ReviewerPass123!'),
+    contributor: await argon2.hash('ContributorPass123!'),
+  };
+
   const users = [
     {
       email: 'admin@fonthabesha.local',
       displayName: 'Fonthabesha Admin',
-      passwordHash: 'dev-seed-not-for-login',
+      passwordHash: passwordHashes.admin,
       role: UserRole.admin,
       status: UserStatus.active,
       legalFullName: 'Fonthabesha Admin',
@@ -132,7 +139,7 @@ async function seedUsers(): Promise<void> {
     {
       email: 'reviewer@fonthabesha.local',
       displayName: 'Fonthabesha Reviewer',
-      passwordHash: 'dev-seed-not-for-login',
+      passwordHash: passwordHashes.reviewer,
       role: UserRole.reviewer,
       status: UserStatus.active,
       legalFullName: 'Fonthabesha Reviewer',
@@ -143,7 +150,7 @@ async function seedUsers(): Promise<void> {
     {
       email: 'contributor@fonthabesha.local',
       displayName: 'Sample Contributor',
-      passwordHash: 'dev-seed-not-for-login',
+      passwordHash: passwordHashes.contributor,
       role: UserRole.contributor,
       status: UserStatus.active,
       legalFullName: null,

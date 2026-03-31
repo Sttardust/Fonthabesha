@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { OwnershipEvidenceType, UserRole } from '@prisma/client';
 
+import type { AuthenticatedRequest } from '../auth/auth-request';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthContextService } from '../auth/auth-context.service';
 
@@ -11,8 +12,8 @@ export class ContributorService {
     private readonly authContext: AuthContextService,
   ) {}
 
-  async getComplianceRequirements(userEmail: string | undefined) {
-    const user = await this.authContext.requireUserByEmail(userEmail, [UserRole.contributor]);
+  async getComplianceRequirements(request: AuthenticatedRequest) {
+    const user = await this.authContext.requireUserFromRequest(request, [UserRole.contributor]);
 
     const [activeTerms, licenses] = await Promise.all([
       this.prisma.contributorTermsVersion.findFirst({

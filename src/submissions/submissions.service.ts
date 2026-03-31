@@ -9,6 +9,7 @@ import {
 import { SubmissionStatus, UserRole } from '@prisma/client';
 
 import { AuthContextService } from '../auth/auth-context.service';
+import type { AuthenticatedRequest } from '../auth/auth-request';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSubmissionDto } from './dto/create-submission.dto';
 import { UpdateSubmissionMetadataDto } from './dto/update-submission-metadata.dto';
@@ -39,8 +40,8 @@ export class SubmissionsService {
     }, summary);
   }
 
-  async listContributorSubmissions(userEmail: string | undefined) {
-    const user = await this.authContext.requireUserByEmail(userEmail, [UserRole.contributor]);
+  async listContributorSubmissions(request: AuthenticatedRequest) {
+    const user = await this.authContext.requireUserFromRequest(request, [UserRole.contributor]);
 
     return this.prisma.submission.findMany({
       where: {
@@ -74,8 +75,8 @@ export class SubmissionsService {
     });
   }
 
-  async getContributorSubmissionDetail(userEmail: string | undefined, submissionId: string) {
-    const submission = await this.getOwnedSubmissionWithDetails(userEmail, submissionId);
+  async getContributorSubmissionDetail(request: AuthenticatedRequest, submissionId: string) {
+    const submission = await this.getOwnedSubmissionWithDetails(request, submissionId);
     const completedUploadCount = submission.uploads.filter(
       (upload) => upload.processingStatus === 'completed',
     ).length;
@@ -151,11 +152,11 @@ export class SubmissionsService {
   }
 
   async createDraftSubmission(
-    userEmail: string | undefined,
+    request: AuthenticatedRequest,
     payload: CreateSubmissionDto,
     requestIp?: string,
   ) {
-    const user = await this.authContext.requireUserByEmail(userEmail, [UserRole.contributor]);
+    const user = await this.authContext.requireUserFromRequest(request, [UserRole.contributor]);
 
     if (!user.legalFullName || !user.countryCode) {
       throw new BadRequestException(
@@ -262,8 +263,8 @@ export class SubmissionsService {
     });
   }
 
-  async submitContributorSubmission(userEmail: string | undefined, submissionId: string) {
-    const user = await this.authContext.requireUserByEmail(userEmail, [UserRole.contributor]);
+  async submitContributorSubmission(request: AuthenticatedRequest, submissionId: string) {
+    const user = await this.authContext.requireUserFromRequest(request, [UserRole.contributor]);
     const submission = await this.prisma.submission.findUnique({
       where: {
         id: submissionId,
@@ -335,11 +336,11 @@ export class SubmissionsService {
   }
 
   async updateContributorSubmissionMetadata(
-    userEmail: string | undefined,
+    request: AuthenticatedRequest,
     submissionId: string,
     payload: UpdateSubmissionMetadataDto,
   ) {
-    const submission = await this.getOwnedSubmissionWithDetails(userEmail, submissionId);
+    const submission = await this.getOwnedSubmissionWithDetails(request, submissionId);
 
     if (!this.isContributorEditableStatus(submission.status)) {
       throw new BadRequestException('Submission metadata can no longer be edited in the current status');
@@ -421,12 +422,12 @@ export class SubmissionsService {
   }
 
   async updateContributorStyle(
-    userEmail: string | undefined,
+    request: AuthenticatedRequest,
     submissionId: string,
     styleId: string,
     payload: UpdateSubmissionStyleDto,
   ) {
-    const submission = await this.getOwnedSubmissionWithDetails(userEmail, submissionId);
+    const submission = await this.getOwnedSubmissionWithDetails(request, submissionId);
 
     if (!this.isContributorEditableStatus(submission.status)) {
       throw new BadRequestException('Submission styles can no longer be edited in the current status');
@@ -568,8 +569,11 @@ export class SubmissionsService {
     return normalized;
   }
 
-  private async getOwnedSubmissionWithDetails(userEmail: string | undefined, submissionId: string) {
-    const user = await this.authContext.requireUserByEmail(userEmail, [UserRole.contributor]);
+  private async getOwnedSubmissionWithDetails(
+    request: AuthenticatedRequest,
+    submissionId: string,
+  ) {
+    const user = await this.authContext.requireUserFromRequest(request, [UserRole.contributor]);
     const submission = await this.prisma.submission.findUnique({
       where: {
         id: submissionId,

@@ -1,5 +1,6 @@
-import { Controller, Get, Headers } from '@nestjs/common';
+import { Controller, Get, Req } from '@nestjs/common';
 
+import type { AuthenticatedRequest } from '../auth/auth-request';
 import { ContributorService } from './contributor.service';
 
 @Controller('contributor')
@@ -7,7 +8,7 @@ export class ContributorController {
   constructor(private readonly contributorService: ContributorService) {}
 
   @Get('compliance/requirements')
-  getComplianceRequirements(@Headers('x-user-email') userEmail?: string) {
-    return this.contributorService.getComplianceRequirements(userEmail);
+  getComplianceRequirements(@Req() request: AuthenticatedRequest) {
+    return this.contributorService.getComplianceRequirements(request);
   }
 }

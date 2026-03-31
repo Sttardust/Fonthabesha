@@ -8,6 +8,7 @@ import {
 import { Prisma, ReviewAction, SubmissionStatus, UserRole } from '@prisma/client';
 
 import { AuthContextService } from '../auth/auth-context.service';
+import type { AuthenticatedRequest } from '../auth/auth-request';
 import { PrismaService } from '../prisma/prisma.service';
 import { FontInspectionService } from '../uploads/font-inspection.service';
 import { FontStyleSyncService } from '../uploads/font-style-sync.service';
@@ -24,8 +25,8 @@ export class AdminService {
     private readonly storageService: S3StorageService,
   ) {}
 
-  async listReviewQueue(userEmail: string | undefined, status?: string) {
-    await this.authContext.requireUserByEmail(userEmail, [UserRole.admin, UserRole.reviewer]);
+  async listReviewQueue(request: AuthenticatedRequest, status?: string) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
 
     const where: Prisma.SubmissionWhereInput = status
       ? { status: status as SubmissionStatus }
@@ -93,8 +94,8 @@ export class AdminService {
     }));
   }
 
-  async getReviewSummary(userEmail: string | undefined) {
-    await this.authContext.requireUserByEmail(userEmail, [UserRole.admin, UserRole.reviewer]);
+  async getReviewSummary(request: AuthenticatedRequest) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
 
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
@@ -132,8 +133,8 @@ export class AdminService {
     };
   }
 
-  async getReviewDetail(userEmail: string | undefined, submissionId: string) {
-    await this.authContext.requireUserByEmail(userEmail, [UserRole.admin, UserRole.reviewer]);
+  async getReviewDetail(request: AuthenticatedRequest, submissionId: string) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
 
     const submission = await this.prisma.submission.findUnique({
       where: {
@@ -348,29 +349,29 @@ export class AdminService {
   }
 
   async approveSubmission(
-    userEmail: string | undefined,
+    request: AuthenticatedRequest,
     submissionId: string,
     payload: ReviewDecisionDto,
   ) {
-    const actor = await this.authContext.requireUserByEmail(userEmail, [UserRole.admin, UserRole.reviewer]);
+    const actor = await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
     return this.applyReviewDecision(actor.id, submissionId, 'approved', payload.notes);
   }
 
   async rejectSubmission(
-    userEmail: string | undefined,
+    request: AuthenticatedRequest,
     submissionId: string,
     payload: ReviewDecisionDto,
   ) {
-    const actor = await this.authContext.requireUserByEmail(userEmail, [UserRole.admin, UserRole.reviewer]);
+    const actor = await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
     return this.applyReviewDecision(actor.id, submissionId, 'rejected', payload.notes);
   }
 
   async requestChanges(
-    userEmail: string | undefined,
+    request: AuthenticatedRequest,
     submissionId: string,
     payload: ReviewDecisionDto,
   ) {
-    const actor = await this.authContext.requireUserByEmail(userEmail, [UserRole.admin, UserRole.reviewer]);
+    const actor = await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
 
     if (!payload.notes?.trim()) {
       throw new BadRequestException('notes are required when requesting changes');
@@ -380,7 +381,7 @@ export class AdminService {
   }
 
   async directUploadToSubmission(
-    userEmail: string | undefined,
+    request: AuthenticatedRequest,
     submissionId: string,
     file:
       | {
@@ -392,7 +393,7 @@ export class AdminService {
       | undefined,
     notes?: string,
   ) {
-    const actor = await this.authContext.requireUserByEmail(userEmail, [UserRole.admin, UserRole.reviewer]);
+    const actor = await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
 
     if (!file) {
       throw new BadRequestException('A file is required');
