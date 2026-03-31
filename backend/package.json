@@ -12,7 +12,7 @@
     "start:dev": "npm run build && node dist/src/main.js",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
-    "test": "echo \"No tests configured yet\""
+    "test": "npm run build && node --test --test-concurrency=1 test/**/*.test.js"
   },
   "license": "ISC",
   "type": "commonjs",

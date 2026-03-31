@@ -55,6 +55,7 @@ export class MailService implements OnModuleDestroy {
   ) {
     const smtpUrl = this.configService.get('SMTP_URL', { infer: true });
     const redisUrl = this.configService.get('REDIS_URL', { infer: true });
+    const mailQueueEnabled = this.configService.get('MAIL_QUEUE_ENABLED', { infer: true });
 
     this.fromEmail = this.configService.get('MAIL_FROM_EMAIL', { infer: true });
     this.replyToEmail = this.configService.get('MAIL_REPLY_TO_EMAIL', { infer: true });
@@ -66,7 +67,7 @@ export class MailService implements OnModuleDestroy {
 
     this.transporter = smtpUrl ? nodemailer.createTransport(smtpUrl) : null;
 
-    if (redisUrl) {
+    if (redisUrl && mailQueueEnabled) {
       this.queueConnection = new Redis(redisUrl, {
         maxRetriesPerRequest: null,
         enableOfflineQueue: false,

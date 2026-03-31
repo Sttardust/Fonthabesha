@@ -24,6 +24,7 @@ export interface AppEnvironment {
   SMTP_URL?: string;
   MAIL_FROM_EMAIL?: string;
   MAIL_REPLY_TO_EMAIL?: string;
+  MAIL_QUEUE_ENABLED: boolean;
 }
 
 function getRequiredString(env: RawEnvironment, key: keyof AppEnvironment, fallback?: string): string {
@@ -58,6 +59,30 @@ function getOptionalString(env: RawEnvironment, key: keyof AppEnvironment): stri
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
+function getOptionalBoolean(
+  env: RawEnvironment,
+  key: keyof AppEnvironment,
+  fallback: boolean,
+): boolean {
+  const value = env[key];
+
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+
+  const normalized = value.trim().toLowerCase();
+
+  if (['true', '1', 'yes', 'on'].includes(normalized)) {
+    return true;
+  }
+
+  if (['false', '0', 'no', 'off'].includes(normalized)) {
+    return false;
+  }
+
+  throw new Error(`${key} must be a boolean-like string`);
+}
+
 export function validateEnvironment(env: RawEnvironment): AppEnvironment {
   return {
     NODE_ENV: getRequiredString(env, 'NODE_ENV', 'development'),
@@ -83,5 +108,6 @@ export function validateEnvironment(env: RawEnvironment): AppEnvironment {
     SMTP_URL: getOptionalString(env, 'SMTP_URL'),
     MAIL_FROM_EMAIL: getOptionalString(env, 'MAIL_FROM_EMAIL'),
     MAIL_REPLY_TO_EMAIL: getOptionalString(env, 'MAIL_REPLY_TO_EMAIL'),
+    MAIL_QUEUE_ENABLED: getOptionalBoolean(env, 'MAIL_QUEUE_ENABLED', true),
   };
 }

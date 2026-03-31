@@ -8,11 +8,13 @@ This folder contains the NestJS backend, Prisma schema, Docker setup, and backen
 - `npm run build --workspace @fonthabesha/backend`
 - `npm run db:seed --workspace @fonthabesha/backend`
 - `npm run prisma:generate --workspace @fonthabesha/backend`
+- `npm run test --workspace @fonthabesha/backend`
 
 ## Auth Mail Flows
 
 - `SMTP_URL` enables real outbound email delivery for account verification and password reset
 - auth mail requests are queued through Redis/BullMQ when available
+- `MAIL_QUEUE_ENABLED=false` disables the queue path and forces direct delivery, which is useful for deterministic local tests
 - without `SMTP_URL`, the backend stores development mail previews in memory
 - staff can inspect development previews at `GET /api/v1/internal/mail/previews`
 - preview links are built from `FRONTEND_URL`, `FRONTEND_VERIFY_EMAIL_PATH`, and `FRONTEND_RESET_PASSWORD_PATH`

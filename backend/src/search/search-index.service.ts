@@ -55,7 +55,14 @@ export class SearchIndexService implements OnModuleInit {
 
   async onModuleInit(): Promise<void> {
     try {
-      await this.ensureIndex();
+      await Promise.race([
+        this.ensureIndex(),
+        new Promise<never>((_, reject) => {
+          setTimeout(() => {
+            reject(new ServiceUnavailableException('Timed out initializing Meilisearch index'));
+          }, 3_000);
+        }),
+      ]);
     } catch (error) {
       this.logger.warn(
         `Search index initialization failed: ${error instanceof Error ? error.message : String(error)}`,

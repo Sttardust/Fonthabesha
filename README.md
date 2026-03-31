@@ -55,6 +55,7 @@ Useful commands:
 - `npm run build:backend`
 - `npm run build:frontend`
 - `npm run seed:backend`
+- `npm run test --workspace @fonthabesha/backend`
 
 ## Notes
 
@@ -62,6 +63,7 @@ Useful commands:
 - the frontend reads the backend URL from `VITE_API_URL`
 - backend auth emails use `SMTP_URL` when configured, or a staff-only dev preview inbox at `GET /api/v1/internal/mail/previews`
 - backend auth mail requests are queued through Redis/BullMQ when Redis is available
+- set `MAIL_QUEUE_ENABLED=false` when you want auth mail to bypass the queue for deterministic local tests
 - backend auth routes are rate limited for registration, login, verification email requests, and password reset requests
 - repeated failed logins now trigger temporary account and network lockouts on the backend
 - backend auth also writes persistent audit rows for security-relevant account events
