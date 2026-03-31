@@ -1,8 +1,14 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 
-import { ConflictException, ForbiddenException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import type { RefreshSession, User, UserRole } from '@prisma/client';
+import type { PasswordResetToken, RefreshSession, User, UserRole } from '@prisma/client';
 import argon2 from 'argon2';
 import { ConfigService } from '@nestjs/config';
 
@@ -10,9 +16,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import type { AppEnvironment } from '../shared/config/app-env';
 import { AuthContextService } from './auth-context.service';
 import type { AuthenticatedRequest } from './auth-request';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterContributorDto } from './dto/register-contributor.dto';
+import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
 type CurrentUserProfile = Pick<
@@ -211,6 +220,174 @@ export class AuthService {
     };
   }
 
+  async changePassword(request: AuthenticatedRequest, payload: ChangePasswordDto) {
+    const user = await this.authContext.requireUserFromRequest(request);
+    const passwordMatches = await argon2.verify(user.passwordHash, payload.currentPassword);
+
+    if (!passwordMatches) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    if (payload.currentPassword === payload.newPassword) {
+      throw new BadRequestException('New password must be different from the current password');
+    }
+
+    const passwordHash = await argon2.hash(payload.newPassword);
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: {
+          id: user.id,
+        },
+        data: {
+          passwordHash,
+        },
+      }),
+      this.prisma.refreshSession.updateMany({
+        where: {
+          userId: user.id,
+          revokedAt: null,
+        },
+        data: {
+          revokedAt: new Date(),
+          lastUsedAt: new Date(),
+        },
+      }),
+      this.prisma.passwordResetToken.updateMany({
+        where: {
+          userId: user.id,
+          consumedAt: null,
+        },
+        data: {
+          consumedAt: new Date(),
+        },
+      }),
+    ]);
+
+    return {
+      success: true,
+      revokedRefreshSessions: true,
+    };
+  }
+
+  async requestPasswordReset(
+    payload: RequestPasswordResetDto,
+    request: AuthenticatedRequest,
+  ): Promise<{
+    success: true;
+    expiresInMinutes: number;
+    resetToken?: string;
+  }> {
+    const email = payload.email.trim().toLowerCase();
+    const user = await this.prisma.user.findUnique({
+      where: {
+        email,
+      },
+    });
+    const expiresInMinutes = 30;
+
+    if (!user || user.status !== 'active') {
+      return {
+        success: true,
+        expiresInMinutes,
+      };
+    }
+
+    const resetToken = randomBytes(32).toString('hex');
+
+    await this.prisma.$transaction([
+      this.prisma.passwordResetToken.updateMany({
+        where: {
+          userId: user.id,
+          consumedAt: null,
+        },
+        data: {
+          consumedAt: new Date(),
+        },
+      }),
+      this.prisma.passwordResetToken.create({
+        data: {
+          userId: user.id,
+          tokenHash: this.hashToken(resetToken),
+          expiresAt: new Date(Date.now() + expiresInMinutes * 60 * 1000),
+          createdByIpHash: this.hashValue(request.ip),
+        },
+      }),
+    ]);
+
+    return {
+      success: true,
+      expiresInMinutes,
+      ...(this.isProduction()
+        ? {}
+        : {
+            resetToken,
+          }),
+    };
+  }
+
+  async resetPassword(payload: ResetPasswordDto) {
+    const token = await this.prisma.passwordResetToken.findUnique({
+      where: {
+        tokenHash: this.hashToken(payload.token),
+      },
+      include: {
+        user: true,
+      },
+    });
+
+    this.assertPasswordResetTokenIsUsable(token);
+
+    const passwordHash = await argon2.hash(payload.newPassword);
+    const now = new Date();
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: {
+          id: token.user.id,
+        },
+        data: {
+          passwordHash,
+        },
+      }),
+      this.prisma.passwordResetToken.update({
+        where: {
+          id: token.id,
+        },
+        data: {
+          consumedAt: now,
+        },
+      }),
+      this.prisma.passwordResetToken.updateMany({
+        where: {
+          userId: token.user.id,
+          consumedAt: null,
+          id: {
+            not: token.id,
+          },
+        },
+        data: {
+          consumedAt: now,
+        },
+      }),
+      this.prisma.refreshSession.updateMany({
+        where: {
+          userId: token.user.id,
+          revokedAt: null,
+        },
+        data: {
+          revokedAt: now,
+          lastUsedAt: now,
+        },
+      }),
+    ]);
+
+    return {
+      success: true,
+      revokedRefreshSessions: true,
+    };
+  }
+
   async getCurrentUser(request: AuthenticatedRequest): Promise<CurrentUserProfile> {
     const user = await this.authContext.requireUserFromRequest(request);
     return this.toCurrentUserProfile(user);
@@ -306,6 +483,22 @@ export class AuthService {
     }
   }
 
+  private assertPasswordResetTokenIsUsable(
+    token: (PasswordResetToken & { user: User }) | null,
+  ): asserts token is PasswordResetToken & { user: User } {
+    if (!token || token.user.status !== 'active') {
+      throw new UnauthorizedException('Password reset token is invalid');
+    }
+
+    if (token.consumedAt) {
+      throw new UnauthorizedException('Password reset token has already been used');
+    }
+
+    if (token.expiresAt.getTime() <= Date.now()) {
+      throw new UnauthorizedException('Password reset token has expired');
+    }
+  }
+
   private hashToken(value: string): string {
     return createHash('sha256').update(value).digest('hex');
   }
@@ -342,6 +535,10 @@ export class AuthService {
 
     const normalized = value?.trim().toUpperCase();
     return normalized ? normalized : null;
+  }
+
+  private isProduction(): boolean {
+    return this.configService.get('NODE_ENV', { infer: true }) === 'production';
   }
 
   private toCurrentUserProfile(user: User): CurrentUserProfile {

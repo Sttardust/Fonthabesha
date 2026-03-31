@@ -2,9 +2,12 @@ import { Body, Controller, Get, Patch, Post, Req } from '@nestjs/common';
 
 import { AuthService } from './auth.service';
 import type { AuthenticatedRequest } from './auth-request';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterContributorDto } from './dto/register-contributor.dto';
+import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Controller('auth')
@@ -29,6 +32,24 @@ export class AuthController {
   @Post('logout')
   logout(@Body() payload: RefreshTokenDto) {
     return this.authService.logout(payload);
+  }
+
+  @Post('password/change')
+  changePassword(@Req() request: AuthenticatedRequest, @Body() payload: ChangePasswordDto) {
+    return this.authService.changePassword(request, payload);
+  }
+
+  @Post('password/reset/request')
+  requestPasswordReset(
+    @Body() payload: RequestPasswordResetDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.authService.requestPasswordReset(payload, request);
+  }
+
+  @Post('password/reset/confirm')
+  resetPassword(@Body() payload: ResetPasswordDto) {
+    return this.authService.resetPassword(payload);
   }
 
   @Get('me')
