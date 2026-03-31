@@ -19,6 +19,7 @@ import { ConfigService } from '@nestjs/config';
 
 import { PrismaService } from '../prisma/prisma.service';
 import type { AppEnvironment } from '../shared/config/app-env';
+import { MailService } from '../mail/mail.service';
 import { AuthContextService } from './auth-context.service';
 import type { AuthenticatedRequest } from './auth-request';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -71,6 +72,7 @@ type AuthTokenPayload = {
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly mailService: MailService,
     private readonly authContext: AuthContextService,
     private readonly jwtService: JwtService,
     @Inject(ConfigService)
@@ -119,17 +121,19 @@ export class AuthService {
     });
 
     const verification = await this.issueEmailVerificationToken(user.id, request.ip);
+    const delivery = await this.mailService.sendEmailVerificationEmail({
+      to: user.email,
+      displayName: user.displayName,
+      token: verification.token,
+      expiresInMinutes: verification.expiresInMinutes,
+    });
 
     return {
       accessToken,
       refreshToken,
       user: this.toCurrentUserProfile(user),
       emailVerificationRequired: !user.emailVerifiedAt,
-      ...(this.isProduction()
-        ? {}
-        : {
-            emailVerificationToken: verification.token,
-          }),
+      emailDelivery: delivery.delivery,
     };
   }
 
@@ -254,7 +258,7 @@ export class AuthService {
     success: true;
     expiresInMinutes: number;
     alreadyVerified: boolean;
-    emailVerificationToken?: string;
+    emailDelivery?: 'smtp' | 'preview';
   }> {
     const user = (await this.authContext.requireUserFromRequest(request)) as AuthUser;
     const expiresInMinutes = 60;
@@ -268,16 +272,18 @@ export class AuthService {
     }
 
     const verification = await this.issueEmailVerificationToken(user.id, request.ip, expiresInMinutes);
+    const delivery = await this.mailService.sendEmailVerificationEmail({
+      to: user.email,
+      displayName: user.displayName,
+      token: verification.token,
+      expiresInMinutes: verification.expiresInMinutes,
+    });
 
     return {
       success: true,
       expiresInMinutes,
       alreadyVerified: false,
-      ...(this.isProduction()
-        ? {}
-        : {
-            emailVerificationToken: verification.token,
-          }),
+      emailDelivery: delivery.delivery,
     };
   }
 
@@ -388,7 +394,7 @@ export class AuthService {
   ): Promise<{
     success: true;
     expiresInMinutes: number;
-    resetToken?: string;
+    emailDelivery?: 'smtp' | 'preview';
   }> {
     const email = payload.email.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({
@@ -427,14 +433,17 @@ export class AuthService {
       }),
     ]);
 
+    const delivery = await this.mailService.sendPasswordResetEmail({
+      to: user.email,
+      displayName: user.displayName,
+      token: resetToken,
+      expiresInMinutes,
+    });
+
     return {
       success: true,
       expiresInMinutes,
-      ...(this.isProduction()
-        ? {}
-        : {
-            resetToken,
-          }),
+      emailDelivery: delivery.delivery,
     };
   }
 

@@ -19,6 +19,11 @@ export interface AppEnvironment {
   APP_BASE_URL: string;
   CDN_BASE_URL: string;
   FRONTEND_URL: string;
+  FRONTEND_VERIFY_EMAIL_PATH?: string;
+  FRONTEND_RESET_PASSWORD_PATH?: string;
+  SMTP_URL?: string;
+  MAIL_FROM_EMAIL?: string;
+  MAIL_REPLY_TO_EMAIL?: string;
 }
 
 function getRequiredString(env: RawEnvironment, key: keyof AppEnvironment, fallback?: string): string {
@@ -42,6 +47,17 @@ function getPort(env: RawEnvironment): number {
   return port;
 }
 
+function getOptionalString(env: RawEnvironment, key: keyof AppEnvironment): string | undefined {
+  const value = env[key];
+
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
 export function validateEnvironment(env: RawEnvironment): AppEnvironment {
   return {
     NODE_ENV: getRequiredString(env, 'NODE_ENV', 'development'),
@@ -62,5 +78,10 @@ export function validateEnvironment(env: RawEnvironment): AppEnvironment {
     APP_BASE_URL: getRequiredString(env, 'APP_BASE_URL'),
     CDN_BASE_URL: getRequiredString(env, 'CDN_BASE_URL'),
     FRONTEND_URL: getRequiredString(env, 'FRONTEND_URL', 'http://localhost:5173'),
+    FRONTEND_VERIFY_EMAIL_PATH: getOptionalString(env, 'FRONTEND_VERIFY_EMAIL_PATH'),
+    FRONTEND_RESET_PASSWORD_PATH: getOptionalString(env, 'FRONTEND_RESET_PASSWORD_PATH'),
+    SMTP_URL: getOptionalString(env, 'SMTP_URL'),
+    MAIL_FROM_EMAIL: getOptionalString(env, 'MAIL_FROM_EMAIL'),
+    MAIL_REPLY_TO_EMAIL: getOptionalString(env, 'MAIL_REPLY_TO_EMAIL'),
   };
 }

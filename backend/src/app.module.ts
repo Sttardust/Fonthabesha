@@ -10,6 +10,7 @@ import { ContributorModule } from './contributor/contributor.module';
 import { DownloadsModule } from './downloads/downloads.module';
 import { HealthModule } from './health/health.module';
 import { LicensesModule } from './licenses/licenses.module';
+import { MailModule } from './mail/mail.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { SearchModule } from './search/search.module';
 import { validateEnvironment } from './shared/config/app-env';
@@ -35,6 +36,7 @@ import { UsersModule } from './users/users.module';
     HealthModule,
     UsersModule,
     LicensesModule,
+    MailModule,
     SubmissionsModule,
     SearchModule,
     UploadsModule,
