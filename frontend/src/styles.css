@@ -19,6 +19,11 @@ body {
   min-height: 100vh;
 }
 
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
 button,
 input,
 textarea,
@@ -30,6 +35,34 @@ select {
   width: min(1120px, calc(100% - 32px));
   margin: 0 auto;
   padding: 48px 0 80px;
+}
+
+.app-shell {
+  padding-bottom: 56px;
+}
+
+.topbar {
+  width: min(1120px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 20px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.topbar-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.brand-mark {
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .hero,
@@ -98,7 +131,8 @@ h2 {
 
 .status-pill,
 .api-url,
-.font-meta span {
+.font-meta span,
+.soft-note {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -107,6 +141,10 @@ h2 {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.78);
   border: 1px solid rgba(77, 52, 32, 0.1);
+}
+
+.soft-note {
+  color: rgba(32, 26, 23, 0.72);
 }
 
 .status-ok {
@@ -145,6 +183,34 @@ h2 {
   gap: 18px;
 }
 
+.catalog-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(180px, 0.7fr) auto;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.search-field {
+  display: grid;
+  gap: 8px;
+}
+
+.search-field input,
+.search-field select {
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid rgba(77, 52, 32, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.field-label,
+.detail-label {
+  color: rgba(32, 26, 23, 0.64);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
 .font-card,
 .empty-state {
   min-height: 180px;
@@ -162,9 +228,26 @@ h2 {
   justify-content: space-between;
 }
 
+.font-card-link {
+  color: inherit;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.font-card-link:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 38px rgba(64, 46, 26, 0.12);
+}
+
 .font-card-body {
   display: grid;
   gap: 8px;
+}
+
+.font-card-heading {
+  display: grid;
+  gap: 6px;
 }
 
 .font-name {
@@ -183,6 +266,104 @@ h2 {
   gap: 10px;
 }
 
+.font-card-subtle,
+.metric-line {
+  margin: 0;
+  color: rgba(32, 26, 23, 0.66);
+}
+
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(188, 140, 79, 0.14);
+  color: #7b5328;
+  font-size: 0.84rem;
+}
+
+.action-button {
+  min-height: 48px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #8c5b2f 0%, #6f431b 100%);
+  color: #fff7ed;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.action-button-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.text-link {
+  color: #7b5328;
+  font-weight: 700;
+}
+
+.specimen-panel {
+  display: grid;
+  gap: 24px;
+  padding: 28px;
+  border-radius: 22px;
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.92), rgba(243, 229, 207, 0.88));
+  border: 1px solid rgba(77, 52, 32, 0.08);
+}
+
+.specimen-text {
+  margin: 0;
+  font-size: clamp(1.8rem, 5vw, 4rem);
+  line-height: 1.1;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.detail-card,
+.style-card {
+  padding: 20px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.74);
+  border: 1px solid rgba(77, 52, 32, 0.08);
+}
+
+.detail-card {
+  display: grid;
+  gap: 8px;
+}
+
+.style-list {
+  display: grid;
+  gap: 14px;
+}
+
+.style-card {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.style-card-copy {
+  display: grid;
+  gap: 8px;
+}
+
 .empty-state {
   display: grid;
   place-items: center;
@@ -191,8 +372,18 @@ h2 {
 }
 
 @media (max-width: 720px) {
+  .topbar,
   .page-shell {
     width: min(100% - 20px, 1120px);
+  }
+
+  .topbar {
+    padding-top: 12px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .page-shell {
     padding: 20px 0 48px;
   }
 
@@ -204,5 +395,14 @@ h2 {
 
   h1 {
     font-size: 2.5rem;
+  }
+
+  .catalog-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .style-card {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
