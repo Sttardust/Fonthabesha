@@ -15,6 +15,7 @@ import type { AuthenticatedRequest } from '../auth/auth-request';
 import { ReviewDecisionDto } from './dto/review-decision.dto';
 import { AdminService } from './admin.service';
 import { AuthAuditQueryDto } from './dto/auth-audit-query.dto';
+import { AuthSessionQueryDto } from './dto/auth-session-query.dto';
 
 @Controller('admin')
 export class AdminController {
@@ -33,6 +34,21 @@ export class AdminController {
   @Get('auth-audit/summary')
   getAuthAuditSummary(@Req() request: AuthenticatedRequest) {
     return this.adminService.getAuthAuditSummary(request);
+  }
+
+  @Get('auth-sessions')
+  listAuthSessions(@Req() request: AuthenticatedRequest, @Query() query: AuthSessionQueryDto) {
+    return this.adminService.listAuthSessions(request, query);
+  }
+
+  @Post('auth-sessions/:sessionId/revoke')
+  revokeAuthSession(@Req() request: AuthenticatedRequest, @Param('sessionId') sessionId: string) {
+    return this.adminService.revokeAuthSession(request, sessionId);
+  }
+
+  @Post('users/:userId/auth-sessions/revoke')
+  revokeUserAuthSessions(@Req() request: AuthenticatedRequest, @Param('userId') userId: string) {
+    return this.adminService.revokeUserAuthSessions(request, userId);
   }
 
   @Get('reviews/summary')

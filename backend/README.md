@@ -23,6 +23,7 @@ This folder contains the NestJS backend, Prisma schema, Docker setup, and backen
 - repeated failed logins temporarily lock the targeted account, with a separate network-level lockout for heavy abuse
 - sensitive auth actions are persisted to `auth_audit_events` for later review and incident investigation
 - staff can inspect auth audit activity through `GET /api/v1/admin/auth-audit` and `GET /api/v1/admin/auth-audit/summary`
+- staff can inspect and revoke persisted refresh sessions through the admin API
 
 ## Local Files
 

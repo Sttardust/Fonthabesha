@@ -22,6 +22,7 @@ import { FontInspectionService } from '../uploads/font-inspection.service';
 import { FontStyleSyncService } from '../uploads/font-style-sync.service';
 import { S3StorageService } from '../uploads/s3-storage.service';
 import { AuthAuditQueryDto } from './dto/auth-audit-query.dto';
+import { AuthSessionQueryDto } from './dto/auth-session-query.dto';
 import { ReviewDecisionDto } from './dto/review-decision.dto';
 
 @Injectable()
@@ -185,6 +186,196 @@ export class AdminService {
       },
       outcomesLast7d: outcomeCounts,
       actionsLast7d: actionCounts,
+    };
+  }
+
+  async listAuthSessions(request: AuthenticatedRequest, query: AuthSessionQueryDto) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
+
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 25;
+    const status = query.status ?? 'active';
+    const now = new Date();
+    const where: Prisma.RefreshSessionWhereInput = {};
+
+    if (query.userId) {
+      where.userId = query.userId;
+    }
+
+    if (query.email) {
+      where.user = {
+        email: {
+          contains: query.email.trim().toLowerCase(),
+          mode: 'insensitive',
+        },
+      };
+    }
+
+    if (status === 'active') {
+      where.revokedAt = null;
+      where.expiresAt = {
+        gt: now,
+      };
+    } else if (status === 'revoked') {
+      where.revokedAt = {
+        not: null,
+      };
+    } else if (status === 'expired') {
+      where.revokedAt = null;
+      where.expiresAt = {
+        lte: now,
+      };
+    }
+
+    const [total, sessions] = await Promise.all([
+      this.prisma.refreshSession.count({ where }),
+      this.prisma.refreshSession.findMany({
+        where,
+        orderBy: {
+          createdAt: 'desc',
+        },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        select: {
+          id: true,
+          expiresAt: true,
+          revokedAt: true,
+          replacedBySessionId: true,
+          createdByIpHash: true,
+          lastUsedAt: true,
+          createdAt: true,
+          updatedAt: true,
+          user: {
+            select: {
+              id: true,
+              displayName: true,
+              email: true,
+              role: true,
+              status: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      items: sessions.map((session) => ({
+        id: session.id,
+        status: this.getRefreshSessionStatus(session, now),
+        expiresAt: session.expiresAt,
+        revokedAt: session.revokedAt,
+        replacedBySessionId: session.replacedBySessionId,
+        createdByIpHash: session.createdByIpHash,
+        lastUsedAt: session.lastUsedAt,
+        createdAt: session.createdAt,
+        updatedAt: session.updatedAt,
+        user: session.user,
+      })),
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.max(Math.ceil(total / pageSize), 1),
+      },
+    };
+  }
+
+  async revokeAuthSession(request: AuthenticatedRequest, sessionId: string) {
+    const actor = await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
+    const session = await this.prisma.refreshSession.findUnique({
+      where: {
+        id: sessionId,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            displayName: true,
+            email: true,
+            role: true,
+          },
+        },
+      },
+    });
+
+    if (!session) {
+      throw new NotFoundException('Refresh session not found');
+    }
+
+    const revokedAt = session.revokedAt ?? new Date();
+
+    if (!session.revokedAt) {
+      await this.prisma.refreshSession.update({
+        where: {
+          id: session.id,
+        },
+        data: {
+          revokedAt,
+        },
+      });
+    }
+
+    return {
+      sessionId: session.id,
+      status: this.getRefreshSessionStatus(
+        {
+          ...session,
+          revokedAt,
+        },
+        new Date(),
+      ),
+      revokedAt,
+      alreadyRevoked: Boolean(session.revokedAt),
+      revokedBy: {
+        id: actor.id,
+        email: actor.email,
+        role: actor.role,
+      },
+      user: session.user,
+    };
+  }
+
+  async revokeUserAuthSessions(request: AuthenticatedRequest, userId: string) {
+    const actor = await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
+    const user = await this.prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+      select: {
+        id: true,
+        displayName: true,
+        email: true,
+        role: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const revokedAt = new Date();
+    const result = await this.prisma.refreshSession.updateMany({
+      where: {
+        userId,
+        revokedAt: null,
+        expiresAt: {
+          gt: revokedAt,
+        },
+      },
+      data: {
+        revokedAt,
+      },
+    });
+
+    return {
+      user,
+      revokedSessionCount: result.count,
+      revokedAt,
+      revokedBy: {
+        id: actor.id,
+        email: actor.email,
+        role: actor.role,
+      },
     };
   }
 
@@ -811,5 +1002,23 @@ export class AdminService {
       }),
       {} as Record<TEnum[keyof TEnum], number>,
     );
+  }
+
+  private getRefreshSessionStatus(
+    session: {
+      expiresAt: Date;
+      revokedAt: Date | null;
+    },
+    now: Date,
+  ): 'active' | 'revoked' | 'expired' {
+    if (session.revokedAt) {
+      return 'revoked';
+    }
+
+    if (session.expiresAt.getTime() <= now.getTime()) {
+      return 'expired';
+    }
+
+    return 'active';
   }
 }

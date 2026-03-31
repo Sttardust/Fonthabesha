@@ -65,3 +65,4 @@ Useful commands:
 - repeated failed logins now trigger temporary account and network lockouts on the backend
 - backend auth also writes persistent audit rows for security-relevant account events
 - staff can review those auth audit events through the admin API
+- staff can also inspect and revoke refresh sessions through the admin API
