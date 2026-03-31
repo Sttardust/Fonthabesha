@@ -14,6 +14,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import type { AuthenticatedRequest } from '../auth/auth-request';
 import { ReviewDecisionDto } from './dto/review-decision.dto';
 import { AdminService } from './admin.service';
+import { AuthAuditQueryDto } from './dto/auth-audit-query.dto';
 
 @Controller('admin')
 export class AdminController {
@@ -22,6 +23,16 @@ export class AdminController {
   @Get('reviews')
   listReviewQueue(@Req() request: AuthenticatedRequest, @Query('status') status?: string) {
     return this.adminService.listReviewQueue(request, status);
+  }
+
+  @Get('auth-audit')
+  listAuthAuditEvents(@Req() request: AuthenticatedRequest, @Query() query: AuthAuditQueryDto) {
+    return this.adminService.listAuthAuditEvents(request, query);
+  }
+
+  @Get('auth-audit/summary')
+  getAuthAuditSummary(@Req() request: AuthenticatedRequest) {
+    return this.adminService.getAuthAuditSummary(request);
   }
 
   @Get('reviews/summary')

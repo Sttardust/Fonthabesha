@@ -5,7 +5,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, ReviewAction, SubmissionStatus, UserRole } from '@prisma/client';
+import {
+  AuthAuditAction,
+  AuthAuditOutcome,
+  Prisma,
+  ReviewAction,
+  SubmissionStatus,
+  UserRole,
+} from '@prisma/client';
 
 import { AuthContextService } from '../auth/auth-context.service';
 import type { AuthenticatedRequest } from '../auth/auth-request';
@@ -14,6 +21,7 @@ import { SearchIndexService } from '../search/search-index.service';
 import { FontInspectionService } from '../uploads/font-inspection.service';
 import { FontStyleSyncService } from '../uploads/font-style-sync.service';
 import { S3StorageService } from '../uploads/s3-storage.service';
+import { AuthAuditQueryDto } from './dto/auth-audit-query.dto';
 import { ReviewDecisionDto } from './dto/review-decision.dto';
 
 @Injectable()
@@ -26,6 +34,159 @@ export class AdminService {
     private readonly fontStyleSync: FontStyleSyncService,
     private readonly storageService: S3StorageService,
   ) {}
+
+  async listAuthAuditEvents(request: AuthenticatedRequest, query: AuthAuditQueryDto) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
+
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 25;
+    const where: Prisma.AuthAuditEventWhereInput = {};
+
+    if (query.action) {
+      where.action = query.action;
+    }
+
+    if (query.outcome) {
+      where.outcome = query.outcome;
+    }
+
+    if (query.email) {
+      where.email = {
+        contains: query.email.trim().toLowerCase(),
+        mode: 'insensitive',
+      };
+    }
+
+    if (query.userId) {
+      where.userId = query.userId;
+    }
+
+    if (query.from || query.to) {
+      where.createdAt = {
+        gte: query.from ? new Date(query.from) : undefined,
+        lte: query.to ? new Date(query.to) : undefined,
+      };
+    }
+
+    const [total, events] = await Promise.all([
+      this.prisma.authAuditEvent.count({ where }),
+      this.prisma.authAuditEvent.findMany({
+        where,
+        orderBy: {
+          createdAt: 'desc',
+        },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        select: {
+          id: true,
+          action: true,
+          outcome: true,
+          email: true,
+          ipHash: true,
+          userAgentHash: true,
+          metadataJson: true,
+          createdAt: true,
+          user: {
+            select: {
+              id: true,
+              displayName: true,
+              email: true,
+              role: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      items: events.map((event) => ({
+        id: event.id,
+        action: event.action,
+        outcome: event.outcome,
+        email: event.email,
+        ipHash: event.ipHash,
+        userAgentHash: event.userAgentHash,
+        metadata: event.metadataJson,
+        createdAt: event.createdAt,
+        user: event.user,
+      })),
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.max(Math.ceil(total / pageSize), 1),
+      },
+    };
+  }
+
+  async getAuthAuditSummary(request: AuthenticatedRequest) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
+
+    const last24Hours = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const last7Days = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    const [totalEvents, recentEvents24h, recentEvents7d, byOutcome7d, byAction7d] =
+      await Promise.all([
+        this.prisma.authAuditEvent.count(),
+        this.prisma.authAuditEvent.count({
+          where: {
+            createdAt: {
+              gte: last24Hours,
+            },
+          },
+        }),
+        this.prisma.authAuditEvent.count({
+          where: {
+            createdAt: {
+              gte: last7Days,
+            },
+          },
+        }),
+        this.prisma.authAuditEvent.groupBy({
+          by: ['outcome'],
+          where: {
+            createdAt: {
+              gte: last7Days,
+            },
+          },
+          _count: {
+            _all: true,
+          },
+        }),
+        this.prisma.authAuditEvent.groupBy({
+          by: ['action'],
+          where: {
+            createdAt: {
+              gte: last7Days,
+            },
+          },
+          _count: {
+            _all: true,
+          },
+        }),
+      ]);
+
+    const outcomeCounts = this.initializeEnumCounts(AuthAuditOutcome);
+    const actionCounts = this.initializeEnumCounts(AuthAuditAction);
+
+    byOutcome7d.forEach((entry) => {
+      outcomeCounts[entry.outcome] = entry._count._all;
+    });
+
+    byAction7d.forEach((entry) => {
+      actionCounts[entry.action] = entry._count._all;
+    });
+
+    return {
+      totals: {
+        allTime: totalEvents,
+        last24h: recentEvents24h,
+        last7d: recentEvents7d,
+      },
+      outcomesLast7d: outcomeCounts,
+      actionsLast7d: actionCounts,
+    };
+  }
 
   async listReviewQueue(request: AuthenticatedRequest, status?: string) {
     await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
@@ -638,5 +799,17 @@ export class AdminService {
       status: nextSubmissionStatus,
       publishedAt: action === 'approved' ? now : null,
     };
+  }
+
+  private initializeEnumCounts<TEnum extends Record<string, string>>(
+    enumObject: TEnum,
+  ): Record<TEnum[keyof TEnum], number> {
+    return Object.values(enumObject).reduce(
+      (accumulator, value) => ({
+        ...accumulator,
+        [value]: 0,
+      }),
+      {} as Record<TEnum[keyof TEnum], number>,
+    );
   }
 }
