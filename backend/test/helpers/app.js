@@ -1,10 +1,42 @@
 require('reflect-metadata');
 
 const { Logger } = require('@nestjs/common');
+const {
+  CreateBucketCommand,
+  HeadBucketCommand,
+  S3Client,
+} = require('@aws-sdk/client-s3');
+
+async function ensureBucket(client, bucket) {
+  try {
+    await client.send(new HeadBucketCommand({ Bucket: bucket }));
+    return;
+  } catch {
+    await client.send(new CreateBucketCommand({ Bucket: bucket }));
+  }
+}
+
+async function ensureStorageBuckets() {
+  const client = new S3Client({
+    region: process.env.S3_REGION || 'us-east-1',
+    endpoint: process.env.S3_ENDPOINT || 'http://localhost:9000',
+    forcePathStyle: true,
+    credentials: {
+      accessKeyId: process.env.S3_ACCESS_KEY_ID || 'minioadmin',
+      secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || 'minioadmin',
+    },
+  });
+
+  await Promise.all([
+    ensureBucket(client, process.env.S3_BUCKET_RAW || 'fonthabesha-raw'),
+    ensureBucket(client, process.env.S3_BUCKET_PUBLIC || 'fonthabesha-public'),
+  ]);
+}
 
 async function createTestContext() {
   process.env.MAIL_QUEUE_ENABLED = 'false';
   Logger.overrideLogger(false);
+  await ensureStorageBuckets();
   const { createApp } = require('../../dist/src/bootstrap.js');
   const app = await createApp();
   await app.init();
