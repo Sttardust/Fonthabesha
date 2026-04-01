@@ -263,4 +263,18 @@ test('invalid font content is marked failed and cleaned up after inspection', as
     detailResponse.body.review.latestContributorFeedback.notes,
     /Automatic font inspection failed/i,
   );
+
+  const reprocessResponse = await requestJson(context, {
+    method: 'POST',
+    path: `/api/v1/admin/reviews/${submissionId}/reprocess`,
+    headers: {
+      'x-user-email': 'admin@fonthabesha.local',
+    },
+    body: {
+      notes: 'Retry the failed submission',
+    },
+  });
+
+  assert.equal(reprocessResponse.status, 400);
+  assert.match(String(reprocessResponse.body.message), /No reprocessable uploads were found/i);
 });

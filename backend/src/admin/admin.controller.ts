@@ -98,6 +98,15 @@ export class AdminController {
     return this.adminService.requestChanges(request, submissionId, payload);
   }
 
+  @Post('reviews/:submissionId/reprocess')
+  reprocessSubmission(
+    @Req() request: AuthenticatedRequest,
+    @Param('submissionId') submissionId: string,
+    @Body() payload: ReviewDecisionDto,
+  ) {
+    return this.adminService.reprocessSubmission(request, submissionId, payload.notes);
+  }
+
   @Post('submissions/:submissionId/uploads/direct')
   @UseInterceptors(FileInterceptor('file'))
   directUploadToSubmission(

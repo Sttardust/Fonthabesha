@@ -170,7 +170,7 @@ export class SubmissionsService {
         blockingIssues,
       },
       review: {
-        latestContributorFeedback,
+        latestContributorFeedback: latestContributorFeedback ?? null,
         history: reviewHistory,
       },
       permissions: {

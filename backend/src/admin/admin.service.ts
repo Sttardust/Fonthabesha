@@ -825,6 +825,9 @@ export class AdminService {
         canApprove: submission.status === 'needs_review',
         canReject: submission.status === 'needs_review',
         canRequestChanges: submission.status === 'needs_review',
+        canReprocess: ['uploaded', 'processing', 'processing_failed', 'ready_for_submission'].includes(
+          submission.status,
+        ),
       },
     };
   }
@@ -859,6 +862,136 @@ export class AdminService {
     }
 
     return this.applyReviewDecision(actor.id, submissionId, 'request_changes', payload.notes);
+  }
+
+  async reprocessSubmission(
+    request: AuthenticatedRequest,
+    submissionId: string,
+    notes?: string,
+  ) {
+    const actor = await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
+    const submission = await this.prisma.submission.findUnique({
+      where: {
+        id: submissionId,
+      },
+      include: {
+        family: {
+          select: {
+            id: true,
+            slug: true,
+            nameEn: true,
+          },
+        },
+        uploads: {
+          orderBy: {
+            uploadedAt: 'asc',
+          },
+          select: {
+            id: true,
+            storageKey: true,
+            uploader: {
+              select: {
+                role: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!submission) {
+      throw new NotFoundException('Submission not found');
+    }
+
+    if (!['uploaded', 'processing', 'processing_failed', 'ready_for_submission'].includes(submission.status)) {
+      throw new BadRequestException('Submission is not in a reprocessable state');
+    }
+
+    const uploadAvailability = await Promise.all(
+      submission.uploads.map(async (upload) => ({
+        uploadId: upload.id,
+        hasRawObject: await this.storageService.rawObjectExists(upload.storageKey),
+        uploadedByStaff:
+          upload.uploader.role === UserRole.admin || upload.uploader.role === UserRole.reviewer,
+      })),
+    );
+    const reprocessableUploads = uploadAvailability.filter((upload) => upload.hasRawObject);
+
+    if (reprocessableUploads.length === 0) {
+      throw new BadRequestException(
+        'No reprocessable uploads were found. Replacement upload files are required.',
+      );
+    }
+
+    const now = new Date();
+    const successSubmissionStatus = reprocessableUploads.some((upload) => upload.uploadedByStaff)
+      ? 'needs_review'
+      : 'ready_for_submission';
+
+    await this.prisma.$transaction([
+      this.prisma.submission.update({
+        where: {
+          id: submission.id,
+        },
+        data: {
+          status: 'processing',
+          lastActionAt: now,
+        },
+      }),
+      this.prisma.reviewEvent.create({
+        data: {
+          submissionId: submission.id,
+          familyId: submission.familyId,
+          actorUserId: actor.id,
+          action: ReviewAction.reprocessed,
+          notes: notes?.trim() || 'Submission reprocessing triggered by staff',
+          metadataJson: {
+            uploadIds: reprocessableUploads.map((upload) => upload.uploadId),
+            skippedUploadIds: uploadAvailability
+              .filter((upload) => !upload.hasRawObject)
+              .map((upload) => upload.uploadId),
+          },
+        },
+      }),
+    ]);
+
+    const results = [];
+
+    for (const upload of reprocessableUploads) {
+      results.push(
+        await this.uploadProcessingService.processUpload({
+          uploadId: upload.uploadId,
+          successSubmissionStatus,
+          actorUserId: actor.id,
+          failureNotesPrefix: 'Staff-triggered font reprocessing failed',
+        }),
+      );
+    }
+
+    const finalSubmission = await this.prisma.submission.findUniqueOrThrow({
+      where: {
+        id: submission.id,
+      },
+      select: {
+        status: true,
+      },
+    });
+
+    return {
+      submission: {
+        id: submission.id,
+        status: finalSubmission.status,
+        family: submission.family,
+      },
+      reprocessedUploadCount: reprocessableUploads.length,
+      skippedUploadCount: uploadAvailability.length - reprocessableUploads.length,
+      uploads: results.map((result) => ({
+        id: result.upload.id,
+        processingStatus: result.upload.processingStatus,
+        styleId: result.upload.styleId,
+        processingError: result.upload.processingError ?? null,
+      })),
+    };
   }
 
   async directUploadToSubmission(
