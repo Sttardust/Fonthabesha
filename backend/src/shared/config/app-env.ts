@@ -25,6 +25,7 @@ export interface AppEnvironment {
   MAIL_FROM_EMAIL?: string;
   MAIL_REPLY_TO_EMAIL?: string;
   MAIL_QUEUE_ENABLED: boolean;
+  MAIL_QUEUE_CONSUMER_ENABLED: boolean;
   ALLOW_DEV_HEADER_AUTH: boolean;
 }
 
@@ -110,6 +111,7 @@ export function validateEnvironment(env: RawEnvironment): AppEnvironment {
     MAIL_FROM_EMAIL: getOptionalString(env, 'MAIL_FROM_EMAIL'),
     MAIL_REPLY_TO_EMAIL: getOptionalString(env, 'MAIL_REPLY_TO_EMAIL'),
     MAIL_QUEUE_ENABLED: getOptionalBoolean(env, 'MAIL_QUEUE_ENABLED', true),
+    MAIL_QUEUE_CONSUMER_ENABLED: getOptionalBoolean(env, 'MAIL_QUEUE_CONSUMER_ENABLED', false),
     ALLOW_DEV_HEADER_AUTH: getOptionalBoolean(
       env,
       'ALLOW_DEV_HEADER_AUTH',

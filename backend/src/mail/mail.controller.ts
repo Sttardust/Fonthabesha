@@ -26,7 +26,7 @@ export class MailController {
     await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
 
     return {
-      items: this.mailService.listPreviews(),
+      items: await this.mailService.listPreviews(),
     };
   }
 }

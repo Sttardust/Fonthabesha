@@ -34,6 +34,9 @@ type MailDispatchPayload = {
   actionUrl: string;
 };
 
+const MAIL_QUEUE_NAME = 'mail-delivery';
+const MAIL_PREVIEW_REDIS_KEY = 'mail-previews';
+
 @Injectable()
 export class MailService implements OnModuleDestroy {
   private readonly logger = new Logger(MailService.name);
@@ -56,6 +59,9 @@ export class MailService implements OnModuleDestroy {
     const smtpUrl = this.configService.get('SMTP_URL', { infer: true });
     const redisUrl = this.configService.get('REDIS_URL', { infer: true });
     const mailQueueEnabled = this.configService.get('MAIL_QUEUE_ENABLED', { infer: true });
+    const mailQueueConsumerEnabled = this.configService.get('MAIL_QUEUE_CONSUMER_ENABLED', {
+      infer: true,
+    });
 
     this.fromEmail = this.configService.get('MAIL_FROM_EMAIL', { infer: true });
     this.replyToEmail = this.configService.get('MAIL_REPLY_TO_EMAIL', { infer: true });
@@ -72,10 +78,6 @@ export class MailService implements OnModuleDestroy {
         maxRetriesPerRequest: null,
         enableOfflineQueue: false,
       });
-      this.workerConnection = new Redis(redisUrl, {
-        maxRetriesPerRequest: null,
-        enableOfflineQueue: false,
-      });
       this.queue = new Queue<MailDispatchPayload>('mail-delivery', {
         connection: this.queueConnection,
         defaultJobOptions: {
@@ -88,18 +90,28 @@ export class MailService implements OnModuleDestroy {
           },
         },
       });
-      this.worker = new Worker<MailDispatchPayload>(
-        'mail-delivery',
-        async (job) => {
-          await this.deliverNow(job.data);
-        },
-        {
-          connection: this.workerConnection,
-        },
-      );
-      this.worker.on('error', (error) => {
-        this.logger.warn(`Mail queue worker error: ${error.message}`);
-      });
+
+      if (mailQueueConsumerEnabled) {
+        this.workerConnection = new Redis(redisUrl, {
+          maxRetriesPerRequest: null,
+          enableOfflineQueue: false,
+        });
+        this.worker = new Worker<MailDispatchPayload>(
+          MAIL_QUEUE_NAME,
+          async (job) => {
+            await this.deliverNow(job.data);
+          },
+          {
+            connection: this.workerConnection,
+          },
+        );
+        this.worker.on('error', (error) => {
+          this.logger.warn(`Mail queue worker error: ${error.message}`);
+        });
+      } else {
+        this.workerConnection = null;
+        this.worker = null;
+      }
     } else {
       this.queueConnection = null;
       this.workerConnection = null;
@@ -173,7 +185,25 @@ export class MailService implements OnModuleDestroy {
     });
   }
 
-  listPreviews(): MailPreview[] {
+  async listPreviews(): Promise<MailPreview[]> {
+    if (this.queueConnection) {
+      try {
+        const items = await this.queueConnection.lrange(MAIL_PREVIEW_REDIS_KEY, 0, 19);
+        return items
+          .map((item) => {
+            try {
+              return JSON.parse(item) as MailPreview;
+            } catch {
+              return null;
+            }
+          })
+          .filter((item): item is MailPreview => Boolean(item));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`Failed to read mail previews from Redis: ${message}`);
+      }
+    }
+
     return [...this.previews];
   }
 
@@ -215,9 +245,7 @@ export class MailService implements OnModuleDestroy {
       createdAt: new Date().toISOString(),
       ...message,
     };
-
-    this.previews.unshift(preview);
-    this.previews.splice(20);
+    await this.storePreview(preview);
 
     this.logger.log(
       `[mail-preview] ${preview.kind} -> ${preview.to}\n${preview.subject}\n${preview.actionUrl}`,
@@ -232,5 +260,24 @@ export class MailService implements OnModuleDestroy {
     const normalizedBase = this.frontendUrl.replace(/\/+$/, '');
     const normalizedPath = path.startsWith('/') ? path : `/${path}`;
     return `${normalizedBase}${normalizedPath}?token=${encodeURIComponent(token)}`;
+  }
+
+  private async storePreview(preview: MailPreview): Promise<void> {
+    if (this.queueConnection) {
+      try {
+        await this.queueConnection
+          .multi()
+          .lpush(MAIL_PREVIEW_REDIS_KEY, JSON.stringify(preview))
+          .ltrim(MAIL_PREVIEW_REDIS_KEY, 0, 19)
+          .exec();
+        return;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`Failed to persist mail preview to Redis: ${message}`);
+      }
+    }
+
+    this.previews.unshift(preview);
+    this.previews.splice(20);
   }
 }

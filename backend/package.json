@@ -8,8 +8,10 @@
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "db:seed": "tsx prisma/seed.ts",
     "dev": "npm run build && node dist/src/main.js",
+    "dev:worker": "npm run build && MAIL_QUEUE_CONSUMER_ENABLED=true node dist/src/worker.js",
     "start": "node dist/src/main.js",
     "start:dev": "npm run build && node dist/src/main.js",
+    "start:worker": "MAIL_QUEUE_CONSUMER_ENABLED=true node dist/src/worker.js",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
     "test": "npm run build && node --test --test-concurrency=1 test/**/*.test.js"
