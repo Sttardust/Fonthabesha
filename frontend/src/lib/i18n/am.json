@@ -1,0 +1,154 @@
+{
+  "nav": {
+    "fonts": "ፊደሎች",
+    "collections": "ስብስቦች",
+    "about": "ስለ እኛ",
+    "login": "ግባ",
+    "logout": "ውጣ",
+    "dashboard": "ዳሽቦርድ",
+    "admin": "አስተዳዳሪ"
+  },
+  "home": {
+    "tagline": "የኢትዮጵያ ፊደሎች ቤት",
+    "subTagline": "ነፃ የሆኑ አማርኛ እና ኢትዮጵያዊ ፊደሎችን አግኝ፣ ፈትሽ፣ አውርድ።",
+    "browseAll": "ሁሉንም ፊደሎች ይመልከቱ",
+    "featured": "ተለይቶ የቀረበ"
+  },
+  "catalog": {
+    "title": "ፊደሎች",
+    "searchPlaceholder": "ፊደሎችን ፈልግ…",
+    "yourText": "ጽሑፍዎን ያስገቡ",
+    "noResults": "ምንም ፊደሎች አልተገኙም።",
+    "filters": {
+      "all": "ሁሉም",
+      "category": "ምድብ",
+      "script": "ስክሪፕት",
+      "variable": "ቫሪያብል",
+      "featured": "ተለይቶ የቀረበ",
+      "serif": "ሰሪፍ",
+      "sans_serif": "ሳንስ ሰሪፍ",
+      "display": "ዲስፕሌይ",
+      "handwriting": "ጽሑፍ",
+      "monospace": "ሞኖስፔስ",
+      "decorative": "ጌጣዊ",
+      "ethiopic": "ኢትዮጵያዊ",
+      "latin": "ላቲን",
+      "both": "ሁለቱም"
+    },
+    "sort": {
+      "newest": "አዲስ",
+      "popular": "ተወዳጅ",
+      "name": "ስም"
+    },
+    "view": {
+      "list": "ዝርዝር",
+      "grid": "ጥምቅ"
+    }
+  },
+  "fontDetail": {
+    "download": "አውርድ",
+    "downloading": "በማውረድ ላይ…",
+    "styles": "ዘይቤዎች",
+    "glyphs": "ፊደላት",
+    "layouts": "አቀማመጦች",
+    "details": "ዝርዝሮች",
+    "about": "ስለ ፊደሉ",
+    "license": "ፈቃድ",
+    "pairings": "ጥምረቶች",
+    "designer": "ዲዛይነር",
+    "addToCollection": "ስብስብ ውስጥ አስገባ"
+  },
+  "auth": {
+    "login": "ስርዓቱ ውስጥ ግባ",
+    "email": "ኢሜይል",
+    "password": "የይለፍ ቃል",
+    "submit": "ግባ",
+    "loggingIn": "በመግባት ላይ…",
+    "invalidCredentials": "ኢሜይሉ ወይም የይለፍ ቃሉ ትክክለኛ አይደለም።",
+    "serverError": "የሰርቨር ስህተት። እባክዎ እንደገና ይሞክሩ።"
+  },
+  "contributor": {
+    "portal": "አስተዋጽዖ ፖርታል",
+    "mySubmissions": "ማቅረቢያዎቼ",
+    "newSubmission": "አዲስ ማቅረቢያ",
+    "status": {
+      "draft": "ረቂቅ",
+      "uploaded": "ተጭኗል",
+      "processing": "በሂደት ላይ",
+      "processing_failed": "ሂደቱ ወድቋል",
+      "ready_for_submission": "ለማቅረብ ዝግጁ",
+      "needs_review": "ክለሳ ያስፈልጋል",
+      "changes_requested": "ለውጥ ተጠይቋል",
+      "approved": "ተቀባይነት አገኘ",
+      "rejected": "ተነቅፏል",
+      "archived": "ተቀምጧል"
+    },
+    "upload": {
+      "dropzone": "የፊደል ፋይሎችን ይጣሉ፣ ወይም ጠቅ ያድርጉ",
+      "dropHere": "ፋይሎቹን ያጥሉ",
+      "accepted": ".ttf · .otf · .woff (ምንጭ ቅርጸቶች ብቻ)",
+      "uploadFile": "አውርድ",
+      "uploadAll": "ሁሉንም አውርድ",
+      "uploading": "በማስገባት ላይ…",
+      "processing": "ፊደሉን በማስኬድ ላይ…",
+      "clearUploaded": "የወጡትን አጽዳ",
+      "hasErrors": "አንዳንድ ፋይሎች አልተጫኑም። ስህተቶቹን አርትዕ ከዚያ እንደገና ሞክር።",
+      "addStyles": "የፊደል ዘይቤዎችን አክል",
+      "uploadedStyles": "የወጡ ዘይቤዎች",
+      "submitForReview": "ለክለሳ አቅርብ",
+      "needStyles": "ከማቅረብዎ በፊት ቢያንስ አንድ የፊደል ዘይቤ ያስገቡ።",
+      "waitForUploads": "እባክዎ ሁሉም ስቀሎች እስኪጨርስ ይጠብቁ።",
+      "reviewerNotes": "የገምጋሚ ማስታወሻዎች፦"
+    }
+  },
+  "admin": {
+    "dashboard": "አስተዳደር ዳሽቦርድ",
+    "reviewQueue": "የክለሳ ወረፋ",
+    "manageFonts": "ፊደሎችን አስተዳድር",
+    "stats": {
+      "totalFamilies": "ጠቅላላ ቤተሰቦች",
+      "pendingReviews": "በወረፋ ላይ",
+      "totalDownloads": "ጠቅላላ ቅጂዎች",
+      "activeContributors": "ንቁ አስተዋጽዖ አበርካቾች"
+    },
+    "actions": {
+      "approve": "ተቀበል",
+      "requestChanges": "ለውጥ ጠይቅ",
+      "reject": "ንቀፍ"
+    },
+    "collections": {
+      "title": "ስብስቦች",
+      "new": "አዲስ ስብስብ",
+      "empty": "ምንም ስብስቦች የሉም።"
+    },
+    "vocabulary": {
+      "title": "መዝገበ ቃላት",
+      "addTag": "መለያ አክል",
+      "newTagPlaceholder": "አዲስ መለያ ስም…",
+      "empty": "ምንም መለያዎች የሉም።"
+    },
+    "analytics": {
+      "title": "ትንታኔ",
+      "totalDownloads": "ጠቅላላ ቅጂዎች",
+      "publishedFamilies": "የታተሙ ቤተሰቦች",
+      "contributors": "አስተዋጽዖ አበርካቾች",
+      "downloadTrend": "የቅጂ አዝማሚያ",
+      "topFonts": "ምርጥ ፊደሎች",
+      "monthlyBreakdown": "ወርሃዊ ዝርዝር"
+    }
+  },
+  "common": {
+    "loading": "በመጫን ላይ…",
+    "error": "ስህተት ተከስቷል።",
+    "retry": "እንደገና ሞክር",
+    "cancel": "ሰርዝ",
+    "save": "አስቀምጥ",
+    "delete": "ሰርዝ",
+    "edit": "አርትዕ",
+    "back": "ተመለስ",
+    "next": "ቀጣይ",
+    "previous": "ቀዳሚ",
+    "page": "ገጽ",
+    "of": "ከ"
+  }
+}
