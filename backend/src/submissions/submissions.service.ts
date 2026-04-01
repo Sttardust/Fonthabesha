@@ -97,6 +97,23 @@ export class SubmissionsService {
         uploadId: upload.id,
         message: upload.processingError,
       }));
+    const reviewHistory = submission.reviewEvents.map((event) => ({
+      id: event.id,
+      action: event.action,
+      notes: event.notes,
+      metadata: event.metadataJson,
+      createdAt: event.createdAt,
+      actor: event.actorUser
+        ? {
+            id: event.actorUser.id,
+            displayName: event.actorUser.displayName,
+            role: event.actorUser.role,
+          }
+        : null,
+    }));
+    const latestContributorFeedback = [...reviewHistory]
+      .reverse()
+      .find((event) => ['request_changes', 'rejected', 'processing_failed'].includes(event.action));
 
     return {
       id: submission.id,
@@ -151,6 +168,10 @@ export class SubmissionsService {
         processingUploadCount,
         processingWarnings,
         blockingIssues,
+      },
+      review: {
+        latestContributorFeedback,
+        history: reviewHistory,
       },
       permissions: {
         canEditMetadata: this.isContributorEditableStatus(submission.status),
@@ -623,6 +644,25 @@ export class SubmissionsService {
             },
             styles: {
               orderBy: [{ isDefault: 'desc' }, { weightClass: 'asc' }, { name: 'asc' }],
+            },
+          },
+        },
+        reviewEvents: {
+          orderBy: {
+            createdAt: 'asc',
+          },
+          select: {
+            id: true,
+            action: true,
+            notes: true,
+            metadataJson: true,
+            createdAt: true,
+            actorUser: {
+              select: {
+                id: true,
+                displayName: true,
+                role: true,
+              },
             },
           },
         },

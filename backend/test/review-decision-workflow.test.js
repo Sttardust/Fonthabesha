@@ -141,6 +141,17 @@ test('review changes and rejection workflow keeps contributor resubmission path 
   assert.equal(contributorDetailAfterChanges.body.permissions.canEditMetadata, true);
   assert.equal(contributorDetailAfterChanges.body.permissions.canEditStyles, true);
   assert.equal(contributorDetailAfterChanges.body.permissions.canSubmitForReview, true);
+  assert.equal(
+    contributorDetailAfterChanges.body.review.latestContributorFeedback.action,
+    'request_changes',
+  );
+  assert.match(
+    contributorDetailAfterChanges.body.review.latestContributorFeedback.notes,
+    /clarify the family description/i,
+  );
+  assert.ok(
+    contributorDetailAfterChanges.body.review.history.some((event) => event.action === 'request_changes'),
+  );
 
   const metadataUpdateResponse = await requestJson(context, {
     method: 'PATCH',
@@ -190,6 +201,12 @@ test('review changes and rejection workflow keeps contributor resubmission path 
   assert.equal(contributorDetailAfterReject.body.permissions.canEditMetadata, false);
   assert.equal(contributorDetailAfterReject.body.permissions.canEditStyles, false);
   assert.equal(contributorDetailAfterReject.body.permissions.canSubmitForReview, false);
+  assert.equal(contributorDetailAfterReject.body.review.latestContributorFeedback.action, 'rejected');
+  assert.match(
+    contributorDetailAfterReject.body.review.latestContributorFeedback.notes,
+    /Rejected by automated workflow test/i,
+  );
+  assert.ok(contributorDetailAfterReject.body.review.history.length >= 3);
 
   const reviewDetailAfterReject = await requestJson(context, {
     method: 'GET',
