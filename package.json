@@ -16,6 +16,7 @@
     "start:backend": "npm run start --workspace @fonthabesha/backend",
     "start:worker": "npm run start:worker --workspace @fonthabesha/backend",
     "seed:backend": "npm run db:seed --workspace @fonthabesha/backend",
+    "prisma:migrate:deploy:backend": "npm run prisma:migrate:deploy --workspace @fonthabesha/backend",
     "prisma:generate:backend": "npm run prisma:generate --workspace @fonthabesha/backend",
     "prisma:validate:backend": "npm run prisma:validate --workspace @fonthabesha/backend"
   },

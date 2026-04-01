@@ -96,7 +96,7 @@ jobs:
       - run: npm ci
       - run: npm run prisma:generate:backend
       - run: npm run prisma:validate:backend
-      - run: npx prisma migrate deploy --schema backend/prisma/schema.prisma
+      - run: npm run prisma:migrate:deploy:backend
       - run: npm run seed:backend
       - run: npm run build:backend
       - run: npm test --workspace @fonthabesha/backend

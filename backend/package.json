@@ -12,6 +12,7 @@
     "start": "node dist/src/main.js",
     "start:dev": "npm run build && node dist/src/main.js",
     "start:worker": "MAIL_QUEUE_CONSUMER_ENABLED=true node dist/src/worker.js",
+    "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
     "test": "npm run build && node --test --test-concurrency=1 test/**/*.test.js"
