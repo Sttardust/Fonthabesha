@@ -69,8 +69,11 @@ Useful commands:
 - set `MAIL_QUEUE_ENABLED=false` when you want auth mail to bypass the queue for deterministic local tests
 - set `MAIL_QUEUE_CONSUMER_ENABLED=true` only on the worker process that should consume queued mail jobs
 - set `BACKGROUND_JOB_CONSUMER_ENABLED=true` only on the worker process that should consume non-auth jobs like search sync and family package warmup
+- set `FONT_PROCESSING_CONSUMER_ENABLED=true` only on the worker process that should consume queued font-processing jobs
 - set `BACKGROUND_JOB_QUEUE_ENABLED=false` when you want non-auth background work to stay inline
+- set `FONT_PROCESSING_QUEUE_ENABLED=false` when you want upload analysis to stay inline instead of using Redis
 - contributor uploads are constrained by file type, file count, size, and per-hour upload limits through the backend env settings
+- contributor upload completion now transitions submissions through `processing` until the worker finishes analysis
 - set `ALLOW_DEV_HEADER_AUTH=false` to disable the `x-user-email` development auth fallback; production should not rely on that header
 - backend auth routes are rate limited for registration, login, verification email requests, and password reset requests
 - repeated failed logins now trigger temporary account and network lockouts on the backend

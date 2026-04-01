@@ -28,6 +28,8 @@ export interface AppEnvironment {
   MAIL_QUEUE_CONSUMER_ENABLED: boolean;
   BACKGROUND_JOB_QUEUE_ENABLED: boolean;
   BACKGROUND_JOB_CONSUMER_ENABLED: boolean;
+  FONT_PROCESSING_QUEUE_ENABLED: boolean;
+  FONT_PROCESSING_CONSUMER_ENABLED: boolean;
   FONT_UPLOAD_MAX_BYTES: number;
   FONT_UPLOAD_MAX_FILES_PER_SUBMISSION: number;
   FONT_UPLOAD_INIT_LIMIT_PER_HOUR: number;
@@ -137,6 +139,12 @@ export function validateEnvironment(env: RawEnvironment): AppEnvironment {
     BACKGROUND_JOB_CONSUMER_ENABLED: getOptionalBoolean(
       env,
       'BACKGROUND_JOB_CONSUMER_ENABLED',
+      false,
+    ),
+    FONT_PROCESSING_QUEUE_ENABLED: getOptionalBoolean(env, 'FONT_PROCESSING_QUEUE_ENABLED', true),
+    FONT_PROCESSING_CONSUMER_ENABLED: getOptionalBoolean(
+      env,
+      'FONT_PROCESSING_CONSUMER_ENABLED',
       false,
     ),
     FONT_UPLOAD_MAX_BYTES: getPositiveInteger(env, 'FONT_UPLOAD_MAX_BYTES', 25 * 1024 * 1024),

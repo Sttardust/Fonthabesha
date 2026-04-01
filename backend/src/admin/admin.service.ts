@@ -16,10 +16,10 @@ import type { AuthenticatedRequest } from '../auth/auth-request';
 import { BackgroundJobsService } from '../background-jobs/background-jobs.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SearchIndexService } from '../search/search-index.service';
-import { FontInspectionService } from '../uploads/font-inspection.service';
-import { UploadsPolicyService } from '../uploads/uploads-policy.service';
-import { FontStyleSyncService } from '../uploads/font-style-sync.service';
 import { S3StorageService } from '../uploads/s3-storage.service';
+import { summarizeUploadProcessingState } from '../uploads/upload-processing-state';
+import { UploadProcessingService } from '../uploads/upload-processing.service';
+import { UploadsPolicyService } from '../uploads/uploads-policy.service';
 import { AuthAuditQueryDto } from './dto/auth-audit-query.dto';
 import { AuthSessionQueryDto } from './dto/auth-session-query.dto';
 import { ReviewDecisionDto } from './dto/review-decision.dto';
@@ -32,8 +32,7 @@ export class AdminService {
     private readonly authRateLimitService: AuthRateLimitService,
     private readonly backgroundJobs: BackgroundJobsService,
     private readonly searchIndex: SearchIndexService,
-    private readonly fontInspection: FontInspectionService,
-    private readonly fontStyleSync: FontStyleSyncService,
+    private readonly uploadProcessingService: UploadProcessingService,
     private readonly uploadsPolicy: UploadsPolicyService,
     private readonly storageService: S3StorageService,
   ) {}
@@ -728,13 +727,9 @@ export class AdminService {
       throw new NotFoundException('Submission not found');
     }
 
-    const processingStatus = submission.uploads.some((upload) => upload.processingStatus === 'failed')
-      ? 'failed'
-      : submission.uploads.every((upload) => upload.processingStatus === 'completed')
-        ? 'completed'
-        : submission.uploads.some((upload) => upload.processingStatus === 'processing')
-          ? 'processing'
-          : 'queued';
+    const processingStatus = summarizeUploadProcessingState(
+      submission.uploads.map((upload) => upload.processingStatus),
+    );
     const processingWarnings = submission.uploads.flatMap(
       (upload) => (upload.processingWarningsJson as unknown[] | null) ?? [],
     );
@@ -924,51 +919,10 @@ export class AdminService {
     const { uploadId, storageKey } = this.storageService.createRawUploadKey(submission.id, file.originalname);
     const sha256 = createHash('sha256').update(file.buffer).digest('hex');
     const now = new Date();
-    let inspection: ReturnType<FontInspectionService['inspectFont']>;
-
-    try {
-      inspection = this.fontInspection.inspectFont(file.buffer, file.originalname);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-
-      await this.prisma.$transaction([
-        this.prisma.submission.update({
-          where: {
-            id: submission.id,
-          },
-          data: {
-            status: 'processing_failed',
-            lastActionAt: now,
-          },
-        }),
-        this.prisma.reviewEvent.create({
-          data: {
-            submissionId: submission.id,
-            familyId: submission.familyId,
-            actorUserId: actor.id,
-            action: ReviewAction.processing_failed,
-            notes: `Admin direct upload failed inspection: ${message}`,
-          },
-        }),
-      ]);
-
-      throw new BadRequestException(`Uploaded file could not be parsed as a font: ${message}`);
-    }
 
     await this.storageService.putRawObject(storageKey, file.buffer, file.mimetype);
 
-    const nextStatus = 'needs_review';
-    const styleSync = await this.fontStyleSync.syncFromInspection({
-      familyId: submission.familyId,
-      storageKey,
-      originalFilename: file.originalname,
-      fileSizeBytes: BigInt(file.size),
-      sha256,
-      inspection,
-    });
-    const warnings = [...inspection.warnings, ...styleSync.warnings];
-
-    const [createdUpload] = await this.prisma.$transaction([
+    await this.prisma.$transaction([
       this.prisma.upload.create({
         data: {
           id: uploadId,
@@ -980,11 +934,7 @@ export class AdminService {
           mimeType: file.mimetype,
           fileSizeBytes: BigInt(file.size),
           sha256,
-          metadataJson: inspection.metadata,
-          processingWarningsJson: warnings,
-          processingStatus: 'completed',
-          processingError: null,
-          processedAt: now,
+          processingStatus: 'queued',
         },
       }),
       this.prisma.submission.update({
@@ -992,7 +942,7 @@ export class AdminService {
           id: submission.id,
         },
         data: {
-          status: nextStatus,
+          status: 'processing',
           lastActionAt: now,
         },
       }),
@@ -1011,22 +961,35 @@ export class AdminService {
       }),
     ]);
 
+    const processed = await this.uploadProcessingService.processUpload({
+      uploadId,
+      successSubmissionStatus: 'needs_review',
+      actorUserId: actor.id,
+      failureNotesPrefix: 'Admin direct upload failed inspection',
+    });
+
+    if (processed.upload.processingStatus === 'failed') {
+      throw new BadRequestException(
+        `Uploaded file could not be parsed as a font: ${processed.upload.processingError}`,
+      );
+    }
+
     return {
       submission: {
         id: submission.id,
-        status: nextStatus,
+        status: processed.submission.status,
         family: submission.family,
       },
       upload: {
-        id: createdUpload.id,
-        originalFilename: createdUpload.originalFilename,
-        storageKey: createdUpload.storageKey,
-        mimeType: createdUpload.mimeType,
-        fileSizeBytes: Number(createdUpload.fileSizeBytes ?? 0n),
-        sha256: createdUpload.sha256,
-        metadata: createdUpload.metadataJson,
-        warnings: createdUpload.processingWarningsJson,
-        styleId: styleSync.styleId,
+        id: processed.upload.id,
+        originalFilename: file.originalname,
+        storageKey,
+        mimeType: processed.upload.mimeType,
+        fileSizeBytes: processed.upload.fileSizeBytes,
+        sha256: processed.upload.sha256,
+        metadata: processed.upload.metadata,
+        warnings: processed.upload.warnings,
+        styleId: processed.upload.styleId,
       },
     };
   }

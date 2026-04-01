@@ -11,6 +11,7 @@ import { SubmissionStatus, UserRole } from '@prisma/client';
 import { AuthContextService } from '../auth/auth-context.service';
 import type { AuthenticatedRequest } from '../auth/auth-request';
 import { PrismaService } from '../prisma/prisma.service';
+import { summarizeUploadProcessingState } from '../uploads/upload-processing-state';
 import { CreateSubmissionDto } from './dto/create-submission.dto';
 import { UpdateSubmissionMetadataDto } from './dto/update-submission-metadata.dto';
 import { UpdateSubmissionStyleDto } from './dto/update-submission-style.dto';
@@ -77,8 +78,15 @@ export class SubmissionsService {
 
   async getContributorSubmissionDetail(request: AuthenticatedRequest, submissionId: string) {
     const submission = await this.getOwnedSubmissionWithDetails(request, submissionId);
+    const uploadStatuses = submission.uploads.map((upload) => upload.processingStatus);
     const completedUploadCount = submission.uploads.filter(
       (upload) => upload.processingStatus === 'completed',
+    ).length;
+    const queuedUploadCount = submission.uploads.filter(
+      (upload) => upload.processingStatus === 'queued',
+    ).length;
+    const processingUploadCount = submission.uploads.filter(
+      (upload) => upload.processingStatus === 'processing',
     ).length;
     const processingWarnings = submission.uploads.flatMap(
       (upload) => (upload.processingWarningsJson as unknown[] | null) ?? [],
@@ -137,7 +145,10 @@ export class SubmissionsService {
         status: style.status,
       })),
       analysis: {
+        status: summarizeUploadProcessingState(uploadStatuses),
         completedUploadCount,
+        queuedUploadCount,
+        processingUploadCount,
         processingWarnings,
         blockingIssues,
       },

@@ -3,15 +3,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ReviewAction, UserRole } from '@prisma/client';
+import { UserRole } from '@prisma/client';
 
 import { AuthContextService } from '../auth/auth-context.service';
 import type { AuthenticatedRequest } from '../auth/auth-request';
 import { PrismaService } from '../prisma/prisma.service';
 import { CompleteUploadDto } from './dto/complete-upload.dto';
-import { FontInspectionService } from './font-inspection.service';
-import { FontStyleSyncService } from './font-style-sync.service';
 import { InitUploadDto } from './dto/init-upload.dto';
+import { UploadProcessingQueueService } from './upload-processing-queue.service';
 import { UploadsPolicyService } from './uploads-policy.service';
 import { S3StorageService } from './s3-storage.service';
 
@@ -20,8 +19,7 @@ export class UploadsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly authContext: AuthContextService,
-    private readonly fontInspection: FontInspectionService,
-    private readonly fontStyleSync: FontStyleSyncService,
+    private readonly uploadProcessingQueue: UploadProcessingQueueService,
     private readonly uploadsPolicy: UploadsPolicyService,
     private readonly storageService: S3StorageService,
   ) {}
@@ -126,123 +124,62 @@ export class UploadsService {
     }
 
     const objectMetadata = await this.storageService.getRawObjectMetadata(upload.storageKey);
-    const objectBuffer = await this.storageService.getRawObjectBuffer(upload.storageKey);
     this.uploadsPolicy.validateStoredUpload({
       filename: upload.originalFilename,
       contentType: objectMetadata.contentType,
       contentLength: objectMetadata.contentLength,
     });
+    const now = new Date();
+    const normalizedSha = payload.sha256?.toLowerCase() ?? null;
 
-    try {
-      const inspection = this.fontInspection.inspectFont(objectBuffer, upload.originalFilename);
-      const styleSync = await this.fontStyleSync.syncFromInspection({
-        familyId: upload.familyId,
-        storageKey: upload.storageKey,
-        originalFilename: upload.originalFilename,
-        fileSizeBytes: BigInt(objectMetadata.contentLength),
-        sha256: payload.sha256?.toLowerCase() ?? null,
-        inspection,
-      });
-      const warnings = [...inspection.warnings, ...styleSync.warnings];
-
-      const [, updatedUpload] = await this.prisma.$transaction([
-        this.prisma.submission.update({
-          where: {
-            id: upload.submissionId,
-          },
-          data: {
-            status: 'ready_for_submission',
-            lastActionAt: new Date(),
-          },
-        }),
-        this.prisma.upload.update({
-          where: {
-            id: upload.id,
-          },
-          data: {
-            fileSizeBytes: BigInt(objectMetadata.contentLength),
-            mimeType: objectMetadata.contentType,
-            sha256: payload.sha256?.toLowerCase() ?? null,
-            metadataJson: inspection.metadata,
-            processingWarningsJson: warnings,
-            processingStatus: 'completed',
-            processingError: null,
-            processedAt: new Date(),
-          },
-        }),
-      ]);
-
-      return {
-        upload: {
-          id: updatedUpload.id,
-          processingStatus: updatedUpload.processingStatus,
-          fileSizeBytes: Number(updatedUpload.fileSizeBytes ?? 0n),
-          mimeType: updatedUpload.mimeType,
-          sha256: updatedUpload.sha256,
-          metadata: updatedUpload.metadataJson,
-          warnings: updatedUpload.processingWarningsJson,
-          styleId: styleSync.styleId,
-        },
-        submission: {
+    await this.prisma.$transaction([
+      this.prisma.submission.update({
+        where: {
           id: upload.submissionId,
-          status: 'ready_for_submission',
         },
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const now = new Date();
+        data: {
+          status: 'processing',
+          lastActionAt: now,
+        },
+      }),
+      this.prisma.upload.update({
+        where: {
+          id: upload.id,
+        },
+        data: {
+          fileSizeBytes: BigInt(objectMetadata.contentLength),
+          mimeType: objectMetadata.contentType,
+          sha256: normalizedSha,
+          processingStatus: 'queued',
+          processingError: null,
+          processedAt: null,
+        },
+      }),
+    ]);
 
-      const [, failedUpload] = await this.prisma.$transaction([
-        this.prisma.submission.update({
-          where: {
-            id: upload.submissionId,
-          },
-          data: {
-            status: 'processing_failed',
-            lastActionAt: now,
-          },
-        }),
-        this.prisma.upload.update({
-          where: {
-            id: upload.id,
-          },
-          data: {
-            fileSizeBytes: BigInt(objectMetadata.contentLength),
-            mimeType: objectMetadata.contentType,
-            sha256: payload.sha256?.toLowerCase() ?? null,
-            processingStatus: 'failed',
-            processingError: message,
-            processedAt: now,
-          },
-        }),
-        this.prisma.reviewEvent.create({
-          data: {
-            submissionId: upload.submissionId,
-            familyId: upload.familyId,
-            actorUserId: user.id,
-            action: ReviewAction.processing_failed,
-            notes: `Automatic font inspection failed: ${message}`,
-            metadataJson: {
-              uploadId: upload.id,
-            },
-          },
-        }),
-      ]);
+    const scheduled = await this.uploadProcessingQueue.scheduleUploadProcessing({
+      uploadId: upload.id,
+      successSubmissionStatus: 'ready_for_submission',
+      actorUserId: user.id,
+      failureNotesPrefix: 'Automatic font inspection failed',
+    });
 
-      return {
-        upload: {
-          id: failedUpload.id,
-          processingStatus: failedUpload.processingStatus,
-          fileSizeBytes: Number(failedUpload.fileSizeBytes ?? 0n),
-          mimeType: failedUpload.mimeType,
-          sha256: failedUpload.sha256,
-          processingError: failedUpload.processingError,
-        },
-        submission: {
-          id: upload.submissionId,
-          status: 'processing_failed',
-        },
-      };
+    if (!scheduled.queued) {
+      return scheduled.result;
     }
+
+    return {
+      upload: {
+        id: upload.id,
+        processingStatus: 'queued',
+        fileSizeBytes: objectMetadata.contentLength,
+        mimeType: objectMetadata.contentType,
+        sha256: normalizedSha,
+      },
+      submission: {
+        id: upload.submissionId,
+        status: 'processing',
+      },
+    };
   }
 }

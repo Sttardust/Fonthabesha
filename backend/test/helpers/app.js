@@ -36,6 +36,7 @@ async function ensureStorageBuckets() {
 async function createTestContext(envOverrides = {}) {
   process.env.MAIL_QUEUE_ENABLED = 'false';
   process.env.BACKGROUND_JOB_QUEUE_ENABLED = 'false';
+  process.env.FONT_PROCESSING_QUEUE_ENABLED = 'false';
   Object.entries(envOverrides).forEach(([key, value]) => {
     process.env[key] = String(value);
   });
