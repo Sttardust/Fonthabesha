@@ -23,6 +23,7 @@ import { UploadProcessingService } from '../uploads/upload-processing.service';
 import { UploadsPolicyService } from '../uploads/uploads-policy.service';
 import { AuthAuditQueryDto } from './dto/auth-audit-query.dto';
 import { AuthSessionQueryDto } from './dto/auth-session-query.dto';
+import { ReviewAnalyticsQueryDto } from './dto/review-analytics-query.dto';
 import { ReviewDecisionDto, ReviewDecisionIssueDto } from './dto/review-decision.dto';
 import { ReviewHistoryQueryDto } from './dto/review-history-query.dto';
 
@@ -617,6 +618,187 @@ export class AdminService {
         approved7d,
         rejected7d,
       },
+    };
+  }
+
+  async getReviewAnalytics(request: AuthenticatedRequest, query: ReviewAnalyticsQueryDto) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
+
+    const to = query.to ? new Date(query.to) : new Date();
+    const from = query.from ? new Date(query.from) : new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+      throw new BadRequestException('Invalid analytics date range');
+    }
+
+    if (from > to) {
+      throw new BadRequestException('from must be earlier than or equal to to');
+    }
+
+    const [needsReview, processingFailed, changesRequested, eventCounts, reviewedSubmissions, activityEvents] =
+      await Promise.all([
+        this.prisma.submission.count({ where: { status: 'needs_review' } }),
+        this.prisma.submission.count({ where: { status: 'processing_failed' } }),
+        this.prisma.submission.count({ where: { status: 'changes_requested' } }),
+        this.prisma.reviewEvent.groupBy({
+          by: ['action'],
+          where: {
+            createdAt: {
+              gte: from,
+              lte: to,
+            },
+            action: {
+              in: ['submitted', 'approved', 'rejected', 'request_changes', 'processing_failed', 'reprocessed'],
+            },
+          },
+          _count: {
+            _all: true,
+          },
+        }),
+        this.prisma.submission.findMany({
+          where: {
+            reviewedAt: {
+              gte: from,
+              lte: to,
+            },
+            submittedAt: {
+              not: null,
+            },
+            status: {
+              in: ['approved', 'rejected', 'changes_requested'],
+            },
+          },
+          select: {
+            status: true,
+            submittedAt: true,
+            reviewedAt: true,
+          },
+        }),
+        this.prisma.reviewEvent.findMany({
+          where: {
+            createdAt: {
+              gte: from,
+              lte: to,
+            },
+            action: {
+              in: ['submitted', 'approved', 'rejected', 'request_changes', 'processing_failed', 'reprocessed'],
+            },
+          },
+          select: {
+            id: true,
+            action: true,
+            notes: true,
+            metadataJson: true,
+            createdAt: true,
+          },
+          orderBy: {
+            createdAt: 'asc',
+          },
+        }),
+      ]);
+
+    const actionCounts = this.initializeEnumCounts(ReviewAction);
+
+    eventCounts.forEach((entry) => {
+      actionCounts[entry.action] = entry._count._all;
+    });
+
+    const turnaroundHours = reviewedSubmissions
+      .map((submission) => {
+        if (!submission.submittedAt || !submission.reviewedAt) {
+          return null;
+        }
+
+        return {
+          status: submission.status,
+          hours:
+            (submission.reviewedAt.getTime() - submission.submittedAt.getTime()) / (60 * 60 * 1000),
+        };
+      })
+      .filter((submission): submission is { status: SubmissionStatus; hours: number } => Boolean(submission));
+
+    const issueCounts = new Map<string, number>();
+    const dailyActivity = new Map<string, ReturnType<AdminService['createEmptyReviewActionCountBucket']>>();
+
+    activityEvents.forEach((event) => {
+      const presented = presentReviewHistoryEvent({
+        id: event.id,
+        action: event.action,
+        notes: event.notes,
+        metadataJson: event.metadataJson,
+        createdAt: event.createdAt,
+        actor: null,
+      });
+      const dayKey = this.formatAnalyticsDay(event.createdAt, query.timezone);
+      const bucket = dailyActivity.get(dayKey) ?? this.createEmptyReviewActionCountBucket();
+      bucket[event.action] = (bucket[event.action] ?? 0) + 1;
+      dailyActivity.set(dayKey, bucket);
+
+      const issueCodes =
+        presented.issues.length > 0
+          ? presented.issues.map((issue) => issue.issueCode).filter((value): value is string => Boolean(value))
+          : presented.issueCode
+            ? [presented.issueCode]
+            : [];
+
+      issueCodes.forEach((issueCode) => {
+        issueCounts.set(issueCode, (issueCounts.get(issueCode) ?? 0) + 1);
+      });
+    });
+
+    return {
+      filters: {
+        from: from.toISOString(),
+        to: to.toISOString(),
+        timezone: query.timezone ?? 'UTC',
+      },
+      queue: {
+        needsReview,
+        processingFailed,
+        changesRequested,
+      },
+      totals: {
+        submitted: actionCounts.submitted,
+        approved: actionCounts.approved,
+        rejected: actionCounts.rejected,
+        requestChanges: actionCounts.request_changes,
+        processingFailed: actionCounts.processing_failed,
+        reprocessed: actionCounts.reprocessed,
+      },
+      turnaround: {
+        reviewedSubmissionCount: turnaroundHours.length,
+        averageHours:
+          turnaroundHours.length > 0
+            ? Number(
+                (
+                  turnaroundHours.reduce((sum, item) => sum + item.hours, 0) / turnaroundHours.length
+                ).toFixed(2),
+              )
+            : null,
+        averageHoursByDecision: ['approved', 'rejected', 'changes_requested'].reduce<
+          Record<string, number | null>
+        >((accumulator, status) => {
+          const matching = turnaroundHours.filter((item) => item.status === status);
+          accumulator[status] =
+            matching.length > 0
+              ? Number((matching.reduce((sum, item) => sum + item.hours, 0) / matching.length).toFixed(2))
+              : null;
+          return accumulator;
+        }, {}),
+      },
+      topIssueCodes: [...issueCounts.entries()]
+        .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+        .slice(0, 10)
+        .map(([issueCode, count]) => ({
+          issueCode,
+          count,
+        })),
+      dailyActivity: [...dailyActivity.entries()]
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([date, counts]) => ({
+          date,
+          counts,
+        })),
     };
   }
 
@@ -1530,5 +1712,29 @@ export class AdminService {
     }
 
     return normalizedIssues;
+  }
+
+  private formatAnalyticsDay(date: Date, timezone?: string): string {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone || 'UTC',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+
+    return formatter.format(date);
+  }
+
+  private createEmptyReviewActionCountBucket() {
+    return {
+      submitted: 0,
+      metadata_updated: 0,
+      archived: 0,
+      approved: 0,
+      rejected: 0,
+      request_changes: 0,
+      processing_failed: 0,
+      reprocessed: 0,
+    };
   }
 }

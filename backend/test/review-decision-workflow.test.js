@@ -21,6 +21,7 @@ after(async () => {
 });
 
 test('review changes and rejection workflow keeps contributor resubmission path correct', async () => {
+  const analyticsFrom = new Date().toISOString();
   const contributorEmail = uniqueEmail('review-flow');
   const contributorPassword = 'ContributorPass123!';
   const fontBuffer = buildTestFontBuffer();
@@ -349,6 +350,31 @@ test('review changes and rejection workflow keeps contributor resubmission path 
   assert.equal(filteredHistoryResponse.body.items[0].action, 'request_changes');
   assert.equal(filteredHistoryResponse.body.items[0].issues.length, 2);
   assert.equal(filteredHistoryResponse.body.items[0].issueCode, 'spacing_consistency');
+
+  const analyticsResponse = await requestJson(context, {
+    method: 'GET',
+    path: '/api/v1/admin/reviews/analytics',
+    headers: {
+      'x-user-email': 'admin@fonthabesha.local',
+    },
+    query: {
+      from: analyticsFrom,
+      timezone: 'Africa/Addis_Ababa',
+    },
+  });
+  assert.equal(analyticsResponse.status, 200);
+  assert.ok(analyticsResponse.body.queue.needsReview >= 0);
+  assert.ok(analyticsResponse.body.queue.changesRequested >= 0);
+  assert.equal(analyticsResponse.body.totals.submitted, 2);
+  assert.equal(analyticsResponse.body.totals.requestChanges, 1);
+  assert.equal(analyticsResponse.body.totals.rejected, 1);
+  assert.equal(analyticsResponse.body.turnaround.reviewedSubmissionCount, 1);
+  assert.ok(analyticsResponse.body.dailyActivity.length >= 1);
+  assert.ok(
+    analyticsResponse.body.topIssueCodes.some(
+      (entry) => entry.issueCode === 'spacing_consistency' && entry.count === 1,
+    ),
+  );
 
   const rejectedResubmitResponse = await requestJson(context, {
     method: 'POST',
