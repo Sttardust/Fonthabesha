@@ -117,9 +117,20 @@ export class SubmissionsService {
     const latestContributorFeedback = [...reviewHistory]
       .reverse()
       .find((event) => ['request_changes', 'rejected', 'processing_failed'].includes(event.action));
+    const latestActionableFeedback = [...reviewHistory]
+      .reverse()
+      .find((event) => ['request_changes', 'processing_failed'].includes(event.action));
     const reviewActionItems = this.buildContributorReviewActionItems(
       submission.status,
       latestContributorFeedback,
+      submission.uploads,
+      submission.family.styles,
+    );
+    const issueResolutions = this.buildContributorIssueResolutions(
+      submission.status,
+      latestContributorFeedback,
+      latestActionableFeedback,
+      reviewHistory,
       submission.uploads,
       submission.family.styles,
     );
@@ -181,6 +192,7 @@ export class SubmissionsService {
       review: {
         actionRequired: reviewActionItems.length > 0,
         actionItems: reviewActionItems,
+        issueResolutions,
         latestContributorFeedback: latestContributorFeedback ?? null,
         history: reviewHistory,
       },
@@ -775,6 +787,84 @@ export class SubmissionsService {
           ];
 
     return actionItems;
+  }
+
+  private buildContributorIssueResolutions(
+    status: SubmissionStatus,
+    latestContributorFeedback:
+      | ReturnType<typeof presentReviewHistoryEvent>
+      | null
+      | undefined,
+    latestActionableFeedback:
+      | ReturnType<typeof presentReviewHistoryEvent>
+      | null
+      | undefined,
+    reviewHistory: Array<ReturnType<typeof presentReviewHistoryEvent>>,
+    uploads: Array<{
+      id: string;
+      originalFilename: string;
+      processingStatus: string;
+    }>,
+    styles: Array<{
+      id: string;
+      name: string;
+      slug: string;
+      weightClass: number | null;
+      weightLabel: string | null;
+      isItalic: boolean;
+      isDefault: boolean;
+    }>,
+  ) {
+    if (!latestActionableFeedback || latestContributorFeedback?.action === 'rejected') {
+      return [];
+    }
+
+    const uploadById = new Map(uploads.map((upload) => [upload.id, upload]));
+    const styleById = new Map(styles.map((style) => [style.id, style]));
+    const laterResubmission = reviewHistory.find(
+      (event) =>
+        event.action === 'submitted' && event.createdAt.getTime() > latestActionableFeedback.createdAt.getTime(),
+    );
+    const resolutionStatus =
+      ['changes_requested', 'processing_failed'].includes(status) || !laterResubmission
+        ? 'open'
+        : 'resubmitted';
+    const issues =
+      latestActionableFeedback.issues.length > 0
+        ? latestActionableFeedback.issues
+        : [
+            {
+              issueCode: latestActionableFeedback.issueCode,
+              note: latestActionableFeedback.notes,
+              targetUploadId: latestActionableFeedback.targets[0]?.uploadId ?? null,
+              targetStyleId: latestActionableFeedback.targets[0]?.styleId ?? null,
+            },
+          ];
+
+    return issues.map((issue, index) => ({
+      id: `${latestActionableFeedback.id}:${index + 1}`,
+      sourceEventId: latestActionableFeedback.id,
+      sourceAction: latestActionableFeedback.action,
+      resolutionStatus,
+      resubmittedAt: laterResubmission?.createdAt ?? null,
+      issueCode: issue.issueCode,
+      note: issue.note ?? latestActionableFeedback.notes,
+      summary: this.buildContributorActionItemSummary(
+        issue.issueCode,
+        issue.note ?? latestActionableFeedback.notes,
+        issue.targetUploadId,
+        issue.targetStyleId,
+        uploadById,
+        styleById,
+      ),
+      createdAt: latestActionableFeedback.createdAt,
+      upload: issue.targetUploadId
+        ? this.presentContributorActionItemUpload(uploadById.get(issue.targetUploadId))
+        : null,
+      style: issue.targetStyleId
+        ? this.presentContributorActionItemStyle(styleById.get(issue.targetStyleId))
+        : null,
+    }));
   }
 
   private buildContributorActionItemSummary(

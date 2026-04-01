@@ -171,6 +171,11 @@ test('review changes and rejection workflow keeps contributor resubmission path 
   assert.equal(contributorDetailAfterChanges.body.permissions.canSubmitForReview, true);
   assert.equal(contributorDetailAfterChanges.body.review.actionRequired, true);
   assert.equal(contributorDetailAfterChanges.body.review.actionItems.length, 2);
+  assert.equal(contributorDetailAfterChanges.body.review.issueResolutions.length, 2);
+  assert.equal(
+    contributorDetailAfterChanges.body.review.issueResolutions[0].resolutionStatus,
+    'open',
+  );
   assert.equal(
     contributorDetailAfterChanges.body.review.actionItems[0].issueCode,
     'spacing_consistency',
@@ -253,6 +258,29 @@ test('review changes and rejection workflow keeps contributor resubmission path 
   assert.equal(secondSubmitResponse.status, 201);
   assert.equal(secondSubmitResponse.body.status, 'needs_review');
 
+  const contributorDetailAfterResubmit = await requestJson(context, {
+    method: 'GET',
+    path: `/api/v1/submissions/${submissionId}`,
+    headers: {
+      authorization: `Bearer ${contributorAccessToken}`,
+    },
+  });
+  assert.equal(contributorDetailAfterResubmit.status, 200);
+  assert.equal(contributorDetailAfterResubmit.body.status, 'needs_review');
+  assert.equal(contributorDetailAfterResubmit.body.review.actionRequired, false);
+  assert.equal(contributorDetailAfterResubmit.body.review.actionItems.length, 0);
+  assert.equal(contributorDetailAfterResubmit.body.review.issueResolutions.length, 2);
+  assert.equal(
+    contributorDetailAfterResubmit.body.review.issueResolutions[0].resolutionStatus,
+    'resubmitted',
+  );
+  assert.ok(contributorDetailAfterResubmit.body.review.issueResolutions[0].resubmittedAt);
+  assert.equal(
+    contributorDetailAfterResubmit.body.review.issueResolutions[0].upload.id,
+    initUploadResponse.body.uploadId,
+  );
+  assert.equal(contributorDetailAfterResubmit.body.review.issueResolutions[0].style.id, styleId);
+
   const rejectResponse = await requestJson(context, {
     method: 'POST',
     path: `/api/v1/admin/reviews/${submissionId}/reject`,
@@ -284,6 +312,7 @@ test('review changes and rejection workflow keeps contributor resubmission path 
   assert.equal(contributorDetailAfterReject.body.permissions.canSubmitForReview, false);
   assert.equal(contributorDetailAfterReject.body.review.actionRequired, false);
   assert.equal(contributorDetailAfterReject.body.review.actionItems.length, 0);
+  assert.equal(contributorDetailAfterReject.body.review.issueResolutions.length, 0);
   assert.equal(contributorDetailAfterReject.body.review.latestContributorFeedback.action, 'rejected');
   assert.match(
     contributorDetailAfterReject.body.review.latestContributorFeedback.notes,
