@@ -16,6 +16,7 @@ import type { AuthenticatedRequest } from '../auth/auth-request';
 import { BackgroundJobsService } from '../background-jobs/background-jobs.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SearchIndexService } from '../search/search-index.service';
+import { presentReviewHistoryEvent } from '../shared/review-history';
 import { S3StorageService } from '../uploads/s3-storage.service';
 import { summarizeUploadProcessingState } from '../uploads/upload-processing-state';
 import { UploadProcessingService } from '../uploads/upload-processing.service';
@@ -820,7 +821,23 @@ export class AdminService {
         processedAt: upload.processedAt,
         uploader: upload.uploader,
       })),
-      reviewHistory: submission.reviewEvents,
+      reviewHistory: submission.reviewEvents.map((event) =>
+        presentReviewHistoryEvent({
+          id: event.id,
+          action: event.action,
+          notes: event.notes,
+          metadataJson: event.metadataJson,
+          createdAt: event.createdAt,
+          actor: event.actorUser
+            ? {
+                id: event.actorUser.id,
+                displayName: event.actorUser.displayName,
+                email: event.actorUser.email,
+                role: event.actorUser.role,
+              }
+            : null,
+        }),
+      ),
       permissions: {
         canApprove: submission.status === 'needs_review',
         canReject: submission.status === 'needs_review',

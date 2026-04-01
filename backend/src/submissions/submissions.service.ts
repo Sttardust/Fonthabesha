@@ -11,6 +11,7 @@ import { SubmissionStatus, UserRole } from '@prisma/client';
 import { AuthContextService } from '../auth/auth-context.service';
 import type { AuthenticatedRequest } from '../auth/auth-request';
 import { PrismaService } from '../prisma/prisma.service';
+import { presentReviewHistoryEvent } from '../shared/review-history';
 import { summarizeUploadProcessingState } from '../uploads/upload-processing-state';
 import { CreateSubmissionDto } from './dto/create-submission.dto';
 import { UpdateSubmissionMetadataDto } from './dto/update-submission-metadata.dto';
@@ -97,20 +98,22 @@ export class SubmissionsService {
         uploadId: upload.id,
         message: upload.processingError,
       }));
-    const reviewHistory = submission.reviewEvents.map((event) => ({
-      id: event.id,
-      action: event.action,
-      notes: event.notes,
-      metadata: event.metadataJson,
-      createdAt: event.createdAt,
-      actor: event.actorUser
-        ? {
-            id: event.actorUser.id,
-            displayName: event.actorUser.displayName,
-            role: event.actorUser.role,
-          }
-        : null,
-    }));
+    const reviewHistory = submission.reviewEvents.map((event) =>
+      presentReviewHistoryEvent({
+        id: event.id,
+        action: event.action,
+        notes: event.notes,
+        metadataJson: event.metadataJson,
+        createdAt: event.createdAt,
+        actor: event.actorUser
+          ? {
+              id: event.actorUser.id,
+              displayName: event.actorUser.displayName,
+              role: event.actorUser.role,
+            }
+          : null,
+      }),
+    );
     const latestContributorFeedback = [...reviewHistory]
       .reverse()
       .find((event) => ['request_changes', 'rejected', 'processing_failed'].includes(event.action));

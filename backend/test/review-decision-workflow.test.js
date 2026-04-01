@@ -177,6 +177,15 @@ test('review changes and rejection workflow keeps contributor resubmission path 
     contributorDetailAfterChanges.body.review.latestContributorFeedback.metadata.issueCode,
     'spacing_consistency',
   );
+  assert.equal(contributorDetailAfterChanges.body.review.latestContributorFeedback.kind, 'feedback');
+  assert.equal(
+    contributorDetailAfterChanges.body.review.latestContributorFeedback.targets[0].uploadId,
+    initUploadResponse.body.uploadId,
+  );
+  assert.equal(
+    contributorDetailAfterChanges.body.review.latestContributorFeedback.targets[0].styleId,
+    styleId,
+  );
   assert.ok(
     contributorDetailAfterChanges.body.review.history.some((event) => event.action === 'request_changes'),
   );
@@ -261,15 +270,21 @@ test('review changes and rejection workflow keeps contributor resubmission path 
     (event) => event.action === 'request_changes',
   );
   assert.ok(requestChangesEvent);
-  assert.equal(requestChangesEvent.metadataJson.targetUploadId, initUploadResponse.body.uploadId);
-  assert.equal(requestChangesEvent.metadataJson.targetStyleId, styleId);
-  assert.equal(requestChangesEvent.metadataJson.issueCode, 'spacing_consistency');
+  assert.equal(requestChangesEvent.kind, 'feedback');
+  assert.equal(requestChangesEvent.metadata.targetUploadId, initUploadResponse.body.uploadId);
+  assert.equal(requestChangesEvent.metadata.targetStyleId, styleId);
+  assert.equal(requestChangesEvent.metadata.issueCode, 'spacing_consistency');
+  assert.equal(requestChangesEvent.targets[0].uploadId, initUploadResponse.body.uploadId);
+  assert.equal(requestChangesEvent.targets[0].styleId, styleId);
+  assert.match(requestChangesEvent.summary, /spacing_consistency/i);
   const rejectedEvent = reviewDetailAfterReject.body.reviewHistory.find(
     (event) => event.action === 'rejected',
   );
   assert.ok(rejectedEvent);
-  assert.equal(rejectedEvent.metadataJson.targetStyleId, styleId);
-  assert.equal(rejectedEvent.metadataJson.issueCode, 'license_review_failed');
+  assert.equal(rejectedEvent.kind, 'decision');
+  assert.equal(rejectedEvent.metadata.targetStyleId, styleId);
+  assert.equal(rejectedEvent.metadata.issueCode, 'license_review_failed');
+  assert.equal(rejectedEvent.targets[0].styleId, styleId);
 
   const rejectedResubmitResponse = await requestJson(context, {
     method: 'POST',
