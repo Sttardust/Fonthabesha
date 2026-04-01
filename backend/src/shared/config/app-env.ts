@@ -25,6 +25,7 @@ export interface AppEnvironment {
   MAIL_FROM_EMAIL?: string;
   MAIL_REPLY_TO_EMAIL?: string;
   MAIL_QUEUE_ENABLED: boolean;
+  ALLOW_DEV_HEADER_AUTH: boolean;
 }
 
 function getRequiredString(env: RawEnvironment, key: keyof AppEnvironment, fallback?: string): string {
@@ -109,5 +110,10 @@ export function validateEnvironment(env: RawEnvironment): AppEnvironment {
     MAIL_FROM_EMAIL: getOptionalString(env, 'MAIL_FROM_EMAIL'),
     MAIL_REPLY_TO_EMAIL: getOptionalString(env, 'MAIL_REPLY_TO_EMAIL'),
     MAIL_QUEUE_ENABLED: getOptionalBoolean(env, 'MAIL_QUEUE_ENABLED', true),
+    ALLOW_DEV_HEADER_AUTH: getOptionalBoolean(
+      env,
+      'ALLOW_DEV_HEADER_AUTH',
+      getRequiredString(env, 'NODE_ENV', 'development') !== 'production',
+    ),
   };
 }
