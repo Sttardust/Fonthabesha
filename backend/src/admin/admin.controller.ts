@@ -16,6 +16,7 @@ import { ReviewDecisionDto } from './dto/review-decision.dto';
 import { AdminService } from './admin.service';
 import { AuthAuditQueryDto } from './dto/auth-audit-query.dto';
 import { AuthSessionQueryDto } from './dto/auth-session-query.dto';
+import { ReviewHistoryQueryDto } from './dto/review-history-query.dto';
 
 @Controller('admin')
 export class AdminController {
@@ -69,6 +70,15 @@ export class AdminController {
   @Get('reviews/:submissionId')
   getReviewDetail(@Req() request: AuthenticatedRequest, @Param('submissionId') submissionId: string) {
     return this.adminService.getReviewDetail(request, submissionId);
+  }
+
+  @Get('reviews/:submissionId/history')
+  getReviewHistory(
+    @Req() request: AuthenticatedRequest,
+    @Param('submissionId') submissionId: string,
+    @Query() query: ReviewHistoryQueryDto,
+  ) {
+    return this.adminService.getReviewHistory(request, submissionId, query);
   }
 
   @Post('reviews/:submissionId/approve')

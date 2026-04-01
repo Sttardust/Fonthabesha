@@ -16,7 +16,7 @@ import type { AuthenticatedRequest } from '../auth/auth-request';
 import { BackgroundJobsService } from '../background-jobs/background-jobs.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SearchIndexService } from '../search/search-index.service';
-import { presentReviewHistoryEvent } from '../shared/review-history';
+import { filterReviewHistoryEvents, presentReviewHistoryEvent } from '../shared/review-history';
 import { S3StorageService } from '../uploads/s3-storage.service';
 import { summarizeUploadProcessingState } from '../uploads/upload-processing-state';
 import { UploadProcessingService } from '../uploads/upload-processing.service';
@@ -24,6 +24,7 @@ import { UploadsPolicyService } from '../uploads/uploads-policy.service';
 import { AuthAuditQueryDto } from './dto/auth-audit-query.dto';
 import { AuthSessionQueryDto } from './dto/auth-session-query.dto';
 import { ReviewDecisionDto, ReviewDecisionIssueDto } from './dto/review-decision.dto';
+import { ReviewHistoryQueryDto } from './dto/review-history-query.dto';
 
 @Injectable()
 export class AdminService {
@@ -845,6 +846,102 @@ export class AdminService {
         canReprocess: ['uploaded', 'processing', 'processing_failed', 'ready_for_submission'].includes(
           submission.status,
         ),
+      },
+    };
+  }
+
+  async getReviewHistory(
+    request: AuthenticatedRequest,
+    submissionId: string,
+    query: ReviewHistoryQueryDto,
+  ) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
+
+    const submission = await this.prisma.submission.findUnique({
+      where: {
+        id: submissionId,
+      },
+      select: {
+        id: true,
+        familyId: true,
+        reviewEvents: {
+          orderBy: {
+            createdAt: 'asc',
+          },
+          select: {
+            id: true,
+            action: true,
+            notes: true,
+            metadataJson: true,
+            createdAt: true,
+            actorUser: {
+              select: {
+                id: true,
+                displayName: true,
+                email: true,
+                role: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!submission) {
+      throw new NotFoundException('Submission not found');
+    }
+
+    const events = submission.reviewEvents.map((event) =>
+      presentReviewHistoryEvent({
+        id: event.id,
+        action: event.action,
+        notes: event.notes,
+        metadataJson: event.metadataJson,
+        createdAt: event.createdAt,
+        actor: event.actorUser
+          ? {
+              id: event.actorUser.id,
+              displayName: event.actorUser.displayName,
+              email: event.actorUser.email,
+              role: event.actorUser.role,
+            }
+          : null,
+      }),
+    );
+    const filtered = filterReviewHistoryEvents(events, query);
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 25;
+    const start = (page - 1) * pageSize;
+    const items = filtered.slice(start, start + pageSize);
+    const summary = {
+      total: filtered.length,
+      byAction: filtered.reduce<Record<string, number>>((acc, event) => {
+        acc[event.action] = (acc[event.action] ?? 0) + 1;
+        return acc;
+      }, {}),
+      byKind: filtered.reduce<Record<string, number>>((acc, event) => {
+        acc[event.kind] = (acc[event.kind] ?? 0) + 1;
+        return acc;
+      }, {}),
+    };
+
+    return {
+      submissionId: submission.id,
+      familyId: submission.familyId,
+      filters: {
+        action: query.action ?? null,
+        kind: query.kind ?? null,
+        issueCode: query.issueCode ?? null,
+        from: query.from ?? null,
+        to: query.to ?? null,
+      },
+      items,
+      summary,
+      pagination: {
+        page,
+        pageSize,
+        total: filtered.length,
+        totalPages: Math.max(Math.ceil(filtered.length / pageSize), 1),
       },
     };
   }

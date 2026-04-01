@@ -38,6 +38,8 @@ type ReviewEventPresentation = {
   actor: ReviewActor;
 };
 
+type ReviewHistoryKind = ReviewEventPresentation['kind'];
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return null;
@@ -217,4 +219,49 @@ export function presentReviewHistoryEvent(input: ReviewEventInput): ReviewEventP
     createdAt: input.createdAt,
     actor: input.actor,
   };
+}
+
+export function filterReviewHistoryEvents(
+  events: ReviewEventPresentation[],
+  query: {
+    action?: string;
+    kind?: ReviewHistoryKind;
+    issueCode?: string;
+    from?: string;
+    to?: string;
+  },
+): ReviewEventPresentation[] {
+  const fromTime = query.from ? new Date(query.from).getTime() : null;
+  const toTime = query.to ? new Date(query.to).getTime() : null;
+  const normalizedIssueCode = query.issueCode?.trim().toLowerCase() ?? null;
+
+  return events.filter((event) => {
+    if (query.action && event.action !== query.action) {
+      return false;
+    }
+
+    if (query.kind && event.kind !== query.kind) {
+      return false;
+    }
+
+    if (
+      normalizedIssueCode &&
+      !event.issues.some((issue) => issue.issueCode?.toLowerCase() === normalizedIssueCode) &&
+      event.issueCode?.toLowerCase() !== normalizedIssueCode
+    ) {
+      return false;
+    }
+
+    const createdAtTime = event.createdAt.getTime();
+
+    if (fromTime !== null && createdAtTime < fromTime) {
+      return false;
+    }
+
+    if (toTime !== null && createdAtTime > toTime) {
+      return false;
+    }
+
+    return true;
+  });
 }

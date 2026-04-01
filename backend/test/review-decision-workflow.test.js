@@ -314,6 +314,25 @@ test('review changes and rejection workflow keeps contributor resubmission path 
   assert.equal(rejectedEvent.metadata.issueCode, 'license_review_failed');
   assert.equal(rejectedEvent.targets[0].styleId, styleId);
 
+  const filteredHistoryResponse = await requestJson(context, {
+    method: 'GET',
+    path: `/api/v1/admin/reviews/${submissionId}/history`,
+    headers: {
+      'x-user-email': 'admin@fonthabesha.local',
+    },
+    query: {
+      kind: 'feedback',
+      issueCode: 'spacing_consistency',
+    },
+  });
+  assert.equal(filteredHistoryResponse.status, 200);
+  assert.equal(filteredHistoryResponse.body.summary.total, 1);
+  assert.equal(filteredHistoryResponse.body.summary.byKind.feedback, 1);
+  assert.equal(filteredHistoryResponse.body.items.length, 1);
+  assert.equal(filteredHistoryResponse.body.items[0].action, 'request_changes');
+  assert.equal(filteredHistoryResponse.body.items[0].issues.length, 2);
+  assert.equal(filteredHistoryResponse.body.items[0].issueCode, 'spacing_consistency');
+
   const rejectedResubmitResponse = await requestJson(context, {
     method: 'POST',
     path: `/api/v1/submissions/${submissionId}/submit`,
