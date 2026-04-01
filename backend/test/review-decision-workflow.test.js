@@ -407,6 +407,16 @@ test('review changes and rejection workflow keeps contributor resubmission path 
   assert.equal(analyticsResponse.body.totals.requestChanges, 1);
   assert.equal(analyticsResponse.body.totals.rejected, 1);
   assert.equal(analyticsResponse.body.turnaround.reviewedSubmissionCount, 1);
+  assert.equal(analyticsResponse.body.reviewerBreakdown.length, 1);
+  assert.equal(
+    analyticsResponse.body.reviewerBreakdown[0].reviewer.email,
+    'admin@fonthabesha.local',
+  );
+  assert.equal(analyticsResponse.body.reviewerBreakdown[0].decisionCounts.requestChanges, 1);
+  assert.equal(analyticsResponse.body.reviewerBreakdown[0].decisionCounts.rejected, 1);
+  assert.equal(analyticsResponse.body.reviewerBreakdown[0].decisionCounts.approved, 0);
+  assert.equal(analyticsResponse.body.reviewerBreakdown[0].reviewedSubmissionCount, 1);
+  assert.ok(analyticsResponse.body.reviewerBreakdown[0].latestDecisionAt);
   assert.ok(analyticsResponse.body.dailyActivity.length >= 1);
   assert.ok(
     analyticsResponse.body.topIssueCodes.some(

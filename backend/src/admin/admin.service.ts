@@ -635,7 +635,15 @@ export class AdminService {
       throw new BadRequestException('from must be earlier than or equal to to');
     }
 
-    const [needsReview, processingFailed, changesRequested, eventCounts, reviewedSubmissions, activityEvents] =
+    const [
+      needsReview,
+      processingFailed,
+      changesRequested,
+      eventCounts,
+      reviewedSubmissions,
+      activityEvents,
+      decisionEvents,
+    ] =
       await Promise.all([
         this.prisma.submission.count({ where: { status: 'needs_review' } }),
         this.prisma.submission.count({ where: { status: 'processing_failed' } }),
@@ -672,6 +680,15 @@ export class AdminService {
             status: true,
             submittedAt: true,
             reviewedAt: true,
+            reviewedByUserId: true,
+            reviewedBy: {
+              select: {
+                id: true,
+                displayName: true,
+                email: true,
+                role: true,
+              },
+            },
           },
         }),
         this.prisma.reviewEvent.findMany({
@@ -690,6 +707,35 @@ export class AdminService {
             notes: true,
             metadataJson: true,
             createdAt: true,
+          },
+          orderBy: {
+            createdAt: 'asc',
+          },
+        }),
+        this.prisma.reviewEvent.findMany({
+          where: {
+            createdAt: {
+              gte: from,
+              lte: to,
+            },
+            action: {
+              in: ['approved', 'rejected', 'request_changes'],
+            },
+            actorUserId: {
+              not: null,
+            },
+          },
+          select: {
+            action: true,
+            createdAt: true,
+            actorUser: {
+              select: {
+                id: true,
+                displayName: true,
+                email: true,
+                role: true,
+              },
+            },
           },
           orderBy: {
             createdAt: 'asc',
@@ -716,6 +762,26 @@ export class AdminService {
         };
       })
       .filter((submission): submission is { status: SubmissionStatus; hours: number } => Boolean(submission));
+
+    const reviewerStats = new Map<
+      string,
+      {
+        reviewer: {
+          id: string;
+          displayName: string;
+          email: string;
+          role: UserRole;
+        };
+        decisionCounts: {
+          approved: number;
+          rejected: number;
+          requestChanges: number;
+        };
+        reviewedSubmissionCount: number;
+        latestDecisionAt: Date | null;
+        turnaroundHours: number[];
+      }
+    >();
 
     const issueCounts = new Map<string, number>();
     const dailyActivity = new Map<string, ReturnType<AdminService['createEmptyReviewActionCountBucket']>>();
@@ -744,6 +810,77 @@ export class AdminService {
       issueCodes.forEach((issueCode) => {
         issueCounts.set(issueCode, (issueCounts.get(issueCode) ?? 0) + 1);
       });
+    });
+
+    decisionEvents.forEach((event) => {
+      if (!event.actorUser) {
+        return;
+      }
+
+      const entry = reviewerStats.get(event.actorUser.id) ?? {
+        reviewer: {
+          id: event.actorUser.id,
+          displayName: event.actorUser.displayName,
+          email: event.actorUser.email,
+          role: event.actorUser.role,
+        },
+        decisionCounts: {
+          approved: 0,
+          rejected: 0,
+          requestChanges: 0,
+        },
+        reviewedSubmissionCount: 0,
+        latestDecisionAt: null,
+        turnaroundHours: [],
+      };
+
+      if (event.action === 'approved') {
+        entry.decisionCounts.approved += 1;
+      } else if (event.action === 'rejected') {
+        entry.decisionCounts.rejected += 1;
+      } else if (event.action === 'request_changes') {
+        entry.decisionCounts.requestChanges += 1;
+      }
+
+      if (!entry.latestDecisionAt || entry.latestDecisionAt < event.createdAt) {
+        entry.latestDecisionAt = event.createdAt;
+      }
+
+      reviewerStats.set(event.actorUser.id, entry);
+    });
+
+    reviewedSubmissions.forEach((submission) => {
+      if (!submission.reviewedByUserId || !submission.reviewedBy || !submission.submittedAt || !submission.reviewedAt) {
+        return;
+      }
+
+      const entry = reviewerStats.get(submission.reviewedByUserId) ?? {
+        reviewer: {
+          id: submission.reviewedBy.id,
+          displayName: submission.reviewedBy.displayName,
+          email: submission.reviewedBy.email,
+          role: submission.reviewedBy.role,
+        },
+        decisionCounts: {
+          approved: 0,
+          rejected: 0,
+          requestChanges: 0,
+        },
+        reviewedSubmissionCount: 0,
+        latestDecisionAt: submission.reviewedAt,
+        turnaroundHours: [],
+      };
+
+      entry.reviewedSubmissionCount += 1;
+      entry.turnaroundHours.push(
+        (submission.reviewedAt.getTime() - submission.submittedAt.getTime()) / (60 * 60 * 1000),
+      );
+
+      if (!entry.latestDecisionAt || entry.latestDecisionAt < submission.reviewedAt) {
+        entry.latestDecisionAt = submission.reviewedAt;
+      }
+
+      reviewerStats.set(submission.reviewedByUserId, entry);
     });
 
     return {
@@ -792,6 +929,34 @@ export class AdminService {
         .map(([issueCode, count]) => ({
           issueCode,
           count,
+        })),
+      reviewerBreakdown: [...reviewerStats.values()]
+        .sort((left, right) => {
+          const rightTotal =
+            right.decisionCounts.approved + right.decisionCounts.rejected + right.decisionCounts.requestChanges;
+          const leftTotal =
+            left.decisionCounts.approved + left.decisionCounts.rejected + left.decisionCounts.requestChanges;
+
+          if (rightTotal !== leftTotal) {
+            return rightTotal - leftTotal;
+          }
+
+          return left.reviewer.email.localeCompare(right.reviewer.email);
+        })
+        .map((entry) => ({
+          reviewer: entry.reviewer,
+          decisionCounts: entry.decisionCounts,
+          reviewedSubmissionCount: entry.reviewedSubmissionCount,
+          averageTurnaroundHours:
+            entry.turnaroundHours.length > 0
+              ? Number(
+                  (
+                    entry.turnaroundHours.reduce((sum, value) => sum + value, 0) /
+                    entry.turnaroundHours.length
+                  ).toFixed(2),
+                )
+              : null,
+          latestDecisionAt: entry.latestDecisionAt,
         })),
       dailyActivity: [...dailyActivity.entries()]
         .sort(([left], [right]) => left.localeCompare(right))
