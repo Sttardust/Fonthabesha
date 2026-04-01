@@ -17,6 +17,7 @@ import { BackgroundJobsService } from '../background-jobs/background-jobs.servic
 import { PrismaService } from '../prisma/prisma.service';
 import { SearchIndexService } from '../search/search-index.service';
 import { FontInspectionService } from '../uploads/font-inspection.service';
+import { UploadsPolicyService } from '../uploads/uploads-policy.service';
 import { FontStyleSyncService } from '../uploads/font-style-sync.service';
 import { S3StorageService } from '../uploads/s3-storage.service';
 import { AuthAuditQueryDto } from './dto/auth-audit-query.dto';
@@ -33,6 +34,7 @@ export class AdminService {
     private readonly searchIndex: SearchIndexService,
     private readonly fontInspection: FontInspectionService,
     private readonly fontStyleSync: FontStyleSyncService,
+    private readonly uploadsPolicy: UploadsPolicyService,
     private readonly storageService: S3StorageService,
   ) {}
 
@@ -905,6 +907,19 @@ export class AdminService {
     if (['approved', 'rejected', 'archived'].includes(submission.status)) {
       throw new BadRequestException('Direct upload is not allowed for the current submission status');
     }
+
+    this.uploadsPolicy.validateDirectUpload({
+      filename: file.originalname,
+      contentType: file.mimetype,
+      size: file.size,
+    });
+    this.uploadsPolicy.assertSubmissionUploadCapacity(
+      await this.prisma.upload.count({
+        where: {
+          submissionId: submission.id,
+        },
+      }),
+    );
 
     const { uploadId, storageKey } = this.storageService.createRawUploadKey(submission.id, file.originalname);
     const sha256 = createHash('sha256').update(file.buffer).digest('hex');

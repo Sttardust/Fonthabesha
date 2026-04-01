@@ -33,9 +33,12 @@ async function ensureStorageBuckets() {
   ]);
 }
 
-async function createTestContext() {
+async function createTestContext(envOverrides = {}) {
   process.env.MAIL_QUEUE_ENABLED = 'false';
   process.env.BACKGROUND_JOB_QUEUE_ENABLED = 'false';
+  Object.entries(envOverrides).forEach(([key, value]) => {
+    process.env[key] = String(value);
+  });
   Logger.overrideLogger(false);
   await ensureStorageBuckets();
   const { createApp } = require('../../dist/src/bootstrap.js');

@@ -12,6 +12,7 @@ import { CompleteUploadDto } from './dto/complete-upload.dto';
 import { FontInspectionService } from './font-inspection.service';
 import { FontStyleSyncService } from './font-style-sync.service';
 import { InitUploadDto } from './dto/init-upload.dto';
+import { UploadsPolicyService } from './uploads-policy.service';
 import { S3StorageService } from './s3-storage.service';
 
 @Injectable()
@@ -21,6 +22,7 @@ export class UploadsService {
     private readonly authContext: AuthContextService,
     private readonly fontInspection: FontInspectionService,
     private readonly fontStyleSync: FontStyleSyncService,
+    private readonly uploadsPolicy: UploadsPolicyService,
     private readonly storageService: S3StorageService,
   ) {}
 
@@ -31,6 +33,11 @@ export class UploadsService {
         id: payload.submissionId,
       },
       include: {
+        uploads: {
+          select: {
+            id: true,
+          },
+        },
         family: {
           select: {
             id: true,
@@ -48,6 +55,10 @@ export class UploadsService {
     if (!['draft', 'uploaded', 'ready_for_submission', 'changes_requested'].includes(submission.status)) {
       throw new BadRequestException('Uploads are not allowed for the current submission status');
     }
+
+    await this.uploadsPolicy.assertContributorInitRateLimit(user.id);
+    this.uploadsPolicy.assertSubmissionUploadCapacity(submission.uploads.length);
+    this.uploadsPolicy.validateDeclaredUpload(payload.filename, payload.contentType);
 
     const { uploadId, storageKey } = this.storageService.createRawUploadKey(
       submission.id,
@@ -99,6 +110,8 @@ export class UploadsService {
 
   async completeUpload(request: AuthenticatedRequest, payload: CompleteUploadDto) {
     const user = await this.authContext.requireUserFromRequest(request, [UserRole.contributor]);
+    await this.uploadsPolicy.assertContributorCompleteRateLimit(user.id);
+
     const upload = await this.prisma.upload.findUnique({
       where: {
         id: payload.uploadId,
@@ -114,6 +127,11 @@ export class UploadsService {
 
     const objectMetadata = await this.storageService.getRawObjectMetadata(upload.storageKey);
     const objectBuffer = await this.storageService.getRawObjectBuffer(upload.storageKey);
+    this.uploadsPolicy.validateStoredUpload({
+      filename: upload.originalFilename,
+      contentType: objectMetadata.contentType,
+      contentLength: objectMetadata.contentLength,
+    });
 
     try {
       const inspection = this.fontInspection.inspectFont(objectBuffer, upload.originalFilename);

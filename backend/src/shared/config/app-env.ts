@@ -28,6 +28,10 @@ export interface AppEnvironment {
   MAIL_QUEUE_CONSUMER_ENABLED: boolean;
   BACKGROUND_JOB_QUEUE_ENABLED: boolean;
   BACKGROUND_JOB_CONSUMER_ENABLED: boolean;
+  FONT_UPLOAD_MAX_BYTES: number;
+  FONT_UPLOAD_MAX_FILES_PER_SUBMISSION: number;
+  FONT_UPLOAD_INIT_LIMIT_PER_HOUR: number;
+  FONT_UPLOAD_COMPLETE_LIMIT_PER_HOUR: number;
   ALLOW_DEV_HEADER_AUTH: boolean;
 }
 
@@ -50,6 +54,21 @@ function getPort(env: RawEnvironment): number {
   }
 
   return port;
+}
+
+function getPositiveInteger(
+  env: RawEnvironment,
+  key: keyof AppEnvironment,
+  fallback: number,
+): number {
+  const rawValue = env[key] ?? String(fallback);
+  const value = Number(rawValue);
+
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error(`${key} must be a positive integer`);
+  }
+
+  return value;
 }
 
 function getOptionalString(env: RawEnvironment, key: keyof AppEnvironment): string | undefined {
@@ -119,6 +138,22 @@ export function validateEnvironment(env: RawEnvironment): AppEnvironment {
       env,
       'BACKGROUND_JOB_CONSUMER_ENABLED',
       false,
+    ),
+    FONT_UPLOAD_MAX_BYTES: getPositiveInteger(env, 'FONT_UPLOAD_MAX_BYTES', 25 * 1024 * 1024),
+    FONT_UPLOAD_MAX_FILES_PER_SUBMISSION: getPositiveInteger(
+      env,
+      'FONT_UPLOAD_MAX_FILES_PER_SUBMISSION',
+      24,
+    ),
+    FONT_UPLOAD_INIT_LIMIT_PER_HOUR: getPositiveInteger(
+      env,
+      'FONT_UPLOAD_INIT_LIMIT_PER_HOUR',
+      50,
+    ),
+    FONT_UPLOAD_COMPLETE_LIMIT_PER_HOUR: getPositiveInteger(
+      env,
+      'FONT_UPLOAD_COMPLETE_LIMIT_PER_HOUR',
+      80,
     ),
     ALLOW_DEV_HEADER_AUTH: getOptionalBoolean(
       env,
