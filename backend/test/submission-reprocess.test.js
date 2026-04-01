@@ -123,6 +123,10 @@ test('staff can reprocess an uploaded submission and make it ready for contribut
   assert.equal(contributorDetailResponse.body.permissions.canSubmitForReview, true);
   assert.equal(contributorDetailResponse.body.review.actionRequired, false);
   assert.equal(contributorDetailResponse.body.review.actionItems.length, 0);
+  assert.equal(contributorDetailResponse.body.review.cycle.currentPhase, 'idle');
+  assert.equal(contributorDetailResponse.body.review.cycle.latestActionableFeedbackAt, null);
+  assert.equal(contributorDetailResponse.body.review.cycle.lastResubmittedAt, null);
+  assert.equal(contributorDetailResponse.body.review.cycle.awaitingReviewSince, null);
   assert.equal(contributorDetailResponse.body.review.latestContributorFeedback, null);
   assert.ok(
     contributorDetailResponse.body.review.history.some((event) => event.action === 'reprocessed'),

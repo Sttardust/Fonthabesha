@@ -172,6 +172,10 @@ test('review changes and rejection workflow keeps contributor resubmission path 
   assert.equal(contributorDetailAfterChanges.body.review.actionRequired, true);
   assert.equal(contributorDetailAfterChanges.body.review.actionItems.length, 2);
   assert.equal(contributorDetailAfterChanges.body.review.issueResolutions.length, 2);
+  assert.equal(contributorDetailAfterChanges.body.review.cycle.currentPhase, 'awaiting_contributor');
+  assert.ok(contributorDetailAfterChanges.body.review.cycle.latestActionableFeedbackAt);
+  assert.equal(contributorDetailAfterChanges.body.review.cycle.lastResubmittedAt, null);
+  assert.equal(contributorDetailAfterChanges.body.review.cycle.awaitingReviewSince, null);
   assert.equal(
     contributorDetailAfterChanges.body.review.issueResolutions[0].resolutionStatus,
     'open',
@@ -270,6 +274,9 @@ test('review changes and rejection workflow keeps contributor resubmission path 
   assert.equal(contributorDetailAfterResubmit.body.review.actionRequired, false);
   assert.equal(contributorDetailAfterResubmit.body.review.actionItems.length, 0);
   assert.equal(contributorDetailAfterResubmit.body.review.issueResolutions.length, 2);
+  assert.equal(contributorDetailAfterResubmit.body.review.cycle.currentPhase, 'awaiting_staff');
+  assert.ok(contributorDetailAfterResubmit.body.review.cycle.lastResubmittedAt);
+  assert.ok(contributorDetailAfterResubmit.body.review.cycle.awaitingReviewSince);
   assert.equal(
     contributorDetailAfterResubmit.body.review.issueResolutions[0].resolutionStatus,
     'resubmitted',
@@ -313,6 +320,8 @@ test('review changes and rejection workflow keeps contributor resubmission path 
   assert.equal(contributorDetailAfterReject.body.review.actionRequired, false);
   assert.equal(contributorDetailAfterReject.body.review.actionItems.length, 0);
   assert.equal(contributorDetailAfterReject.body.review.issueResolutions.length, 0);
+  assert.equal(contributorDetailAfterReject.body.review.cycle.currentPhase, 'closed');
+  assert.equal(contributorDetailAfterReject.body.review.cycle.awaitingReviewSince, null);
   assert.equal(contributorDetailAfterReject.body.review.latestContributorFeedback.action, 'rejected');
   assert.match(
     contributorDetailAfterReject.body.review.latestContributorFeedback.notes,

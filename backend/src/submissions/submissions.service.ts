@@ -134,6 +134,13 @@ export class SubmissionsService {
       submission.uploads,
       submission.family.styles,
     );
+    const reviewCycle = this.buildContributorReviewCycle(
+      submission.status,
+      submission.submittedAt,
+      latestContributorFeedback,
+      latestActionableFeedback,
+      reviewHistory,
+    );
 
     return {
       id: submission.id,
@@ -193,6 +200,7 @@ export class SubmissionsService {
         actionRequired: reviewActionItems.length > 0,
         actionItems: reviewActionItems,
         issueResolutions,
+        cycle: reviewCycle,
         latestContributorFeedback: latestContributorFeedback ?? null,
         history: reviewHistory,
       },
@@ -865,6 +873,82 @@ export class SubmissionsService {
         ? this.presentContributorActionItemStyle(styleById.get(issue.targetStyleId))
         : null,
     }));
+  }
+
+  private buildContributorReviewCycle(
+    status: SubmissionStatus,
+    submittedAt: Date | null,
+    latestContributorFeedback:
+      | ReturnType<typeof presentReviewHistoryEvent>
+      | null
+      | undefined,
+    latestActionableFeedback:
+      | ReturnType<typeof presentReviewHistoryEvent>
+      | null
+      | undefined,
+    reviewHistory: Array<ReturnType<typeof presentReviewHistoryEvent>>,
+  ) {
+    const lastResubmittedAt =
+      latestActionableFeedback
+        ? reviewHistory.find(
+            (event) =>
+              event.action === 'submitted' &&
+              event.createdAt.getTime() > latestActionableFeedback.createdAt.getTime(),
+          )?.createdAt ?? null
+        : submittedAt ?? null;
+
+    const currentPhase = this.mapContributorReviewPhase(
+      status,
+      latestContributorFeedback,
+      latestActionableFeedback,
+      lastResubmittedAt,
+      submittedAt,
+    );
+
+    return {
+      currentPhase,
+      latestActionableFeedbackAt: latestActionableFeedback?.createdAt ?? null,
+      latestContributorFeedbackAt: latestContributorFeedback?.createdAt ?? null,
+      lastResubmittedAt: latestActionableFeedback ? lastResubmittedAt : submittedAt ?? null,
+      awaitingReviewSince:
+        currentPhase === 'awaiting_staff' ? (lastResubmittedAt ?? submittedAt ?? null) : null,
+    };
+  }
+
+  private mapContributorReviewPhase(
+    status: SubmissionStatus,
+    latestContributorFeedback:
+      | ReturnType<typeof presentReviewHistoryEvent>
+      | null
+      | undefined,
+    latestActionableFeedback:
+      | ReturnType<typeof presentReviewHistoryEvent>
+      | null
+      | undefined,
+    lastResubmittedAt: Date | null,
+    submittedAt: Date | null,
+  ): 'idle' | 'awaiting_contributor' | 'awaiting_staff' | 'closed' {
+    if (status === 'approved' || status === 'rejected') {
+      return 'closed';
+    }
+
+    if (['changes_requested', 'processing_failed'].includes(status)) {
+      return 'awaiting_contributor';
+    }
+
+    if (status === 'needs_review' && (lastResubmittedAt || submittedAt)) {
+      return 'awaiting_staff';
+    }
+
+    if (latestActionableFeedback && lastResubmittedAt) {
+      return 'awaiting_staff';
+    }
+
+    if (latestContributorFeedback?.action === 'submitted' || submittedAt) {
+      return 'awaiting_staff';
+    }
+
+    return 'idle';
   }
 
   private buildContributorActionItemSummary(
