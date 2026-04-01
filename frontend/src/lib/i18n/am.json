@@ -1,0 +1,110 @@
+{
+  "nav": {
+    "fonts": "ፊደሎች",
+    "collections": "ስብስቦች",
+    "about": "ስለ እኛ",
+    "login": "ግባ",
+    "logout": "ውጣ",
+    "dashboard": "ዳሽቦርድ",
+    "admin": "አስተዳዳሪ"
+  },
+  "home": {
+    "tagline": "የኢትዮጵያ ፊደሎች ቤት",
+    "subTagline": "ነፃ የሆኑ አማርኛ እና ኢትዮጵያዊ ፊደሎችን አግኝ፣ ፈትሽ፣ አውርድ።",
+    "browseAll": "ሁሉንም ፊደሎች ይመልከቱ",
+    "featured": "ተለይቶ የቀረበ"
+  },
+  "catalog": {
+    "title": "ፊደሎች",
+    "searchPlaceholder": "ፊደሎችን ፈልግ…",
+    "yourText": "ጽሑፍዎን ያስገቡ",
+    "noResults": "ምንም ፊደሎች አልተገኙም።",
+    "filters": {
+      "all": "ሁሉም",
+      "category": "ምድብ",
+      "script": "ስክሪፕት",
+      "variable": "ቫሪያብል",
+      "featured": "ተለይቶ የቀረበ",
+      "serif": "ሰሪፍ",
+      "sans_serif": "ሳንስ ሰሪፍ",
+      "display": "ዲስፕሌይ",
+      "handwriting": "ጽሑፍ",
+      "monospace": "ሞኖስፔስ",
+      "decorative": "ጌጣዊ",
+      "ethiopic": "ኢትዮጵያዊ",
+      "latin": "ላቲን",
+      "both": "ሁለቱም"
+    },
+    "sort": {
+      "newest": "አዲስ",
+      "popular": "ተወዳጅ",
+      "name": "ስም"
+    },
+    "view": {
+      "list": "ዝርዝር",
+      "grid": "ጥምቅ"
+    }
+  },
+  "fontDetail": {
+    "download": "አውርድ",
+    "downloading": "በማውረድ ላይ…",
+    "styles": "ዘይቤዎች",
+    "about": "ስለ ፊደሉ",
+    "license": "ፈቃድ",
+    "pairings": "ጥምረቶች",
+    "designer": "ዲዛይነር",
+    "addToCollection": "ስብስብ ውስጥ አስገባ"
+  },
+  "auth": {
+    "login": "ስርዓቱ ውስጥ ግባ",
+    "email": "ኢሜይል",
+    "password": "የይለፍ ቃል",
+    "submit": "ግባ",
+    "loggingIn": "በመግባት ላይ…",
+    "invalidCredentials": "ኢሜይሉ ወይም የይለፍ ቃሉ ትክክለኛ አይደለም።",
+    "serverError": "የሰርቨር ስህተት። እባክዎ እንደገና ይሞክሩ።"
+  },
+  "contributor": {
+    "portal": "አስተዋጽዖ ፖርታል",
+    "mySubmissions": "ማቅረቢያዎቼ",
+    "newSubmission": "አዲስ ማቅረቢያ",
+    "status": {
+      "draft": "ረቂቅ",
+      "pending_review": "በክለሳ ላይ",
+      "changes_requested": "ለውጥ ተጠይቋል",
+      "approved": "ተቀባይነት አገኘ",
+      "rejected": "ተነቅፏል",
+      "published": "ታትሟል"
+    }
+  },
+  "admin": {
+    "dashboard": "አስተዳደር ዳሽቦርድ",
+    "reviewQueue": "የክለሳ ወረፋ",
+    "manageFonts": "ፊደሎችን አስተዳድር",
+    "stats": {
+      "totalFamilies": "ጠቅላላ ቤተሰቦች",
+      "pendingReviews": "በወረፋ ላይ",
+      "totalDownloads": "ጠቅላላ ቅጂዎች",
+      "activeContributors": "ንቁ አስተዋጽዖ አበርካቾች"
+    },
+    "actions": {
+      "approve": "ተቀበል",
+      "requestChanges": "ለውጥ ጠይቅ",
+      "reject": "ንቀፍ"
+    }
+  },
+  "common": {
+    "loading": "በመጫን ላይ…",
+    "error": "ስህተት ተከስቷል።",
+    "retry": "እንደገና ሞክር",
+    "cancel": "ሰርዝ",
+    "save": "አስቀምጥ",
+    "delete": "ሰርዝ",
+    "edit": "አርትዕ",
+    "back": "ተመለስ",
+    "next": "ቀጣይ",
+    "previous": "ቀዳሚ",
+    "page": "ገጽ",
+    "of": "ከ"
+  }
+}
