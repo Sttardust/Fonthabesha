@@ -78,6 +78,23 @@
       "approved": "Approved",
       "rejected": "Rejected",
       "published": "Published"
+    },
+    "upload": {
+      "dropzone": "Drop font files here, or click to browse",
+      "dropHere": "Drop files to upload",
+      "accepted": "Accepts .ttf · .otf · .woff · .woff2",
+      "uploadFile": "Upload",
+      "uploadAll": "Upload all",
+      "uploading": "Uploading…",
+      "processing": "Processing font…",
+      "clearUploaded": "Clear uploaded",
+      "hasErrors": "Some files failed to upload. Fix the errors and retry.",
+      "addStyles": "Add Font Styles",
+      "uploadedStyles": "Uploaded Styles",
+      "submitForReview": "Submit for Review",
+      "needStyles": "Upload at least one font style before submitting.",
+      "waitForUploads": "Please wait for all uploads to finish.",
+      "reviewerNotes": "Reviewer notes:"
     }
   },
   "admin": {

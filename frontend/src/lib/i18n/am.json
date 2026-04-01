@@ -78,6 +78,23 @@
       "approved": "ተቀባይነት አገኘ",
       "rejected": "ተነቅፏል",
       "published": "ታትሟል"
+    },
+    "upload": {
+      "dropzone": "የፊደል ፋይሎችን ይጣሉ፣ ወይም ጠቅ ያድርጉ",
+      "dropHere": "ፋይሎቹን ያጥሉ",
+      "accepted": ".ttf · .otf · .woff · .woff2 ይቀበላል",
+      "uploadFile": "አውርድ",
+      "uploadAll": "ሁሉንም አውርድ",
+      "uploading": "በማስገባት ላይ…",
+      "processing": "ፊደሉን በማስኬድ ላይ…",
+      "clearUploaded": "የወጡትን አጽዳ",
+      "hasErrors": "አንዳንድ ፋይሎች አልተጫኑም። ስህተቶቹን አርትዕ ከዚያ እንደገና ሞክር።",
+      "addStyles": "የፊደል ዘይቤዎችን አክል",
+      "uploadedStyles": "የወጡ ዘይቤዎች",
+      "submitForReview": "ለክለሳ አቅርብ",
+      "needStyles": "ከማቅረብዎ በፊት ቢያንስ አንድ የፊደል ዘይቤ ያስገቡ።",
+      "waitForUploads": "እባክዎ ሁሉም ስቀሎች እስኪጨርስ ይጠብቁ።",
+      "reviewerNotes": "የገምጋሚ ማስታወሻዎች፦"
     }
   },
   "admin": {
