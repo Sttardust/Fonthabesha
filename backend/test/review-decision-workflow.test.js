@@ -106,6 +106,16 @@ test('review changes and rejection workflow keeps contributor resubmission path 
   });
   assert.equal(completeUploadResponse.status, 201);
 
+  const contributorDetailAfterProcessing = await requestJson(context, {
+    method: 'GET',
+    path: `/api/v1/submissions/${submissionId}`,
+    headers: {
+      authorization: `Bearer ${contributorAccessToken}`,
+    },
+  });
+  assert.equal(contributorDetailAfterProcessing.status, 200);
+  const styleId = contributorDetailAfterProcessing.body.styles[0].id;
+
   const firstSubmitResponse = await requestJson(context, {
     method: 'POST',
     path: `/api/v1/submissions/${submissionId}/submit`,
@@ -124,10 +134,16 @@ test('review changes and rejection workflow keeps contributor resubmission path 
     },
     body: {
       notes: 'Please clarify the family description and confirm spacing consistency.',
+      targetUploadId: initUploadResponse.body.uploadId,
+      targetStyleId: styleId,
+      issueCode: 'spacing_consistency',
     },
   });
   assert.equal(requestChangesResponse.status, 201);
   assert.equal(requestChangesResponse.body.status, 'changes_requested');
+  assert.equal(requestChangesResponse.body.reviewDecision.metadata.targetUploadId, initUploadResponse.body.uploadId);
+  assert.equal(requestChangesResponse.body.reviewDecision.metadata.targetStyleId, styleId);
+  assert.equal(requestChangesResponse.body.reviewDecision.metadata.issueCode, 'spacing_consistency');
 
   const contributorDetailAfterChanges = await requestJson(context, {
     method: 'GET',
@@ -148,6 +164,18 @@ test('review changes and rejection workflow keeps contributor resubmission path 
   assert.match(
     contributorDetailAfterChanges.body.review.latestContributorFeedback.notes,
     /clarify the family description/i,
+  );
+  assert.equal(
+    contributorDetailAfterChanges.body.review.latestContributorFeedback.metadata.targetUploadId,
+    initUploadResponse.body.uploadId,
+  );
+  assert.equal(
+    contributorDetailAfterChanges.body.review.latestContributorFeedback.metadata.targetStyleId,
+    styleId,
+  );
+  assert.equal(
+    contributorDetailAfterChanges.body.review.latestContributorFeedback.metadata.issueCode,
+    'spacing_consistency',
   );
   assert.ok(
     contributorDetailAfterChanges.body.review.history.some((event) => event.action === 'request_changes'),
@@ -184,10 +212,14 @@ test('review changes and rejection workflow keeps contributor resubmission path 
     },
     body: {
       notes: 'Rejected by automated workflow test after re-review.',
+      targetStyleId: styleId,
+      issueCode: 'license_review_failed',
     },
   });
   assert.equal(rejectResponse.status, 201);
   assert.equal(rejectResponse.body.status, 'rejected');
+  assert.equal(rejectResponse.body.reviewDecision.metadata.targetStyleId, styleId);
+  assert.equal(rejectResponse.body.reviewDecision.metadata.issueCode, 'license_review_failed');
 
   const contributorDetailAfterReject = await requestJson(context, {
     method: 'GET',
@@ -206,6 +238,14 @@ test('review changes and rejection workflow keeps contributor resubmission path 
     contributorDetailAfterReject.body.review.latestContributorFeedback.notes,
     /Rejected by automated workflow test/i,
   );
+  assert.equal(
+    contributorDetailAfterReject.body.review.latestContributorFeedback.metadata.targetStyleId,
+    styleId,
+  );
+  assert.equal(
+    contributorDetailAfterReject.body.review.latestContributorFeedback.metadata.issueCode,
+    'license_review_failed',
+  );
   assert.ok(contributorDetailAfterReject.body.review.history.length >= 3);
 
   const reviewDetailAfterReject = await requestJson(context, {
@@ -217,10 +257,19 @@ test('review changes and rejection workflow keeps contributor resubmission path 
   });
   assert.equal(reviewDetailAfterReject.status, 200);
   assert.equal(reviewDetailAfterReject.body.family.status, 'rejected');
-  assert.ok(
-    reviewDetailAfterReject.body.reviewHistory.some((event) => event.action === 'request_changes'),
+  const requestChangesEvent = reviewDetailAfterReject.body.reviewHistory.find(
+    (event) => event.action === 'request_changes',
   );
-  assert.ok(reviewDetailAfterReject.body.reviewHistory.some((event) => event.action === 'rejected'));
+  assert.ok(requestChangesEvent);
+  assert.equal(requestChangesEvent.metadataJson.targetUploadId, initUploadResponse.body.uploadId);
+  assert.equal(requestChangesEvent.metadataJson.targetStyleId, styleId);
+  assert.equal(requestChangesEvent.metadataJson.issueCode, 'spacing_consistency');
+  const rejectedEvent = reviewDetailAfterReject.body.reviewHistory.find(
+    (event) => event.action === 'rejected',
+  );
+  assert.ok(rejectedEvent);
+  assert.equal(rejectedEvent.metadataJson.targetStyleId, styleId);
+  assert.equal(rejectedEvent.metadataJson.issueCode, 'license_review_failed');
 
   const rejectedResubmitResponse = await requestJson(context, {
     method: 'POST',

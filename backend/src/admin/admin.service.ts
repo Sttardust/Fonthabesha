@@ -838,7 +838,7 @@ export class AdminService {
     payload: ReviewDecisionDto,
   ) {
     const actor = await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
-    return this.applyReviewDecision(actor.id, submissionId, 'approved', payload.notes);
+    return this.applyReviewDecision(actor.id, submissionId, 'approved', payload);
   }
 
   async rejectSubmission(
@@ -847,7 +847,7 @@ export class AdminService {
     payload: ReviewDecisionDto,
   ) {
     const actor = await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
-    return this.applyReviewDecision(actor.id, submissionId, 'rejected', payload.notes);
+    return this.applyReviewDecision(actor.id, submissionId, 'rejected', payload);
   }
 
   async requestChanges(
@@ -861,7 +861,7 @@ export class AdminService {
       throw new BadRequestException('notes are required when requesting changes');
     }
 
-    return this.applyReviewDecision(actor.id, submissionId, 'request_changes', payload.notes);
+    return this.applyReviewDecision(actor.id, submissionId, 'request_changes', payload);
   }
 
   async reprocessSubmission(
@@ -1136,7 +1136,7 @@ export class AdminService {
     actorUserId: string,
     submissionId: string,
     action: 'approved' | 'rejected' | 'request_changes',
-    notes?: string,
+    payload: ReviewDecisionDto,
   ) {
     const submission = await this.prisma.submission.findUnique({
       where: {
@@ -1144,6 +1144,11 @@ export class AdminService {
       },
       include: {
         family: true,
+        uploads: {
+          select: {
+            id: true,
+          },
+        },
       },
     });
 
@@ -1155,9 +1160,38 @@ export class AdminService {
       throw new BadRequestException('Submission must be in needs_review before a review decision can be applied');
     }
 
-    if (action !== 'approved' && !notes?.trim()) {
+    if (action !== 'approved' && !payload.notes?.trim()) {
       throw new BadRequestException('notes are required for this decision');
     }
+
+    if (payload.targetUploadId && !submission.uploads.some((upload) => upload.id === payload.targetUploadId)) {
+      throw new BadRequestException('targetUploadId does not belong to this submission');
+    }
+
+    if (payload.targetStyleId) {
+      const matchingStyle = await this.prisma.fontStyle.findFirst({
+        where: {
+          id: payload.targetStyleId,
+          familyId: submission.familyId,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!matchingStyle) {
+        throw new BadRequestException('targetStyleId does not belong to this submission family');
+      }
+    }
+
+    const decisionMetadata =
+      payload.targetUploadId || payload.targetStyleId || payload.issueCode
+        ? {
+            targetUploadId: payload.targetUploadId ?? null,
+            targetStyleId: payload.targetStyleId ?? null,
+            issueCode: payload.issueCode?.trim() || null,
+          }
+        : undefined;
 
     const now = new Date();
     const nextSubmissionStatus =
@@ -1214,7 +1248,8 @@ export class AdminService {
           familyId: submission.familyId,
           actorUserId,
           action,
-          notes: notes?.trim() || null,
+          notes: payload.notes?.trim() || null,
+          metadataJson: decisionMetadata,
         },
       }),
     ]);
@@ -1233,6 +1268,11 @@ export class AdminService {
       familyId: submission.familyId,
       status: nextSubmissionStatus,
       publishedAt: action === 'approved' ? now : null,
+      reviewDecision: {
+        action,
+        notes: payload.notes?.trim() || null,
+        metadata: decisionMetadata ?? null,
+      },
     };
   }
 
