@@ -23,7 +23,7 @@ import { UploadProcessingService } from '../uploads/upload-processing.service';
 import { UploadsPolicyService } from '../uploads/uploads-policy.service';
 import { AuthAuditQueryDto } from './dto/auth-audit-query.dto';
 import { AuthSessionQueryDto } from './dto/auth-session-query.dto';
-import { ReviewDecisionDto } from './dto/review-decision.dto';
+import { ReviewDecisionDto, ReviewDecisionIssueDto } from './dto/review-decision.dto';
 
 @Injectable()
 export class AdminService {
@@ -1181,32 +1181,14 @@ export class AdminService {
       throw new BadRequestException('notes are required for this decision');
     }
 
-    if (payload.targetUploadId && !submission.uploads.some((upload) => upload.id === payload.targetUploadId)) {
-      throw new BadRequestException('targetUploadId does not belong to this submission');
-    }
-
-    if (payload.targetStyleId) {
-      const matchingStyle = await this.prisma.fontStyle.findFirst({
-        where: {
-          id: payload.targetStyleId,
-          familyId: submission.familyId,
-        },
-        select: {
-          id: true,
-        },
-      });
-
-      if (!matchingStyle) {
-        throw new BadRequestException('targetStyleId does not belong to this submission family');
-      }
-    }
-
+    const normalizedIssues = await this.normalizeReviewDecisionIssues(submission, payload);
     const decisionMetadata =
-      payload.targetUploadId || payload.targetStyleId || payload.issueCode
+      normalizedIssues.length > 0
         ? {
-            targetUploadId: payload.targetUploadId ?? null,
-            targetStyleId: payload.targetStyleId ?? null,
-            issueCode: payload.issueCode?.trim() || null,
+            targetUploadId: normalizedIssues[0].targetUploadId,
+            targetStyleId: normalizedIssues[0].targetStyleId,
+            issueCode: normalizedIssues[0].issueCode,
+            issues: normalizedIssues,
           }
         : undefined;
 
@@ -1386,5 +1368,70 @@ export class AdminService {
     }
 
     return createHash('sha256').update(value).digest('hex');
+  }
+
+  private async normalizeReviewDecisionIssues(
+    submission: {
+      familyId: string;
+      uploads: Array<{ id: string }>;
+    },
+    payload: ReviewDecisionDto,
+  ): Promise<Array<{
+    targetUploadId: string | null;
+    targetStyleId: string | null;
+    issueCode: string | null;
+    note: string | null;
+  }>> {
+    const rawIssues: ReviewDecisionIssueDto[] =
+      payload.issues && payload.issues.length > 0
+        ? payload.issues
+        : payload.targetUploadId || payload.targetStyleId || payload.issueCode
+          ? [
+              {
+                targetUploadId: payload.targetUploadId,
+                targetStyleId: payload.targetStyleId,
+                issueCode: payload.issueCode,
+              },
+            ]
+          : [];
+
+    const normalizedIssues = rawIssues
+      .map((issue) => ({
+        targetUploadId: issue.targetUploadId?.trim() || null,
+        targetStyleId: issue.targetStyleId?.trim() || null,
+        issueCode: issue.issueCode?.trim() || null,
+        note: issue.note?.trim() || null,
+      }))
+      .filter(
+        (issue) =>
+          issue.targetUploadId || issue.targetStyleId || issue.issueCode || issue.note,
+      );
+
+    for (const issue of normalizedIssues) {
+      if (
+        issue.targetUploadId &&
+        !submission.uploads.some((upload) => upload.id === issue.targetUploadId)
+      ) {
+        throw new BadRequestException('targetUploadId does not belong to this submission');
+      }
+
+      if (issue.targetStyleId) {
+        const matchingStyle = await this.prisma.fontStyle.findFirst({
+          where: {
+            id: issue.targetStyleId,
+            familyId: submission.familyId,
+          },
+          select: {
+            id: true,
+          },
+        });
+
+        if (!matchingStyle) {
+          throw new BadRequestException('targetStyleId does not belong to this submission family');
+        }
+      }
+    }
+
+    return normalizedIssues;
   }
 }

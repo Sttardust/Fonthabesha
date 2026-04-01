@@ -26,6 +26,12 @@ type ReviewEventPresentation = {
   notes: string | null;
   issueCode: string | null;
   targets: ReviewTarget[];
+  issues: Array<{
+    issueCode: string | null;
+    note: string | null;
+    targetUploadId: string | null;
+    targetStyleId: string | null;
+  }>;
   summary: string;
   metadata: Record<string, unknown> | null;
   createdAt: Date;
@@ -73,6 +79,15 @@ function buildTargets(metadata: Record<string, unknown> | null): ReviewTarget[] 
     return [];
   }
 
+  const issueTargets = (Array.isArray(metadata.issues) ? metadata.issues : [])
+    .map((rawIssue) => asRecord(rawIssue))
+    .filter((issue): issue is Record<string, unknown> => Boolean(issue))
+    .map((issue) => ({
+      uploadId: asString(issue.targetUploadId),
+      styleId: asString(issue.targetStyleId),
+    }))
+    .filter((target) => target.uploadId || target.styleId);
+
   const directTarget =
     asString(metadata.targetUploadId) || asString(metadata.targetStyleId)
       ? [
@@ -88,15 +103,72 @@ function buildTargets(metadata: Record<string, unknown> | null): ReviewTarget[] 
     styleId: null,
   }));
 
-  return [...directTarget, ...reprocessTargets];
+  return issueTargets.length > 0 ? [...issueTargets, ...reprocessTargets] : [...directTarget, ...reprocessTargets];
+}
+
+function buildIssues(metadata: Record<string, unknown> | null) {
+  if (!metadata) {
+    return [];
+  }
+
+  const rawIssues = Array.isArray(metadata.issues) ? metadata.issues : [];
+  const parsedIssues = rawIssues
+    .map((rawIssue) => asRecord(rawIssue))
+    .filter((issue): issue is Record<string, unknown> => Boolean(issue))
+    .map((issue) => ({
+      issueCode: asString(issue.issueCode),
+      note: asString(issue.note),
+      targetUploadId: asString(issue.targetUploadId),
+      targetStyleId: asString(issue.targetStyleId),
+    }))
+    .filter(
+      (issue) =>
+        issue.issueCode || issue.note || issue.targetUploadId || issue.targetStyleId,
+    );
+
+  if (parsedIssues.length > 0) {
+    return parsedIssues;
+  }
+
+  const fallbackIssue =
+    asString(metadata.issueCode) ||
+    asString(metadata.targetUploadId) ||
+    asString(metadata.targetStyleId)
+      ? [
+          {
+            issueCode: asString(metadata.issueCode),
+            note: null,
+            targetUploadId: asString(metadata.targetUploadId),
+            targetStyleId: asString(metadata.targetStyleId),
+          },
+        ]
+      : [];
+
+  return fallbackIssue;
 }
 
 function buildSummary(
   action: string,
   notes: string | null,
-  issueCode: string | null,
+  issues: Array<{
+    issueCode: string | null;
+    note: string | null;
+    targetUploadId: string | null;
+    targetStyleId: string | null;
+  }>,
   targets: ReviewTarget[],
 ): string {
+  const issueSummary = issues
+    .map((issue) => {
+      const targetParts = [issue.targetUploadId ? `upload ${issue.targetUploadId}` : null, issue.targetStyleId ? `style ${issue.targetStyleId}` : null]
+        .filter((value): value is string => Boolean(value))
+        .join(' / ');
+      return [issue.issueCode, targetParts, issue.note]
+        .filter((value): value is string => Boolean(value))
+        .join(' ');
+    })
+    .filter(Boolean)
+    .join('; ');
   const targetSummary =
     targets.length === 0
       ? null
@@ -119,7 +191,7 @@ function buildSummary(
           .filter((value): value is string => Boolean(value))
           .join(', ');
 
-  const parts = [action.replaceAll('_', ' '), issueCode, targetSummary, notes]
+  const parts = [action.replaceAll('_', ' '), issueSummary, targetSummary, notes]
     .filter((value): value is string => Boolean(value))
     .map((value, index) => (index === 0 ? value : `- ${value}`));
 
@@ -128,7 +200,8 @@ function buildSummary(
 
 export function presentReviewHistoryEvent(input: ReviewEventInput): ReviewEventPresentation {
   const metadata = asRecord(input.metadataJson);
-  const issueCode = asString(metadata?.issueCode);
+  const issues = buildIssues(metadata);
+  const issueCode = issues[0]?.issueCode ?? asString(metadata?.issueCode);
   const targets = buildTargets(metadata);
 
   return {
@@ -138,7 +211,8 @@ export function presentReviewHistoryEvent(input: ReviewEventInput): ReviewEventP
     notes: input.notes,
     issueCode,
     targets,
-    summary: buildSummary(input.action, input.notes, issueCode, targets),
+    issues,
+    summary: buildSummary(input.action, input.notes, issues, targets),
     metadata,
     createdAt: input.createdAt,
     actor: input.actor,

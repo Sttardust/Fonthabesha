@@ -134,9 +134,19 @@ test('review changes and rejection workflow keeps contributor resubmission path 
     },
     body: {
       notes: 'Please clarify the family description and confirm spacing consistency.',
-      targetUploadId: initUploadResponse.body.uploadId,
-      targetStyleId: styleId,
-      issueCode: 'spacing_consistency',
+      issues: [
+        {
+          targetUploadId: initUploadResponse.body.uploadId,
+          targetStyleId: styleId,
+          issueCode: 'spacing_consistency',
+          note: 'Check the glyph spacing in the uploaded regular style.',
+        },
+        {
+          targetStyleId: styleId,
+          issueCode: 'family_description_missing_context',
+          note: 'Expand the family description for contributors and reviewers.',
+        },
+      ],
     },
   });
   assert.equal(requestChangesResponse.status, 201);
@@ -144,6 +154,7 @@ test('review changes and rejection workflow keeps contributor resubmission path 
   assert.equal(requestChangesResponse.body.reviewDecision.metadata.targetUploadId, initUploadResponse.body.uploadId);
   assert.equal(requestChangesResponse.body.reviewDecision.metadata.targetStyleId, styleId);
   assert.equal(requestChangesResponse.body.reviewDecision.metadata.issueCode, 'spacing_consistency');
+  assert.equal(requestChangesResponse.body.reviewDecision.metadata.issues.length, 2);
 
   const contributorDetailAfterChanges = await requestJson(context, {
     method: 'GET',
@@ -178,12 +189,25 @@ test('review changes and rejection workflow keeps contributor resubmission path 
     'spacing_consistency',
   );
   assert.equal(contributorDetailAfterChanges.body.review.latestContributorFeedback.kind, 'feedback');
+  assert.equal(contributorDetailAfterChanges.body.review.latestContributorFeedback.issues.length, 2);
+  assert.equal(
+    contributorDetailAfterChanges.body.review.latestContributorFeedback.issues[0].issueCode,
+    'spacing_consistency',
+  );
+  assert.equal(
+    contributorDetailAfterChanges.body.review.latestContributorFeedback.issues[1].issueCode,
+    'family_description_missing_context',
+  );
   assert.equal(
     contributorDetailAfterChanges.body.review.latestContributorFeedback.targets[0].uploadId,
     initUploadResponse.body.uploadId,
   );
   assert.equal(
     contributorDetailAfterChanges.body.review.latestContributorFeedback.targets[0].styleId,
+    styleId,
+  );
+  assert.equal(
+    contributorDetailAfterChanges.body.review.latestContributorFeedback.targets[1].styleId,
     styleId,
   );
   assert.ok(
@@ -274,8 +298,12 @@ test('review changes and rejection workflow keeps contributor resubmission path 
   assert.equal(requestChangesEvent.metadata.targetUploadId, initUploadResponse.body.uploadId);
   assert.equal(requestChangesEvent.metadata.targetStyleId, styleId);
   assert.equal(requestChangesEvent.metadata.issueCode, 'spacing_consistency');
+  assert.equal(requestChangesEvent.metadata.issues.length, 2);
+  assert.equal(requestChangesEvent.issues[0].issueCode, 'spacing_consistency');
+  assert.equal(requestChangesEvent.issues[1].issueCode, 'family_description_missing_context');
   assert.equal(requestChangesEvent.targets[0].uploadId, initUploadResponse.body.uploadId);
   assert.equal(requestChangesEvent.targets[0].styleId, styleId);
+  assert.equal(requestChangesEvent.targets[1].styleId, styleId);
   assert.match(requestChangesEvent.summary, /spacing_consistency/i);
   const rejectedEvent = reviewDetailAfterReject.body.reviewHistory.find(
     (event) => event.action === 'rejected',
