@@ -168,6 +168,21 @@ test('review changes and rejection workflow keeps contributor resubmission path 
   assert.equal(contributorDetailAfterChanges.body.permissions.canEditMetadata, true);
   assert.equal(contributorDetailAfterChanges.body.permissions.canEditStyles, true);
   assert.equal(contributorDetailAfterChanges.body.permissions.canSubmitForReview, true);
+  assert.equal(contributorDetailAfterChanges.body.review.actionRequired, true);
+  assert.equal(contributorDetailAfterChanges.body.review.actionItems.length, 2);
+  assert.equal(
+    contributorDetailAfterChanges.body.review.actionItems[0].issueCode,
+    'spacing_consistency',
+  );
+  assert.equal(
+    contributorDetailAfterChanges.body.review.actionItems[0].upload.id,
+    initUploadResponse.body.uploadId,
+  );
+  assert.equal(contributorDetailAfterChanges.body.review.actionItems[0].style.id, styleId);
+  assert.match(
+    contributorDetailAfterChanges.body.review.actionItems[0].summary,
+    /spacing consistency/i,
+  );
   assert.equal(
     contributorDetailAfterChanges.body.review.latestContributorFeedback.action,
     'request_changes',
@@ -266,6 +281,8 @@ test('review changes and rejection workflow keeps contributor resubmission path 
   assert.equal(contributorDetailAfterReject.body.permissions.canEditMetadata, false);
   assert.equal(contributorDetailAfterReject.body.permissions.canEditStyles, false);
   assert.equal(contributorDetailAfterReject.body.permissions.canSubmitForReview, false);
+  assert.equal(contributorDetailAfterReject.body.review.actionRequired, false);
+  assert.equal(contributorDetailAfterReject.body.review.actionItems.length, 0);
   assert.equal(contributorDetailAfterReject.body.review.latestContributorFeedback.action, 'rejected');
   assert.match(
     contributorDetailAfterReject.body.review.latestContributorFeedback.notes,

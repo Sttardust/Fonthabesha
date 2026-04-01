@@ -258,6 +258,10 @@ test('invalid font content is marked failed and cleaned up after inspection', as
   assert.equal(detailResponse.body.status, 'processing_failed');
   assert.equal(detailResponse.body.analysis.status, 'failed');
   assert.ok(detailResponse.body.analysis.blockingIssues.length >= 1);
+  assert.equal(detailResponse.body.review.actionRequired, true);
+  assert.equal(detailResponse.body.review.actionItems.length, 1);
+  assert.equal(detailResponse.body.review.actionItems[0].sourceAction, 'processing_failed');
+  assert.equal(detailResponse.body.review.actionItems[0].upload.id, initUploadResponse.body.uploadId);
   assert.equal(detailResponse.body.review.latestContributorFeedback.action, 'processing_failed');
   assert.match(
     detailResponse.body.review.latestContributorFeedback.notes,

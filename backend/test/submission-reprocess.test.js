@@ -121,6 +121,8 @@ test('staff can reprocess an uploaded submission and make it ready for contribut
   assert.equal(contributorDetailResponse.body.status, 'ready_for_submission');
   assert.equal(contributorDetailResponse.body.analysis.status, 'completed');
   assert.equal(contributorDetailResponse.body.permissions.canSubmitForReview, true);
+  assert.equal(contributorDetailResponse.body.review.actionRequired, false);
+  assert.equal(contributorDetailResponse.body.review.actionItems.length, 0);
   assert.equal(contributorDetailResponse.body.review.latestContributorFeedback, null);
   assert.ok(
     contributorDetailResponse.body.review.history.some((event) => event.action === 'reprocessed'),

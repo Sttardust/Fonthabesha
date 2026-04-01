@@ -91,10 +91,10 @@ function buildTargets(metadata: Record<string, unknown> | null): ReviewTarget[] 
     .filter((target) => target.uploadId || target.styleId);
 
   const directTarget =
-    asString(metadata.targetUploadId) || asString(metadata.targetStyleId)
+    asString(metadata.targetUploadId) || asString(metadata.uploadId) || asString(metadata.targetStyleId)
       ? [
           {
-            uploadId: asString(metadata.targetUploadId),
+            uploadId: asString(metadata.targetUploadId) ?? asString(metadata.uploadId),
             styleId: asString(metadata.targetStyleId),
           },
         ]
@@ -134,13 +134,14 @@ function buildIssues(metadata: Record<string, unknown> | null) {
 
   const fallbackIssue =
     asString(metadata.issueCode) ||
+    asString(metadata.uploadId) ||
     asString(metadata.targetUploadId) ||
     asString(metadata.targetStyleId)
       ? [
           {
             issueCode: asString(metadata.issueCode),
             note: null,
-            targetUploadId: asString(metadata.targetUploadId),
+            targetUploadId: asString(metadata.targetUploadId) ?? asString(metadata.uploadId),
             targetStyleId: asString(metadata.targetStyleId),
           },
         ]
