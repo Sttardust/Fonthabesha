@@ -7,6 +7,8 @@ import { AppModule } from './app.module';
 
 async function bootstrapWorker(): Promise<void> {
   process.env.MAIL_QUEUE_CONSUMER_ENABLED = process.env.MAIL_QUEUE_CONSUMER_ENABLED || 'true';
+  process.env.BACKGROUND_JOB_CONSUMER_ENABLED =
+    process.env.BACKGROUND_JOB_CONSUMER_ENABLED || 'true';
 
   const app = await NestFactory.createApplicationContext(AppModule, {
     bufferLogs: true,

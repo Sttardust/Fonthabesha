@@ -35,6 +35,7 @@ async function ensureStorageBuckets() {
 
 async function createTestContext() {
   process.env.MAIL_QUEUE_ENABLED = 'false';
+  process.env.BACKGROUND_JOB_QUEUE_ENABLED = 'false';
   Logger.overrideLogger(false);
   await ensureStorageBuckets();
   const { createApp } = require('../../dist/src/bootstrap.js');

@@ -13,6 +13,7 @@ import {
 import { AuthContextService } from '../auth/auth-context.service';
 import { AuthRateLimitService } from '../auth/auth-rate-limit.service';
 import type { AuthenticatedRequest } from '../auth/auth-request';
+import { BackgroundJobsService } from '../background-jobs/background-jobs.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SearchIndexService } from '../search/search-index.service';
 import { FontInspectionService } from '../uploads/font-inspection.service';
@@ -28,6 +29,7 @@ export class AdminService {
     private readonly prisma: PrismaService,
     private readonly authContext: AuthContextService,
     private readonly authRateLimitService: AuthRateLimitService,
+    private readonly backgroundJobs: BackgroundJobsService,
     private readonly searchIndex: SearchIndexService,
     private readonly fontInspection: FontInspectionService,
     private readonly fontStyleSync: FontStyleSyncService,
@@ -1107,9 +1109,12 @@ export class AdminService {
     ]);
 
     if (action === 'approved') {
-      await this.searchIndex.syncFamilyById(submission.familyId);
+      await Promise.all([
+        this.backgroundJobs.enqueueSearchSync(submission.familyId, 'upsert'),
+        this.backgroundJobs.enqueueFamilyPackageWarmup(submission.familyId),
+      ]);
     } else {
-      await this.searchIndex.removeFamilyById(submission.familyId);
+      await this.backgroundJobs.enqueueSearchSync(submission.familyId, 'remove');
     }
 
     return {

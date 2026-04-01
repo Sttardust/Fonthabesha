@@ -5,6 +5,7 @@ import { AdminModule } from './admin/admin.module';
 import { AssetsModule } from './assets/assets.module';
 import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
+import { BackgroundJobsModule } from './background-jobs/background-jobs.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { ContributorModule } from './contributor/contributor.module';
 import { DownloadsModule } from './downloads/downloads.module';
@@ -30,6 +31,7 @@ import { UsersModule } from './users/users.module';
     AdminModule,
     AssetsModule,
     AuthModule,
+    BackgroundJobsModule,
     CatalogModule,
     ContributorModule,
     DownloadsModule,
