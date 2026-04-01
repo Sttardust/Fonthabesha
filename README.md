@@ -72,6 +72,7 @@ Useful commands:
 - backend auth routes are rate limited for registration, login, verification email requests, and password reset requests
 - repeated failed logins now trigger temporary account and network lockouts on the backend
 - backend auth also writes persistent audit rows for security-relevant account events
+- admin security actions like session revokes and lockout clears now flow into the same auth audit trail
 - staff can review those auth audit events through the admin API
 - staff can also inspect and revoke refresh sessions through the admin API
 - staff can inspect and clear account-level login lockouts through the admin API

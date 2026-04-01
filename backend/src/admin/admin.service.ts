@@ -1,10 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   AuthAuditAction,
   AuthAuditOutcome,
@@ -283,7 +279,10 @@ export class AdminService {
   }
 
   async revokeAuthSession(request: AuthenticatedRequest, sessionId: string) {
-    const actor = await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
+    const actor = await this.authContext.requireUserFromRequest(request, [
+      UserRole.admin,
+      UserRole.reviewer,
+    ]);
     const session = await this.prisma.refreshSession.findUnique({
       where: {
         id: sessionId,
@@ -317,6 +316,22 @@ export class AdminService {
       });
     }
 
+    await this.recordAuthAuditEvent({
+      request,
+      action: 'auth_session_revoke',
+      outcome: 'success',
+      userId: session.user.id,
+      email: session.user.email,
+      metadataJson: {
+        actorUserId: actor.id,
+        actorEmail: actor.email,
+        actorRole: actor.role,
+        sessionId: session.id,
+        alreadyRevoked: Boolean(session.revokedAt),
+        targetUserRole: session.user.role,
+      },
+    });
+
     return {
       sessionId: session.id,
       status: this.getRefreshSessionStatus(
@@ -338,7 +353,10 @@ export class AdminService {
   }
 
   async revokeUserAuthSessions(request: AuthenticatedRequest, userId: string) {
-    const actor = await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
+    const actor = await this.authContext.requireUserFromRequest(request, [
+      UserRole.admin,
+      UserRole.reviewer,
+    ]);
     const user = await this.prisma.user.findUnique({
       where: {
         id: userId,
@@ -366,6 +384,21 @@ export class AdminService {
       },
       data: {
         revokedAt,
+      },
+    });
+
+    await this.recordAuthAuditEvent({
+      request,
+      action: 'auth_user_sessions_revoke',
+      outcome: 'success',
+      userId: user.id,
+      email: user.email,
+      metadataJson: {
+        actorUserId: actor.id,
+        actorEmail: actor.email,
+        actorRole: actor.role,
+        revokedSessionCount: result.count,
+        targetUserRole: user.role,
       },
     });
 
@@ -412,7 +445,10 @@ export class AdminService {
   }
 
   async clearUserLoginLockout(request: AuthenticatedRequest, userId: string) {
-    const actor = await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
+    const actor = await this.authContext.requireUserFromRequest(request, [
+      UserRole.admin,
+      UserRole.reviewer,
+    ]);
     const user = await this.prisma.user.findUnique({
       where: {
         id: userId,
@@ -433,6 +469,24 @@ export class AdminService {
     const before = await this.authRateLimitService.getLockout('login-email', user.email);
     await this.authRateLimitService.clearScopeState('login-email', user.email);
     const after = await this.authRateLimitService.getLockout('login-email', user.email);
+
+    await this.recordAuthAuditEvent({
+      request,
+      action: 'login_lockout_clear',
+      outcome: 'success',
+      userId: user.id,
+      email: user.email,
+      metadataJson: {
+        actorUserId: actor.id,
+        actorEmail: actor.email,
+        actorRole: actor.role,
+        beforeLocked: before.locked,
+        beforeRetryAfterSeconds: before.retryAfterSeconds,
+        afterLocked: after.locked,
+        afterRetryAfterSeconds: after.retryAfterSeconds,
+        targetUserRole: user.role,
+      },
+    });
 
     return {
       user,
@@ -1094,5 +1148,70 @@ export class AdminService {
     }
 
     return 'active';
+  }
+
+  private async recordAuthAuditEvent(args: {
+    action: AuthAuditAction;
+    outcome: AuthAuditOutcome;
+    request?: AuthenticatedRequest;
+    userId?: string | null;
+    email?: string | null;
+    metadataJson?: Record<string, unknown>;
+  }): Promise<void> {
+    try {
+      await this.prisma.authAuditEvent.create({
+        data: {
+          userId: args.userId ?? null,
+          email: args.email?.trim().toLowerCase() ?? null,
+          action: args.action,
+          outcome: args.outcome,
+          ipHash: this.hashValue(args.request ? this.getRequestIdentifier(args.request) : null),
+          userAgentHash: this.hashValue(this.getUserAgent(args.request)),
+          metadataJson: (args.metadataJson ?? undefined) as Prisma.InputJsonValue | undefined,
+        },
+      });
+    } catch {
+      return;
+    }
+  }
+
+  private getRequestIdentifier(request: AuthenticatedRequest): string {
+    const forwardedFor = request.headers['x-forwarded-for'];
+
+    if (typeof forwardedFor === 'string' && forwardedFor.trim()) {
+      return forwardedFor.split(',')[0]?.trim() ?? request.ip ?? 'unknown';
+    }
+
+    if (Array.isArray(forwardedFor) && forwardedFor[0]?.trim()) {
+      return forwardedFor[0].split(',')[0]?.trim() ?? request.ip ?? 'unknown';
+    }
+
+    return request.ip ?? 'unknown';
+  }
+
+  private getUserAgent(request: AuthenticatedRequest | undefined): string | null {
+    if (!request) {
+      return null;
+    }
+
+    const rawUserAgent = request.headers['user-agent'];
+
+    if (typeof rawUserAgent === 'string') {
+      return rawUserAgent;
+    }
+
+    if (Array.isArray(rawUserAgent)) {
+      return rawUserAgent[0] ?? null;
+    }
+
+    return null;
+  }
+
+  private hashValue(value: string | null | undefined): string | null {
+    if (!value?.trim()) {
+      return null;
+    }
+
+    return createHash('sha256').update(value).digest('hex');
   }
 }

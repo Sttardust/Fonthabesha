@@ -168,4 +168,68 @@ test('admin auth endpoints enforce roles and support lockout management', async 
   });
 
   assert.ok(contributorTokens.accessToken);
+
+  const contributorSessionsResponse = await requestJson(context, {
+    method: 'GET',
+    path: '/api/v1/admin/auth-sessions',
+    headers: {
+      'x-user-email': 'admin@fonthabesha.local',
+    },
+    query: {
+      email: contributorEmail,
+      status: 'active',
+    },
+  });
+
+  assert.equal(contributorSessionsResponse.status, 200);
+  assert.ok(contributorSessionsResponse.body.items.length >= 1);
+
+  const contributorSessionId = contributorSessionsResponse.body.items[0].id;
+
+  const revokeSingleSessionResponse = await requestJson(context, {
+    method: 'POST',
+    path: `/api/v1/admin/auth-sessions/${contributorSessionId}/revoke`,
+    headers: {
+      'x-user-email': 'admin@fonthabesha.local',
+    },
+  });
+
+  assert.equal(revokeSingleSessionResponse.status, 201);
+  assert.equal(revokeSingleSessionResponse.body.sessionId, contributorSessionId);
+
+  await login(context, {
+    email: contributorEmail,
+    password: contributorPassword,
+    forwardedFor: forwardedFor('admin-auth-login-before-bulk-revoke'),
+  });
+
+  const revokeUserSessionsResponse = await requestJson(context, {
+    method: 'POST',
+    path: `/api/v1/admin/users/${contributorUserId}/auth-sessions/revoke`,
+    headers: {
+      'x-user-email': 'admin@fonthabesha.local',
+    },
+  });
+
+  assert.equal(revokeUserSessionsResponse.status, 201);
+  assert.ok(revokeUserSessionsResponse.body.revokedSessionCount >= 1);
+
+  const authAuditEventsResponse = await requestJson(context, {
+    method: 'GET',
+    path: '/api/v1/admin/auth-audit',
+    headers: {
+      'x-user-email': 'admin@fonthabesha.local',
+    },
+    query: {
+      userId: contributorUserId,
+      pageSize: 50,
+    },
+  });
+
+  assert.equal(authAuditEventsResponse.status, 200);
+
+  const auditedActions = new Set(authAuditEventsResponse.body.items.map((event) => event.action));
+  assert.ok(auditedActions.has('login_lockout_clear'));
+  assert.ok(auditedActions.has('auth_session_revoke'));
+  assert.ok(auditedActions.has('auth_user_sessions_revoke'));
 });

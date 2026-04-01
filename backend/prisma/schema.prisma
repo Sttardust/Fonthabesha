@@ -93,6 +93,9 @@ enum AuthAuditAction {
   email_verification_confirm
   refresh
   logout
+  auth_session_revoke
+  auth_user_sessions_revoke
+  login_lockout_clear
 }
 
 enum AuthAuditOutcome {
