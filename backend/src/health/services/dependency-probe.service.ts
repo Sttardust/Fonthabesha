@@ -56,6 +56,8 @@ export class DependencyProbeService {
       const socket = new Socket();
       let settled = false;
 
+      socket.unref();
+
       const finish = (result: ProbeResult): void => {
         if (settled) {
           return;

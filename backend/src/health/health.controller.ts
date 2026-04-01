@@ -1,10 +1,14 @@
-import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
+import { Controller, Get, Header, ServiceUnavailableException } from '@nestjs/common';
 
 import { DependencyProbeService } from './services/dependency-probe.service';
+import { MetricsService } from './services/metrics.service';
 
 @Controller('health')
 export class HealthController {
-  constructor(private readonly dependencyProbeService: DependencyProbeService) {}
+  constructor(
+    private readonly dependencyProbeService: DependencyProbeService,
+    private readonly metricsService: MetricsService,
+  ) {}
 
   @Get('live')
   getLiveness(): { status: string } {
@@ -31,5 +35,10 @@ export class HealthController {
       checks,
     };
   }
-}
 
+  @Get('metrics')
+  @Header('content-type', 'text/plain; version=0.0.4; charset=utf-8')
+  async getMetrics(): Promise<string> {
+    return this.metricsService.renderPrometheusMetrics();
+  }
+}

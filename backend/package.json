@@ -15,7 +15,7 @@
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
-    "test": "npm run build && node --test --test-concurrency=1 test/**/*.test.js"
+    "test": "npm run build && node --test --test-concurrency=1 --test-force-exit test/**/*.test.js"
   },
   "license": "ISC",
   "type": "commonjs",

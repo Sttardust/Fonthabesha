@@ -75,6 +75,7 @@ Useful commands:
 - contributor uploads are constrained by file type, file count, size, and per-hour upload limits through the backend env settings
 - contributor upload completion now transitions submissions through `processing` until the worker finishes analysis
 - set `ALLOW_DEV_HEADER_AUTH=false` to disable the `x-user-email` development auth fallback; production should not rely on that header
+- the backend now refuses to boot in production if placeholder JWT secrets, dev-header auth, missing SMTP settings, or localhost public URLs are still configured
 - backend auth routes are rate limited for registration, login, verification email requests, and password reset requests
 - repeated failed logins now trigger temporary account and network lockouts on the backend
 - backend auth also writes persistent audit rows for security-relevant account events
@@ -82,3 +83,4 @@ Useful commands:
 - staff can review those auth audit events through the admin API
 - staff can also inspect and revoke refresh sessions through the admin API
 - staff can inspect and clear account-level login lockouts through the admin API
+- `GET /api/v1/health/metrics` exposes Prometheus-style backend metrics for uptime, memory, dependency status, and submission counts

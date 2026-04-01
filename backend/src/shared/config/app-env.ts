@@ -37,6 +37,8 @@ export interface AppEnvironment {
   ALLOW_DEV_HEADER_AUTH: boolean;
 }
 
+const INSECURE_JWT_SECRETS = new Set(['replace-me-access', 'replace-me-refresh']);
+
 function getRequiredString(env: RawEnvironment, key: keyof AppEnvironment, fallback?: string): string {
   const value = env[key] ?? fallback;
 
@@ -169,4 +171,50 @@ export function validateEnvironment(env: RawEnvironment): AppEnvironment {
       getRequiredString(env, 'NODE_ENV', 'development') !== 'production',
     ),
   };
+}
+
+export function enforceEnvironmentSafety(env: AppEnvironment): void {
+  if (env.NODE_ENV !== 'production') {
+    return;
+  }
+
+  if (env.ALLOW_DEV_HEADER_AUTH) {
+    throw new Error('ALLOW_DEV_HEADER_AUTH must be false in production');
+  }
+
+  if (!env.SMTP_URL) {
+    throw new Error('SMTP_URL is required in production');
+  }
+
+  if (!env.MAIL_FROM_EMAIL) {
+    throw new Error('MAIL_FROM_EMAIL is required in production');
+  }
+
+  if (INSECURE_JWT_SECRETS.has(env.JWT_ACCESS_SECRET) || env.JWT_ACCESS_SECRET.length < 24) {
+    throw new Error('JWT_ACCESS_SECRET must be rotated and at least 24 characters in production');
+  }
+
+  if (INSECURE_JWT_SECRETS.has(env.JWT_REFRESH_SECRET) || env.JWT_REFRESH_SECRET.length < 24) {
+    throw new Error('JWT_REFRESH_SECRET must be rotated and at least 24 characters in production');
+  }
+
+  const unsafeUrls = [
+    ['APP_BASE_URL', env.APP_BASE_URL],
+    ['FRONTEND_URL', env.FRONTEND_URL],
+    ['CDN_BASE_URL', env.CDN_BASE_URL],
+  ].filter(([, value]) => isLocalUrl(value));
+
+  if (unsafeUrls.length > 0) {
+    const names = unsafeUrls.map(([name]) => name).join(', ');
+    throw new Error(`${names} must not use localhost or 127.0.0.1 in production`);
+  }
+}
+
+function isLocalUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return ['localhost', '127.0.0.1'].includes(url.hostname);
+  } catch {
+    return false;
+  }
 }

@@ -77,6 +77,7 @@ async function requestJson(context, args) {
   const response = await fetch(url, {
     method: args.method,
     headers: {
+      connection: 'close',
       ...(args.body ? { 'content-type': 'application/json' } : {}),
       ...(args.headers ?? {}),
     },
