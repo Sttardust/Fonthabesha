@@ -35,6 +35,25 @@ export type ProcessUploadResult = {
   };
 };
 
+type FailedUploadInput = {
+  upload: {
+    id: string;
+    submissionId: string;
+    familyId: string;
+    storageKey: string;
+    mimeType: string | null;
+    fileSizeBytes: bigint | null;
+    sha256: string | null;
+  };
+  actorUserId?: string | null;
+  failureNotesPrefix: string;
+  message: string;
+  objectMetadata?: {
+    contentLength: number;
+    contentType: string;
+  } | null;
+};
+
 @Injectable()
 export class UploadProcessingService {
   private readonly logger = new Logger(UploadProcessingService.name);
@@ -160,63 +179,54 @@ export class UploadProcessingService {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(`Upload processing failed for ${upload.id}: ${message}`);
-      const failedAt = new Date();
       const objectMetadata = await this.storageService.getRawObjectMetadata(upload.storageKey).catch(() => null);
 
-      const [, failedUpload] = await this.prisma.$transaction([
-        this.prisma.submission.update({
-          where: {
-            id: upload.submissionId,
-          },
-          data: {
-            status: 'processing_failed',
-            lastActionAt: failedAt,
-          },
-        }),
-        this.prisma.upload.update({
-          where: {
-            id: upload.id,
-          },
-          data: {
-            fileSizeBytes:
-              objectMetadata?.contentLength !== undefined
-                ? BigInt(objectMetadata.contentLength)
-                : upload.fileSizeBytes,
-            mimeType: objectMetadata?.contentType ?? upload.mimeType,
-            processingStatus: 'failed',
-            processingError: message,
-            processedAt: failedAt,
-          },
-        }),
-        this.prisma.reviewEvent.create({
-          data: {
-            submissionId: upload.submissionId,
-            familyId: upload.familyId,
-            actorUserId: payload.actorUserId ?? null,
-            action: ReviewAction.processing_failed,
-            notes: `${payload.failureNotesPrefix}: ${message}`,
-            metadataJson: {
-              uploadId: upload.id,
-            },
-          },
-        }),
-      ]);
-
-      return {
-        upload: {
-          id: failedUpload.id,
-          processingStatus: failedUpload.processingStatus,
-          fileSizeBytes: Number(failedUpload.fileSizeBytes ?? 0n),
-          mimeType: failedUpload.mimeType,
-          sha256: failedUpload.sha256,
-          processingError: failedUpload.processingError,
-        },
-        submission: {
-          id: upload.submissionId,
-          status: 'processing_failed',
-        },
-      };
+      return this.failUpload({
+        upload,
+        actorUserId: payload.actorUserId,
+        failureNotesPrefix: payload.failureNotesPrefix,
+        message,
+        objectMetadata,
+      });
     }
+  }
+
+  async failUploadById(args: {
+    uploadId: string;
+    actorUserId?: string | null;
+    failureNotesPrefix: string;
+    message: string;
+    objectMetadata?: {
+      contentLength: number;
+      contentType: string;
+    } | null;
+  }): Promise<ProcessUploadResult> {
+    const upload = await this.prisma.upload.findUnique({
+      where: {
+        id: args.uploadId,
+      },
+      select: {
+        id: true,
+        submissionId: true,
+        familyId: true,
+        storageKey: true,
+        mimeType: true,
+        fileSizeBytes: true,
+        sha256: true,
+      },
+    });
+
+    if (!upload) {
+      throw new Error(`Upload ${args.uploadId} was not found for failure handling`);
+    }
+
+    return this.failUpload({
+      upload,
+      actorUserId: args.actorUserId,
+      failureNotesPrefix: args.failureNotesPrefix,
+      message: args.message,
+      objectMetadata: args.objectMetadata,
+    });
   }
 
   private deriveSubmissionStatus(
@@ -234,5 +244,77 @@ export class UploadProcessingService {
     }
 
     return 'processing';
+  }
+
+  private async failUpload(args: FailedUploadInput): Promise<ProcessUploadResult> {
+    const failedAt = new Date();
+    let rawObjectDeleted = false;
+
+    try {
+      if (await this.storageService.rawObjectExists(args.upload.storageKey)) {
+        await this.storageService.deleteRawObject(args.upload.storageKey);
+        rawObjectDeleted = true;
+      }
+    } catch (error) {
+      const cleanupMessage = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Failed to clean up raw object for upload ${args.upload.id}: ${cleanupMessage}`,
+      );
+    }
+
+    const [, failedUpload] = await this.prisma.$transaction([
+      this.prisma.submission.update({
+        where: {
+          id: args.upload.submissionId,
+        },
+        data: {
+          status: 'processing_failed',
+          lastActionAt: failedAt,
+        },
+      }),
+      this.prisma.upload.update({
+        where: {
+          id: args.upload.id,
+        },
+        data: {
+          fileSizeBytes:
+            args.objectMetadata?.contentLength !== undefined
+              ? BigInt(args.objectMetadata.contentLength)
+              : args.upload.fileSizeBytes,
+          mimeType: args.objectMetadata?.contentType ?? args.upload.mimeType,
+          processingStatus: 'failed',
+          processingError: args.message,
+          processedAt: failedAt,
+        },
+      }),
+      this.prisma.reviewEvent.create({
+        data: {
+          submissionId: args.upload.submissionId,
+          familyId: args.upload.familyId,
+          actorUserId: args.actorUserId ?? null,
+          action: ReviewAction.processing_failed,
+          notes: `${args.failureNotesPrefix}: ${args.message}`,
+          metadataJson: {
+            uploadId: args.upload.id,
+            rawObjectDeleted,
+          },
+        },
+      }),
+    ]);
+
+    return {
+      upload: {
+        id: failedUpload.id,
+        processingStatus: failedUpload.processingStatus,
+        fileSizeBytes: Number(failedUpload.fileSizeBytes ?? 0n),
+        mimeType: failedUpload.mimeType,
+        sha256: failedUpload.sha256,
+        processingError: failedUpload.processingError,
+      },
+      submission: {
+        id: args.upload.submissionId,
+        status: 'processing_failed',
+      },
+    };
   }
 }

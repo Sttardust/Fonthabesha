@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
   NoSuchKey,
@@ -93,6 +94,15 @@ export class S3StorageService {
         Key: storageKey,
         Body: body,
         ContentType: contentType,
+      }),
+    );
+  }
+
+  async deleteRawObject(storageKey: string): Promise<void> {
+    await this.client.send(
+      new DeleteObjectCommand({
+        Bucket: this.rawBucket,
+        Key: storageKey,
       }),
     );
   }

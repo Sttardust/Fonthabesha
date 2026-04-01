@@ -5,6 +5,7 @@ const {
   closeTestContext,
   createTestContext,
   forwardedFor,
+  rawObjectExists,
   requestJson,
   uniqueEmail,
 } = require('./helpers/app');
@@ -106,6 +107,7 @@ test('upload policy rejects invalid file types, oversize files, and excess files
 
   assert.equal(validInitResponse.status, 201);
   const uploadId = validInitResponse.body.uploadId;
+  const uploadStorageKey = validInitResponse.body.upload.storageKey;
 
   const secondInitResponse = await requestJson(context, {
     method: 'POST',
@@ -147,4 +149,113 @@ test('upload policy rejects invalid file types, oversize files, and excess files
 
   assert.equal(oversizeCompleteResponse.status, 400);
   assert.match(String(oversizeCompleteResponse.body.message), /exceeds the 512 byte limit/i);
+  assert.equal(await rawObjectExists(uploadStorageKey), false);
+});
+
+test('invalid font content is marked failed and cleaned up after inspection', async () => {
+  const contributorEmail = uniqueEmail('invalid-font');
+  const contributorPassword = 'ContributorPass123!';
+  const invalidFontBuffer = Buffer.from('not-a-real-font-file');
+
+  const licensesResponse = await requestJson(context, {
+    method: 'GET',
+    path: '/api/v1/licenses',
+  });
+
+  assert.equal(licensesResponse.status, 200);
+  const declaredLicenseId = licensesResponse.body[0].id;
+
+  const registerResponse = await requestJson(context, {
+    method: 'POST',
+    path: '/api/v1/auth/register',
+    headers: {
+      'x-forwarded-for': forwardedFor('invalid-font-register'),
+    },
+    body: {
+      email: contributorEmail,
+      password: contributorPassword,
+      displayName: 'Invalid Font Contributor',
+      legalFullName: 'Invalid Font Contributor',
+      countryCode: 'ET',
+    },
+  });
+
+  assert.equal(registerResponse.status, 201);
+  const contributorAccessToken = registerResponse.body.accessToken;
+
+  const createSubmissionResponse = await requestJson(context, {
+    method: 'POST',
+    path: '/api/v1/submissions',
+    headers: {
+      authorization: `Bearer ${contributorAccessToken}`,
+    },
+    body: {
+      familyNameEn: 'Invalid Font Sans',
+      declaredLicenseId,
+      ownershipEvidenceType: 'ownership_statement',
+      ownershipEvidenceValue: 'Created by the invalid font test.',
+      contributorStatementText:
+        'I confirm that I have the legal right to submit this font to the platform for review.',
+      termsAcceptanceName: 'Invalid Font Contributor',
+      supportsLatin: true,
+    },
+  });
+
+  assert.equal(createSubmissionResponse.status, 201);
+  const submissionId = createSubmissionResponse.body.id;
+
+  const initUploadResponse = await requestJson(context, {
+    method: 'POST',
+    path: '/api/v1/uploads/init',
+    headers: {
+      authorization: `Bearer ${contributorAccessToken}`,
+    },
+    body: {
+      submissionId,
+      filename: 'invalid-font-regular.ttf',
+      contentType: 'font/ttf',
+    },
+  });
+
+  assert.equal(initUploadResponse.status, 201);
+
+  const putResponse = await fetch(initUploadResponse.body.upload.url, {
+    method: 'PUT',
+    headers: {
+      'content-type': 'font/ttf',
+    },
+    body: invalidFontBuffer,
+  });
+
+  assert.equal(putResponse.status, 200);
+
+  const completeUploadResponse = await requestJson(context, {
+    method: 'POST',
+    path: '/api/v1/uploads/complete',
+    headers: {
+      authorization: `Bearer ${contributorAccessToken}`,
+    },
+    body: {
+      uploadId: initUploadResponse.body.uploadId,
+      sha256: sha256Hex(invalidFontBuffer),
+    },
+  });
+
+  assert.equal(completeUploadResponse.status, 201);
+  assert.equal(completeUploadResponse.body.submission.status, 'processing_failed');
+  assert.equal(completeUploadResponse.body.upload.processingStatus, 'failed');
+  assert.equal(await rawObjectExists(initUploadResponse.body.upload.storageKey), false);
+
+  const detailResponse = await requestJson(context, {
+    method: 'GET',
+    path: `/api/v1/submissions/${submissionId}`,
+    headers: {
+      authorization: `Bearer ${contributorAccessToken}`,
+    },
+  });
+
+  assert.equal(detailResponse.status, 200);
+  assert.equal(detailResponse.body.status, 'processing_failed');
+  assert.equal(detailResponse.body.analysis.status, 'failed');
+  assert.ok(detailResponse.body.analysis.blockingIssues.length >= 1);
 });

@@ -3,6 +3,7 @@ require('reflect-metadata');
 const { Logger } = require('@nestjs/common');
 const {
   CreateBucketCommand,
+  HeadObjectCommand,
   HeadBucketCommand,
   S3Client,
 } = require('@aws-sdk/client-s3');
@@ -17,7 +18,16 @@ async function ensureBucket(client, bucket) {
 }
 
 async function ensureStorageBuckets() {
-  const client = new S3Client({
+  const client = createS3Client();
+
+  await Promise.all([
+    ensureBucket(client, process.env.S3_BUCKET_RAW || 'fonthabesha-raw'),
+    ensureBucket(client, process.env.S3_BUCKET_PUBLIC || 'fonthabesha-public'),
+  ]);
+}
+
+function createS3Client() {
+  return new S3Client({
     region: process.env.S3_REGION || 'us-east-1',
     endpoint: process.env.S3_ENDPOINT || 'http://localhost:9000',
     forcePathStyle: true,
@@ -26,11 +36,6 @@ async function ensureStorageBuckets() {
       secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || 'minioadmin',
     },
   });
-
-  await Promise.all([
-    ensureBucket(client, process.env.S3_BUCKET_RAW || 'fonthabesha-raw'),
-    ensureBucket(client, process.env.S3_BUCKET_PUBLIC || 'fonthabesha-public'),
-  ]);
 }
 
 async function createTestContext(envOverrides = {}) {
@@ -88,6 +93,32 @@ async function requestJson(context, args) {
   };
 }
 
+async function rawObjectExists(storageKey) {
+  const client = createS3Client();
+
+  try {
+    await client.send(
+      new HeadBucketCommand({
+        Bucket: process.env.S3_BUCKET_RAW || 'fonthabesha-raw',
+      }),
+    );
+  } catch {
+    return false;
+  }
+
+  try {
+    await client.send(
+      new HeadObjectCommand({
+        Bucket: process.env.S3_BUCKET_RAW || 'fonthabesha-raw',
+        Key: storageKey,
+      }),
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function uniqueEmail(prefix) {
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   return `${prefix}-${suffix}@example.com`;
@@ -103,6 +134,7 @@ module.exports = {
   closeTestContext,
   createTestContext,
   forwardedFor,
+  rawObjectExists,
   requestJson,
   uniqueEmail,
 };

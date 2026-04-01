@@ -11,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CompleteUploadDto } from './dto/complete-upload.dto';
 import { InitUploadDto } from './dto/init-upload.dto';
 import { UploadProcessingQueueService } from './upload-processing-queue.service';
+import { UploadProcessingService } from './upload-processing.service';
 import { UploadsPolicyService } from './uploads-policy.service';
 import { S3StorageService } from './s3-storage.service';
 
@@ -20,6 +21,7 @@ export class UploadsService {
     private readonly prisma: PrismaService,
     private readonly authContext: AuthContextService,
     private readonly uploadProcessingQueue: UploadProcessingQueueService,
+    private readonly uploadProcessingService: UploadProcessingService,
     private readonly uploadsPolicy: UploadsPolicyService,
     private readonly storageService: S3StorageService,
   ) {}
@@ -123,12 +125,28 @@ export class UploadsService {
       throw new NotFoundException('Upload not found');
     }
 
-    const objectMetadata = await this.storageService.getRawObjectMetadata(upload.storageKey);
-    this.uploadsPolicy.validateStoredUpload({
-      filename: upload.originalFilename,
-      contentType: objectMetadata.contentType,
-      contentLength: objectMetadata.contentLength,
-    });
+    let objectMetadata;
+
+    try {
+      objectMetadata = await this.storageService.getRawObjectMetadata(upload.storageKey);
+      this.uploadsPolicy.validateStoredUpload({
+        filename: upload.originalFilename,
+        contentType: objectMetadata.contentType,
+        contentLength: objectMetadata.contentLength,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      await this.uploadProcessingService.failUploadById({
+        uploadId: upload.id,
+        actorUserId: user.id,
+        failureNotesPrefix: 'Automatic font inspection failed',
+        message,
+        objectMetadata: objectMetadata ?? null,
+      });
+
+      throw error;
+    }
     const now = new Date();
     const normalizedSha = payload.sha256?.toLowerCase() ?? null;
 
