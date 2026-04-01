@@ -170,6 +170,53 @@ export interface AdminStats {
   activeContributors: number;
 }
 
+// ── Vocabulary (admin-managed tags) ───────────────────────────────────────────
+
+export interface VocabularyTag {
+  id: string;
+  name: string;
+  usageCount: number;
+  createdAt: string;
+}
+
+// ── Analytics ──────────────────────────────────────────────────────────────────
+
+export interface AnalyticsPeriod {
+  /** ISO month string: "2024-01" */
+  period: string;
+  downloads: number;
+  newFamilies: number;
+  newSubmissions: number;
+}
+
+export interface TopFont {
+  familyId: string;
+  slug: string;
+  name: BilingualString;
+  downloads: number;
+  category: FontCategory;
+}
+
+export interface AnalyticsResponse {
+  periods: AnalyticsPeriod[];
+  topFonts: TopFont[];
+  totalDownloads: number;
+  totalFamilies: number;
+  totalContributors: number;
+}
+
+// ── Admin collection ───────────────────────────────────────────────────────────
+
+export interface AdminCollection {
+  id: string;
+  name: string;
+  description: string | null;
+  isPublic: boolean;
+  familyCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ── Search ────────────────────────────────────────────────────────────────────
 
 export interface SearchFilters {

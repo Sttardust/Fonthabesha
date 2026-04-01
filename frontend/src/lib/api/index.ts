@@ -5,3 +5,4 @@ export { downloadsApi } from './downloads';
 export { collectionsApi } from './collections';
 export { contributorApi } from './contributor';
 export { adminApi } from './admin';
+export { vocabularyApi } from './vocabulary';

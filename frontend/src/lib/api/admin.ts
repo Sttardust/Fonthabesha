@@ -3,7 +3,9 @@ import type {
   ReviewQueueItem,
   AdminStats,
   AdminSubmissionDetail,
+  AdminCollection,
   FontFamilyDetail,
+  AnalyticsResponse,
   PaginatedResponse,
   SubmissionStatus,
 } from '@/lib/types';
@@ -56,4 +58,36 @@ export const adminApi = {
 
   deleteFamily: (id: string): Promise<void> =>
     apiClient.delete(`${FAMILIES_PREFIX}/${id}`),
+
+  // ── Collections admin ─────────────────────────────────────────────────────────
+  listCollections: (page = 1, pageSize = 20): Promise<PaginatedResponse<AdminCollection>> =>
+    apiClient.get<PaginatedResponse<AdminCollection>>(
+      `/api/v1/admin/collections?page=${page}&pageSize=${pageSize}`,
+    ),
+
+  createCollection: (payload: {
+    name: string;
+    description?: string;
+    isPublic: boolean;
+  }): Promise<AdminCollection> =>
+    apiClient.post<AdminCollection>('/api/v1/admin/collections', payload),
+
+  updateCollection: (
+    id: string,
+    payload: Partial<{ name: string; description: string; isPublic: boolean }>,
+  ): Promise<AdminCollection> =>
+    apiClient.patch<AdminCollection>(`/api/v1/admin/collections/${id}`, payload),
+
+  deleteCollection: (id: string): Promise<void> =>
+    apiClient.delete(`/api/v1/admin/collections/${id}`),
+
+  addFamilyToCollection: (collectionId: string, familyId: string): Promise<void> =>
+    apiClient.post(`/api/v1/admin/collections/${collectionId}/families/${familyId}`),
+
+  removeFamilyFromCollection: (collectionId: string, familyId: string): Promise<void> =>
+    apiClient.delete(`/api/v1/admin/collections/${collectionId}/families/${familyId}`),
+
+  // ── Analytics ─────────────────────────────────────────────────────────────────
+  analytics: (months = 12): Promise<AnalyticsResponse> =>
+    apiClient.get<AnalyticsResponse>(`/api/v1/admin/analytics?months=${months}`),
 };

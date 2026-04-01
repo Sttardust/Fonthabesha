@@ -111,6 +111,26 @@
       "approve": "Approve",
       "requestChanges": "Request Changes",
       "reject": "Reject"
+    },
+    "collections": {
+      "title": "Collections",
+      "new": "New Collection",
+      "empty": "No collections yet."
+    },
+    "vocabulary": {
+      "title": "Vocabulary",
+      "addTag": "Add Tag",
+      "newTagPlaceholder": "New tag name…",
+      "empty": "No tags yet."
+    },
+    "analytics": {
+      "title": "Analytics",
+      "totalDownloads": "Total Downloads",
+      "publishedFamilies": "Published Families",
+      "contributors": "Contributors",
+      "downloadTrend": "Download Trend",
+      "topFonts": "Top Fonts",
+      "monthlyBreakdown": "Monthly Breakdown"
     }
   },
   "common": {

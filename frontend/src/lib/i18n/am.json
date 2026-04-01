@@ -111,6 +111,26 @@
       "approve": "ተቀበል",
       "requestChanges": "ለውጥ ጠይቅ",
       "reject": "ንቀፍ"
+    },
+    "collections": {
+      "title": "ስብስቦች",
+      "new": "አዲስ ስብስብ",
+      "empty": "ምንም ስብስቦች የሉም።"
+    },
+    "vocabulary": {
+      "title": "መዝገበ ቃላት",
+      "addTag": "መለያ አክል",
+      "newTagPlaceholder": "አዲስ መለያ ስም…",
+      "empty": "ምንም መለያዎች የሉም።"
+    },
+    "analytics": {
+      "title": "ትንታኔ",
+      "totalDownloads": "ጠቅላላ ቅጂዎች",
+      "publishedFamilies": "የታተሙ ቤተሰቦች",
+      "contributors": "አስተዋጽዖ አበርካቾች",
+      "downloadTrend": "የቅጂ አዝማሚያ",
+      "topFonts": "ምርጥ ፊደሎች",
+      "monthlyBreakdown": "ወርሃዊ ዝርዝር"
     }
   },
   "common": {

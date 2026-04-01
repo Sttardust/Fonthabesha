@@ -28,10 +28,13 @@ const NewSubmissionPage = lazy(() => import('@/pages/contributor/NewSubmissionPa
 const SubmissionDetailPage = lazy(() => import('@/pages/contributor/SubmissionDetailPage'));
 
 // Admin / reviewer
-const AdminDashboard = lazy(() => import('@/pages/admin/AdminDashboard'));
-const ReviewQueuePage = lazy(() => import('@/pages/admin/ReviewQueuePage'));
-const ReviewDetailPage = lazy(() => import('@/pages/admin/ReviewDetailPage'));
-const ManageFontsPage = lazy(() => import('@/pages/admin/ManageFontsPage'));
+const AdminDashboard        = lazy(() => import('@/pages/admin/AdminDashboard'));
+const ReviewQueuePage       = lazy(() => import('@/pages/admin/ReviewQueuePage'));
+const ReviewDetailPage      = lazy(() => import('@/pages/admin/ReviewDetailPage'));
+const ManageFontsPage       = lazy(() => import('@/pages/admin/ManageFontsPage'));
+const CollectionsAdminPage  = lazy(() => import('@/pages/admin/CollectionsAdminPage'));
+const VocabularyPage        = lazy(() => import('@/pages/admin/VocabularyPage'));
+const AnalyticsPage         = lazy(() => import('@/pages/admin/AnalyticsPage'));
 
 // ── Loading fallback ───────────────────────────────────────────────────────────
 function PageSpinner() {
@@ -128,6 +131,9 @@ export const router = createBrowserRouter([
       { path: 'review', element: <Lazy><ReviewQueuePage /></Lazy> },
       { path: 'review/:id', element: <Lazy><ReviewDetailPage /></Lazy> },
       { path: 'fonts', element: <Lazy><ManageFontsPage /></Lazy> },
+      { path: 'collections', element: <Lazy><CollectionsAdminPage /></Lazy> },
+      { path: 'vocabulary', element: <Lazy><VocabularyPage /></Lazy> },
+      { path: 'analytics', element: <Lazy><AnalyticsPage /></Lazy> },
     ],
   },
 
