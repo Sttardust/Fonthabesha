@@ -117,19 +117,43 @@ export interface SubmissionSummary {
   updatedAt: string;
 }
 
+export interface SubmissionStyle {
+  id: string;
+  name: BilingualString;
+  weight: number;
+  isItalic: boolean;
+  fileName: string;
+  uploadStatus: 'pending' | 'processing' | 'ready' | 'error';
+  errorMessage: string | null;
+  /** Present when uploadStatus === 'ready'; use in CSS @font-face */
+  assetUrl: string | null;
+}
+
 export interface SubmissionDetail extends SubmissionSummary {
-  styles: {
-    id: string;
-    name: BilingualString;
-    weight: number;
-    isItalic: boolean;
-    fileName: string;
-    uploadStatus: 'pending' | 'processing' | 'ready' | 'error';
-    errorMessage: string | null;
-  }[];
+  styles: SubmissionStyle[];
 }
 
 // ── Admin / review ─────────────────────────────────────────────────────────────
+
+export interface ReviewEvent {
+  id: string;
+  action: 'submitted' | 'approved' | 'request_changes' | 'rejected' | 'resubmitted';
+  notes: string | null;
+  actorEmail: string;
+  createdAt: string;
+}
+
+export interface AdminSubmissionDetail extends SubmissionDetail {
+  designerName: BilingualString | null;
+  description: BilingualString | null;
+  category: FontCategory;
+  scriptSupport: ScriptSupport;
+  license: string;
+  licenseUrl: string | null;
+  tags: string[];
+  contributorEmail: string;
+  reviewHistory: ReviewEvent[];
+}
 
 export interface ReviewQueueItem {
   submissionId: string;

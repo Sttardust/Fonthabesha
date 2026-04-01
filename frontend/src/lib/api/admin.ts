@@ -2,7 +2,7 @@ import { apiClient } from './client';
 import type {
   ReviewQueueItem,
   AdminStats,
-  SubmissionDetail,
+  AdminSubmissionDetail,
   FontFamilyDetail,
   PaginatedResponse,
   SubmissionStatus,
@@ -30,20 +30,20 @@ export const adminApi = {
     );
   },
 
-  getSubmission: (id: string): Promise<SubmissionDetail> =>
-    apiClient.get<SubmissionDetail>(`${REVIEW_PREFIX}/${id}`),
+  getSubmission: (id: string): Promise<AdminSubmissionDetail> =>
+    apiClient.get<AdminSubmissionDetail>(`${REVIEW_PREFIX}/${id}`),
 
   /** Approve a submission → publishes it as a font family */
-  approve: (id: string, notes?: string): Promise<SubmissionDetail> =>
-    apiClient.post<SubmissionDetail>(`${REVIEW_PREFIX}/${id}/approve`, { notes }),
+  approve: (id: string, notes?: string): Promise<AdminSubmissionDetail> =>
+    apiClient.post<AdminSubmissionDetail>(`${REVIEW_PREFIX}/${id}/approve`, { notes }),
 
   /** Request changes from the contributor */
-  requestChanges: (id: string, notes: string): Promise<SubmissionDetail> =>
-    apiClient.post<SubmissionDetail>(`${REVIEW_PREFIX}/${id}/request-changes`, { notes }),
+  requestChanges: (id: string, notes: string): Promise<AdminSubmissionDetail> =>
+    apiClient.post<AdminSubmissionDetail>(`${REVIEW_PREFIX}/${id}/request-changes`, { notes }),
 
   /** Reject a submission */
-  reject: (id: string, notes: string): Promise<SubmissionDetail> =>
-    apiClient.post<SubmissionDetail>(`${REVIEW_PREFIX}/${id}/reject`, { notes }),
+  reject: (id: string, notes: string): Promise<AdminSubmissionDetail> =>
+    apiClient.post<AdminSubmissionDetail>(`${REVIEW_PREFIX}/${id}/reject`, { notes }),
 
   // ── Published families management ────────────────────────────────────────────
   listFamilies: (page = 1, pageSize = 20): Promise<PaginatedResponse<FontFamilyDetail>> =>
