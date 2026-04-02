@@ -25,6 +25,7 @@ import { UpdateAdminCollectionDto } from './dto/update-admin-collection.dto';
 import { AddCollectionFamilyDto } from './dto/add-collection-family.dto';
 import { UpsertVocabularyEntryDto } from './dto/upsert-vocabulary-entry.dto';
 import { ListAdminFamiliesDto } from './dto/list-admin-families.dto';
+import { UpdateAdminFamilyDto } from './dto/update-admin-family.dto';
 
 @Controller('admin')
 export class AdminController {
@@ -38,6 +39,30 @@ export class AdminController {
   @Get('families')
   listFamilies(@Req() request: AuthenticatedRequest, @Query() query: ListAdminFamiliesDto) {
     return this.adminService.listFamilies(request, query);
+  }
+
+  @Get('families/:familyId')
+  getFamilyDetail(@Req() request: AuthenticatedRequest, @Param('familyId') familyId: string) {
+    return this.adminService.getFamilyDetail(request, familyId);
+  }
+
+  @Patch('families/:familyId')
+  updateFamily(
+    @Req() request: AuthenticatedRequest,
+    @Param('familyId') familyId: string,
+    @Body() payload: UpdateAdminFamilyDto,
+  ) {
+    return this.adminService.updateFamily(request, familyId, payload);
+  }
+
+  @Post('families/:familyId/archive')
+  archiveFamily(@Req() request: AuthenticatedRequest, @Param('familyId') familyId: string) {
+    return this.adminService.archiveFamily(request, familyId);
+  }
+
+  @Post('families/:familyId/restore')
+  restoreFamily(@Req() request: AuthenticatedRequest, @Param('familyId') familyId: string) {
+    return this.adminService.restoreFamily(request, familyId);
   }
 
   @Get('collections')

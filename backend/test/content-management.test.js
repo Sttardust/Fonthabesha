@@ -112,6 +112,94 @@ test('collections, vocabulary, and admin family listing endpoints are available'
   assert.ok(Array.isArray(familiesResponse.body.items));
   assert.ok(typeof familiesResponse.body.pagination.totalItems === 'number');
 
+  const licensesResponse = await requestJson(context, {
+    method: 'GET',
+    path: '/api/v1/licenses',
+  });
+  assert.equal(licensesResponse.status, 200);
+
+  const registerContributorResponse = await requestJson(context, {
+    method: 'POST',
+    path: '/api/v1/auth/register',
+    body: {
+      email: `family-admin-${slugSeed}@example.com`,
+      password: 'ContributorPass123!',
+      displayName: 'Family Admin Test',
+      legalFullName: 'Family Admin Test',
+      countryCode: 'ET',
+    },
+  });
+  assert.equal(registerContributorResponse.status, 201);
+
+  const createSubmissionResponse = await requestJson(context, {
+    method: 'POST',
+    path: '/api/v1/submissions',
+    headers: {
+      authorization: `Bearer ${registerContributorResponse.body.accessToken}`,
+    },
+    body: {
+      familyNameEn: `Admin Family ${slugSeed}`,
+      declaredLicenseId: licensesResponse.body[0].id,
+      ownershipEvidenceType: 'ownership_statement',
+      ownershipEvidenceValue: 'Created for admin family management testing.',
+      contributorStatementText:
+        'I confirm that I have the legal right to submit this font to the platform for review.',
+      termsAcceptanceName: 'Family Admin Test',
+      supportsLatin: true,
+    },
+  });
+  assert.equal(createSubmissionResponse.status, 201);
+  const familyId = createSubmissionResponse.body.family.id;
+
+  const familyDetailResponse = await requestJson(context, {
+    method: 'GET',
+    path: `/api/v1/admin/families/${familyId}`,
+    headers: {
+      'x-user-email': 'admin@fonthabesha.local',
+    },
+  });
+  assert.equal(familyDetailResponse.status, 200);
+  assert.equal(familyDetailResponse.body.id, familyId);
+  assert.equal(familyDetailResponse.body.status, 'draft');
+
+  const updateFamilyResponse = await requestJson(context, {
+    method: 'PATCH',
+    path: `/api/v1/admin/families/${familyId}`,
+    headers: {
+      'x-user-email': 'admin@fonthabesha.local',
+    },
+    body: {
+      descriptionEn: 'Updated through the admin family management endpoint.',
+      supportsEthiopic: true,
+      supportsLatin: true,
+      categoryId: createCategoryResponse.body.id,
+    },
+  });
+  assert.equal(updateFamilyResponse.status, 200);
+  assert.equal(updateFamilyResponse.body.description.en, 'Updated through the admin family management endpoint.');
+  assert.equal(updateFamilyResponse.body.supports.ethiopic, true);
+  assert.equal(updateFamilyResponse.body.category.id, createCategoryResponse.body.id);
+
+  const archiveFamilyResponse = await requestJson(context, {
+    method: 'POST',
+    path: `/api/v1/admin/families/${familyId}/archive`,
+    headers: {
+      'x-user-email': 'admin@fonthabesha.local',
+    },
+  });
+  assert.equal(archiveFamilyResponse.status, 201);
+  assert.equal(archiveFamilyResponse.body.status, 'archived');
+
+  const restoreFamilyResponse = await requestJson(context, {
+    method: 'POST',
+    path: `/api/v1/admin/families/${familyId}/restore`,
+    headers: {
+      'x-user-email': 'admin@fonthabesha.local',
+    },
+  });
+  assert.equal(restoreFamilyResponse.status, 201);
+  assert.equal(restoreFamilyResponse.body.status, 'draft');
+
   const deleteCollectionResponse = await requestJson(context, {
     method: 'DELETE',
     path: `/api/v1/admin/collections/${createCollectionResponse.body.id}`,

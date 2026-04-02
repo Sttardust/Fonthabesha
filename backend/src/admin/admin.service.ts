@@ -33,6 +33,7 @@ import { CreateAdminCollectionDto } from './dto/create-admin-collection.dto';
 import { UpdateAdminCollectionDto } from './dto/update-admin-collection.dto';
 import { AddCollectionFamilyDto } from './dto/add-collection-family.dto';
 import { UpsertVocabularyEntryDto } from './dto/upsert-vocabulary-entry.dto';
+import { UpdateAdminFamilyDto } from './dto/update-admin-family.dto';
 
 @Injectable()
 export class AdminService {
@@ -308,6 +309,274 @@ export class AdminService {
         hasNext: page < totalPages,
       },
     };
+  }
+
+  async getFamilyDetail(request: AuthenticatedRequest, familyId: string) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
+    return this.getFamilyDetailForAdmin(familyId);
+  }
+
+  async updateFamily(
+    request: AuthenticatedRequest,
+    familyId: string,
+    payload: UpdateAdminFamilyDto,
+  ) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin]);
+
+    const existing = await this.prisma.fontFamily.findUnique({
+      where: {
+        id: familyId,
+      },
+      select: {
+        id: true,
+        status: true,
+        slug: true,
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Family not found');
+    }
+
+    if (payload.slug !== undefined) {
+      const slug = this.normalizeSlug(payload.slug);
+      const duplicate = await this.prisma.fontFamily.findFirst({
+        where: {
+          slug,
+          id: {
+            not: familyId,
+          },
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (duplicate) {
+        throw new BadRequestException('A family with this slug already exists');
+      }
+    }
+
+    if (payload.categoryId) {
+      const category = await this.prisma.category.findUnique({
+        where: {
+          id: payload.categoryId,
+        },
+        select: { id: true },
+      });
+      if (!category) {
+        throw new BadRequestException('The selected category does not exist');
+      }
+    }
+
+    if (payload.publisherId) {
+      const publisher = await this.prisma.publisher.findUnique({
+        where: {
+          id: payload.publisherId,
+        },
+        select: { id: true },
+      });
+      if (!publisher) {
+        throw new BadRequestException('The selected publisher does not exist');
+      }
+    }
+
+    if (payload.licenseId) {
+      const license = await this.prisma.license.findUnique({
+        where: {
+          id: payload.licenseId,
+        },
+        select: { id: true },
+      });
+      if (!license) {
+        throw new BadRequestException('The selected license does not exist');
+      }
+    }
+
+    if (payload.tagIds) {
+      const count = await this.prisma.tag.count({
+        where: {
+          id: {
+            in: payload.tagIds,
+          },
+        },
+      });
+      if (count !== payload.tagIds.length) {
+        throw new BadRequestException('One or more selected tags do not exist');
+      }
+    }
+
+    if (payload.designerIds) {
+      const count = await this.prisma.designer.count({
+        where: {
+          id: {
+            in: payload.designerIds,
+          },
+        },
+      });
+      if (count !== payload.designerIds.length) {
+        throw new BadRequestException('One or more selected designers do not exist');
+      }
+    }
+
+    const now = new Date();
+    await this.prisma.$transaction(async (tx) => {
+      await tx.fontFamily.update({
+        where: {
+          id: familyId,
+        },
+        data: {
+          slug: payload.slug === undefined ? undefined : this.normalizeSlug(payload.slug),
+          nameEn: payload.nameEn?.trim(),
+          nameAm: payload.nameAm === undefined ? undefined : payload.nameAm?.trim() || null,
+          nativeName:
+            payload.nativeName === undefined ? undefined : payload.nativeName?.trim() || null,
+          descriptionEn:
+            payload.descriptionEn === undefined
+              ? undefined
+              : payload.descriptionEn?.trim() || null,
+          descriptionAm:
+            payload.descriptionAm === undefined
+              ? undefined
+              : payload.descriptionAm?.trim() || null,
+          script: payload.script?.trim(),
+          primaryLanguage:
+            payload.primaryLanguage === undefined
+              ? undefined
+              : payload.primaryLanguage?.trim() || null,
+          categoryId: payload.categoryId === undefined ? undefined : payload.categoryId,
+          publisherId: payload.publisherId === undefined ? undefined : payload.publisherId,
+          licenseId: payload.licenseId === undefined ? undefined : payload.licenseId,
+          supportsEthiopic: payload.supportsEthiopic,
+          supportsLatin: payload.supportsLatin,
+          versionLabel:
+            payload.versionLabel === undefined ? undefined : payload.versionLabel?.trim() || null,
+          specimenTextDefaultAm:
+            payload.specimenTextDefaultAm === undefined
+              ? undefined
+              : payload.specimenTextDefaultAm?.trim() || null,
+          specimenTextDefaultEn:
+            payload.specimenTextDefaultEn === undefined
+              ? undefined
+              : payload.specimenTextDefaultEn?.trim() || null,
+          updatedAt: now,
+        },
+      });
+
+      if (payload.tagIds !== undefined) {
+        await tx.fontFamilyTag.deleteMany({
+          where: {
+            familyId,
+          },
+        });
+
+        if (payload.tagIds.length > 0) {
+          await tx.fontFamilyTag.createMany({
+            data: payload.tagIds.map((tagId) => ({
+              familyId,
+              tagId,
+            })),
+          });
+        }
+      }
+
+      if (payload.designerIds !== undefined) {
+        await tx.fontFamilyDesigner.deleteMany({
+          where: {
+            familyId,
+          },
+        });
+
+        if (payload.designerIds.length > 0) {
+          await tx.fontFamilyDesigner.createMany({
+            data: payload.designerIds.map((designerId, index) => ({
+              familyId,
+              designerId,
+              sortOrder: index,
+            })),
+          });
+        }
+      }
+    });
+
+    if (existing.status === 'approved') {
+      await this.backgroundJobs.enqueueSearchSync(familyId, 'upsert');
+      await this.backgroundJobs.enqueueFamilyPackageWarmup(familyId);
+    }
+
+    return this.getFamilyDetailForAdmin(familyId);
+  }
+
+  async archiveFamily(request: AuthenticatedRequest, familyId: string) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin]);
+
+    const family = await this.prisma.fontFamily.findUnique({
+      where: {
+        id: familyId,
+      },
+      select: {
+        id: true,
+        status: true,
+      },
+    });
+
+    if (!family) {
+      throw new NotFoundException('Family not found');
+    }
+
+    if (family.status === 'archived') {
+      return this.getFamilyDetailForAdmin(familyId);
+    }
+
+    await this.prisma.fontFamily.update({
+      where: {
+        id: familyId,
+      },
+      data: {
+        status: 'archived',
+      },
+    });
+
+    await this.backgroundJobs.enqueueSearchSync(familyId, 'remove');
+
+    return this.getFamilyDetailForAdmin(familyId);
+  }
+
+  async restoreFamily(request: AuthenticatedRequest, familyId: string) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin]);
+
+    const family = await this.prisma.fontFamily.findUnique({
+      where: {
+        id: familyId,
+      },
+      select: {
+        id: true,
+        status: true,
+        publishedAt: true,
+      },
+    });
+
+    if (!family) {
+      throw new NotFoundException('Family not found');
+    }
+
+    const restoredStatus: FamilyStatus = family.publishedAt ? 'approved' : 'draft';
+
+    await this.prisma.fontFamily.update({
+      where: {
+        id: familyId,
+      },
+      data: {
+        status: restoredStatus,
+      },
+    });
+
+    if (restoredStatus === 'approved') {
+      await this.backgroundJobs.enqueueSearchSync(familyId, 'upsert');
+      await this.backgroundJobs.enqueueFamilyPackageWarmup(familyId);
+    }
+
+    return this.getFamilyDetailForAdmin(familyId);
   }
 
   async listCollections(request: AuthenticatedRequest) {
@@ -2523,6 +2792,142 @@ export class AdminService {
     }
 
     return this.mapAdminCollection(collection);
+  }
+
+  private async getFamilyDetailForAdmin(familyId: string) {
+    const family = await this.prisma.fontFamily.findUnique({
+      where: {
+        id: familyId,
+      },
+      include: {
+        category: true,
+        publisher: true,
+        license: true,
+        designers: {
+          include: {
+            designer: true,
+          },
+          orderBy: {
+            sortOrder: 'asc',
+          },
+        },
+        tags: {
+          include: {
+            tag: true,
+          },
+        },
+        styles: {
+          orderBy: [{ isDefault: 'desc' }, { weightClass: 'asc' }, { name: 'asc' }],
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            weightClass: true,
+            weightLabel: true,
+            isItalic: true,
+            isVariable: true,
+            isDefault: true,
+            format: true,
+            status: true,
+            fileSizeBytes: true,
+            sha256: true,
+            publishedAt: true,
+            updatedAt: true,
+          },
+        },
+        submissions: {
+          orderBy: [{ updatedAt: 'desc' }],
+          take: 5,
+          select: {
+            id: true,
+            status: true,
+            submittedAt: true,
+            reviewedAt: true,
+            updatedAt: true,
+            owner: {
+              select: {
+                id: true,
+                email: true,
+                displayName: true,
+                role: true,
+              },
+            },
+          },
+        },
+        collectionItems: {
+          include: {
+            collection: {
+              select: {
+                id: true,
+                slug: true,
+                titleEn: true,
+                titleAm: true,
+                status: true,
+              },
+            },
+          },
+          orderBy: [{ sortOrder: 'asc' }],
+        },
+      },
+    });
+
+    if (!family) {
+      throw new NotFoundException('Family not found');
+    }
+
+    return {
+      id: family.id,
+      slug: family.slug,
+      status: family.status,
+      name: {
+        en: family.nameEn,
+        am: family.nameAm,
+        native: family.nativeName,
+      },
+      description: {
+        en: family.descriptionEn,
+        am: family.descriptionAm,
+      },
+      script: family.script,
+      primaryLanguage: family.primaryLanguage,
+      supports: {
+        ethiopic: family.supportsEthiopic,
+        latin: family.supportsLatin,
+      },
+      version: family.versionLabel,
+      specimenDefaults: {
+        am: family.specimenTextDefaultAm,
+        en: family.specimenTextDefaultEn,
+      },
+      category: family.category,
+      publisher: family.publisher,
+      license: family.license,
+      tags: family.tags.map((entry) => entry.tag),
+      designers: family.designers.map((entry) => ({
+        sortOrder: entry.sortOrder,
+        ...entry.designer,
+      })),
+      styles: family.styles.map((style) => ({
+        ...style,
+        fileSizeBytes: Number(style.fileSizeBytes ?? 0n),
+      })),
+      collections: family.collectionItems.map((entry) => ({
+        sortOrder: entry.sortOrder,
+        collection: {
+          id: entry.collection.id,
+          slug: entry.collection.slug,
+          title: {
+            en: entry.collection.titleEn,
+            am: entry.collection.titleAm,
+          },
+          status: entry.collection.status,
+        },
+      })),
+      recentSubmissions: family.submissions,
+      publishedAt: family.publishedAt,
+      updatedAt: family.updatedAt,
+      coverImageKey: family.coverImageKey,
+    };
   }
 
   private mapAdminCollection(collection: {
