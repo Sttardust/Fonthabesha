@@ -4,6 +4,8 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import {
   AuthAuditAction,
   AuthAuditOutcome,
+  CollectionStatus,
+  FamilyStatus,
   Prisma,
   ReviewAction,
   SubmissionStatus,
@@ -26,6 +28,11 @@ import { AuthSessionQueryDto } from './dto/auth-session-query.dto';
 import { ReviewAnalyticsQueryDto } from './dto/review-analytics-query.dto';
 import { ReviewDecisionDto, ReviewDecisionIssueDto } from './dto/review-decision.dto';
 import { ReviewHistoryQueryDto } from './dto/review-history-query.dto';
+import { ListAdminFamiliesDto } from './dto/list-admin-families.dto';
+import { CreateAdminCollectionDto } from './dto/create-admin-collection.dto';
+import { UpdateAdminCollectionDto } from './dto/update-admin-collection.dto';
+import { AddCollectionFamilyDto } from './dto/add-collection-family.dto';
+import { UpsertVocabularyEntryDto } from './dto/upsert-vocabulary-entry.dto';
 
 @Injectable()
 export class AdminService {
@@ -190,6 +197,605 @@ export class AdminService {
       },
       outcomesLast7d: outcomeCounts,
       actionsLast7d: actionCounts,
+    };
+  }
+
+  async listFamilies(request: AuthenticatedRequest, query: ListAdminFamiliesDto) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
+
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 25;
+    const skip = (page - 1) * pageSize;
+    const normalizedQuery = query.q?.trim();
+
+    const where: Prisma.FontFamilyWhereInput = {
+      status: query.status,
+      OR: normalizedQuery
+        ? [
+            { slug: { contains: normalizedQuery, mode: 'insensitive' } },
+            { nameEn: { contains: normalizedQuery, mode: 'insensitive' } },
+            { nameAm: { contains: normalizedQuery, mode: 'insensitive' } },
+            { nativeName: { contains: normalizedQuery, mode: 'insensitive' } },
+          ]
+        : undefined,
+    };
+
+    const [totalItems, families] = await Promise.all([
+      this.prisma.fontFamily.count({ where }),
+      this.prisma.fontFamily.findMany({
+        where,
+        orderBy: [{ updatedAt: 'desc' }, { insertedAt: 'desc' }],
+        skip,
+        take: pageSize,
+        include: {
+          category: true,
+          publisher: true,
+          license: true,
+          styles: {
+            orderBy: [{ isDefault: 'desc' }, { weightClass: 'asc' }, { name: 'asc' }],
+            select: {
+              id: true,
+              name: true,
+              isDefault: true,
+              status: true,
+            },
+          },
+          submissions: {
+            orderBy: {
+              updatedAt: 'desc',
+            },
+            take: 1,
+            select: {
+              id: true,
+              status: true,
+              updatedAt: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    const totalPages = totalItems === 0 ? 0 : Math.ceil(totalItems / pageSize);
+
+    return {
+      items: families.map((family) => ({
+        id: family.id,
+        slug: family.slug,
+        status: family.status,
+        name: {
+          en: family.nameEn,
+          am: family.nameAm,
+          native: family.nativeName,
+        },
+        script: family.script,
+        version: family.versionLabel,
+        category: family.category
+          ? {
+              id: family.category.id,
+              name: family.category.name,
+              slug: family.category.slug,
+            }
+          : null,
+        publisher: family.publisher
+          ? {
+              id: family.publisher.id,
+              name: family.publisher.name,
+              slug: family.publisher.slug,
+            }
+          : null,
+        license: family.license
+          ? {
+              id: family.license.id,
+              code: family.license.code,
+              name: family.license.name,
+            }
+          : null,
+        supports: {
+          ethiopic: family.supportsEthiopic,
+          latin: family.supportsLatin,
+        },
+        styleCount: family.styles.length,
+        defaultStyleId: family.styles.find((style) => style.isDefault)?.id ?? family.styles[0]?.id ?? null,
+        latestSubmission: family.submissions[0] ?? null,
+        publishedAt: family.publishedAt,
+        updatedAt: family.updatedAt,
+      })),
+      pagination: {
+        page,
+        pageSize,
+        totalItems,
+        totalPages,
+        hasNext: page < totalPages,
+      },
+    };
+  }
+
+  async listCollections(request: AuthenticatedRequest) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
+
+    const collections = await this.prisma.collection.findMany({
+      orderBy: [{ isFeatured: 'desc' }, { updatedAt: 'desc' }],
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            displayName: true,
+            email: true,
+            role: true,
+          },
+        },
+        items: {
+          orderBy: [{ sortOrder: 'asc' }],
+          include: {
+            family: {
+              select: {
+                id: true,
+                slug: true,
+                nameEn: true,
+                nameAm: true,
+                nativeName: true,
+                status: true,
+                publishedAt: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return collections.map((collection) => this.mapAdminCollection(collection));
+  }
+
+  async createCollection(request: AuthenticatedRequest, payload: CreateAdminCollectionDto) {
+    const actor = await this.authContext.requireUserFromRequest(request, [UserRole.admin]);
+    const slug = this.normalizeSlug(payload.slug ?? payload.titleEn);
+    const status = (payload.status ?? 'draft') as CollectionStatus;
+
+    const existing = await this.prisma.collection.findUnique({
+      where: {
+        slug,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (existing) {
+      throw new BadRequestException('A collection with this slug already exists');
+    }
+
+    const collection = await this.prisma.collection.create({
+      data: {
+        slug,
+        titleEn: payload.titleEn.trim(),
+        titleAm: payload.titleAm?.trim() || null,
+        descriptionEn: payload.descriptionEn?.trim() || null,
+        descriptionAm: payload.descriptionAm?.trim() || null,
+        isFeatured: payload.isFeatured ?? false,
+        status,
+        publishedAt: status === 'published' ? new Date() : null,
+        createdById: actor.id,
+      },
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            displayName: true,
+            email: true,
+            role: true,
+          },
+        },
+        items: {
+          orderBy: [{ sortOrder: 'asc' }],
+          include: {
+            family: {
+              select: {
+                id: true,
+                slug: true,
+                nameEn: true,
+                nameAm: true,
+                nativeName: true,
+                status: true,
+                publishedAt: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return this.mapAdminCollection(collection);
+  }
+
+  async updateCollection(
+    request: AuthenticatedRequest,
+    collectionId: string,
+    payload: UpdateAdminCollectionDto,
+  ) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin]);
+
+    const existing = await this.prisma.collection.findUnique({
+      where: {
+        id: collectionId,
+      },
+      select: {
+        id: true,
+        status: true,
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Collection not found');
+    }
+
+    const data: Prisma.CollectionUpdateInput = {
+      titleEn: payload.titleEn?.trim(),
+      titleAm: payload.titleAm === undefined ? undefined : payload.titleAm?.trim() || null,
+      descriptionEn:
+        payload.descriptionEn === undefined ? undefined : payload.descriptionEn?.trim() || null,
+      descriptionAm:
+        payload.descriptionAm === undefined ? undefined : payload.descriptionAm?.trim() || null,
+      isFeatured: payload.isFeatured,
+    };
+
+    if (payload.slug !== undefined) {
+      const slug = this.normalizeSlug(payload.slug);
+      const duplicate = await this.prisma.collection.findFirst({
+        where: {
+          slug,
+          id: {
+            not: collectionId,
+          },
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (duplicate) {
+        throw new BadRequestException('A collection with this slug already exists');
+      }
+
+      data.slug = slug;
+    }
+
+    if (payload.status) {
+      data.status = payload.status as CollectionStatus;
+      data.publishedAt =
+        payload.status === 'published'
+          ? existing.status === 'published'
+            ? undefined
+            : new Date()
+          : null;
+    }
+
+    const collection = await this.prisma.collection.update({
+      where: {
+        id: collectionId,
+      },
+      data,
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            displayName: true,
+            email: true,
+            role: true,
+          },
+        },
+        items: {
+          orderBy: [{ sortOrder: 'asc' }],
+          include: {
+            family: {
+              select: {
+                id: true,
+                slug: true,
+                nameEn: true,
+                nameAm: true,
+                nativeName: true,
+                status: true,
+                publishedAt: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return this.mapAdminCollection(collection);
+  }
+
+  async deleteCollection(request: AuthenticatedRequest, collectionId: string) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin]);
+
+    const existing = await this.prisma.collection.findUnique({
+      where: {
+        id: collectionId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Collection not found');
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.collectionItem.deleteMany({
+        where: {
+          collectionId,
+        },
+      }),
+      this.prisma.collection.delete({
+        where: {
+          id: collectionId,
+        },
+      }),
+    ]);
+
+    return {
+      success: true,
+      id: collectionId,
+    };
+  }
+
+  async addCollectionFamily(
+    request: AuthenticatedRequest,
+    collectionId: string,
+    payload: AddCollectionFamilyDto,
+  ) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin]);
+
+    const [collection, family] = await Promise.all([
+      this.prisma.collection.findUnique({
+        where: {
+          id: collectionId,
+        },
+        select: {
+          id: true,
+        },
+      }),
+      this.prisma.fontFamily.findUnique({
+        where: {
+          id: payload.familyId,
+        },
+        select: {
+          id: true,
+        },
+      }),
+    ]);
+
+    if (!collection) {
+      throw new NotFoundException('Collection not found');
+    }
+
+    if (!family) {
+      throw new NotFoundException('Family not found');
+    }
+
+    await this.prisma.collectionItem.upsert({
+      where: {
+        collectionId_familyId: {
+          collectionId,
+          familyId: payload.familyId,
+        },
+      },
+      create: {
+        collectionId,
+        familyId: payload.familyId,
+        sortOrder: payload.sortOrder ?? 0,
+      },
+      update: {
+        sortOrder: payload.sortOrder ?? 0,
+      },
+    });
+
+    return this.getCollectionByIdForAdmin(collectionId);
+  }
+
+  async removeCollectionFamily(
+    request: AuthenticatedRequest,
+    collectionId: string,
+    familyId: string,
+  ) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin]);
+
+    const existing = await this.prisma.collectionItem.findUnique({
+      where: {
+        collectionId_familyId: {
+          collectionId,
+          familyId,
+        },
+      },
+      select: {
+        collectionId: true,
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Collection item not found');
+    }
+
+    await this.prisma.collectionItem.delete({
+      where: {
+        collectionId_familyId: {
+          collectionId,
+          familyId,
+        },
+      },
+    });
+
+    return this.getCollectionByIdForAdmin(collectionId);
+  }
+
+  async listVocabulary(request: AuthenticatedRequest) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
+
+    const [categories, tags, publishers, designers, licenses] = await Promise.all([
+      this.prisma.category.findMany({
+        orderBy: {
+          name: 'asc',
+        },
+      }),
+      this.prisma.tag.findMany({
+        orderBy: {
+          nameEn: 'asc',
+        },
+      }),
+      this.prisma.publisher.findMany({
+        orderBy: {
+          name: 'asc',
+        },
+      }),
+      this.prisma.designer.findMany({
+        orderBy: {
+          name: 'asc',
+        },
+      }),
+      this.prisma.license.findMany({
+        orderBy: {
+          name: 'asc',
+        },
+      }),
+    ]);
+
+    return {
+      categories,
+      tags: tags.map((tag) => ({
+        id: tag.id,
+        name: tag.nameEn,
+        nameAm: tag.nameAm,
+        slug: tag.slug,
+        createdAt: tag.createdAt,
+        updatedAt: tag.updatedAt,
+      })),
+      publishers,
+      designers,
+      licenses,
+    };
+  }
+
+  async createVocabularyEntry(request: AuthenticatedRequest, payload: UpsertVocabularyEntryDto) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin]);
+    const type = this.assertVocabularyType(payload.type);
+
+    switch (type) {
+      case 'category':
+        return this.prisma.category.create({
+          data: {
+            name: payload.name.trim(),
+            slug: await this.ensureVocabularySlug('category', payload.slug ?? payload.name),
+          },
+        });
+      case 'tag':
+        return this.prisma.tag.create({
+          data: {
+            nameEn: payload.name.trim(),
+            nameAm: payload.nameAm?.trim() || null,
+            slug: await this.ensureVocabularySlug('tag', payload.slug ?? payload.name),
+          },
+        });
+      case 'publisher':
+        return this.prisma.publisher.create({
+          data: {
+            name: payload.name.trim(),
+            slug: await this.ensureVocabularySlug('publisher', payload.slug ?? payload.name),
+            bioEn: payload.bioEn?.trim() || null,
+            bioAm: payload.bioAm?.trim() || null,
+            websiteUrl: payload.websiteUrl?.trim() || null,
+            countryCode: payload.countryCode?.trim().toUpperCase() || null,
+          },
+        });
+      case 'designer':
+        return this.prisma.designer.create({
+          data: {
+            name: payload.name.trim(),
+            slug: await this.ensureVocabularySlug('designer', payload.slug ?? payload.name),
+            bioEn: payload.bioEn?.trim() || null,
+            bioAm: payload.bioAm?.trim() || null,
+            websiteUrl: payload.websiteUrl?.trim() || null,
+          },
+        });
+    }
+  }
+
+  async updateVocabularyEntry(
+    request: AuthenticatedRequest,
+    type: string,
+    entryId: string,
+    payload: UpsertVocabularyEntryDto,
+  ) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin]);
+    const normalizedType = this.assertVocabularyType(type);
+
+    switch (normalizedType) {
+      case 'category':
+        return this.prisma.category.update({
+          where: { id: entryId },
+          data: {
+            name: payload.name.trim(),
+            slug: await this.ensureVocabularySlug('category', payload.slug ?? payload.name, entryId),
+          },
+        });
+      case 'tag':
+        return this.prisma.tag.update({
+          where: { id: entryId },
+          data: {
+            nameEn: payload.name.trim(),
+            nameAm: payload.nameAm?.trim() || null,
+            slug: await this.ensureVocabularySlug('tag', payload.slug ?? payload.name, entryId),
+          },
+        });
+      case 'publisher':
+        return this.prisma.publisher.update({
+          where: { id: entryId },
+          data: {
+            name: payload.name.trim(),
+            slug: await this.ensureVocabularySlug('publisher', payload.slug ?? payload.name, entryId),
+            bioEn: payload.bioEn?.trim() || null,
+            bioAm: payload.bioAm?.trim() || null,
+            websiteUrl: payload.websiteUrl?.trim() || null,
+            countryCode: payload.countryCode?.trim().toUpperCase() || null,
+          },
+        });
+      case 'designer':
+        return this.prisma.designer.update({
+          where: { id: entryId },
+          data: {
+            name: payload.name.trim(),
+            slug: await this.ensureVocabularySlug('designer', payload.slug ?? payload.name, entryId),
+            bioEn: payload.bioEn?.trim() || null,
+            bioAm: payload.bioAm?.trim() || null,
+            websiteUrl: payload.websiteUrl?.trim() || null,
+          },
+        });
+    }
+  }
+
+  async deleteVocabularyEntry(request: AuthenticatedRequest, type: string, entryId: string) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin]);
+    const normalizedType = this.assertVocabularyType(type);
+
+    switch (normalizedType) {
+      case 'category':
+        await this.prisma.category.delete({ where: { id: entryId } });
+        break;
+      case 'tag':
+        await this.prisma.tag.delete({ where: { id: entryId } });
+        break;
+      case 'publisher':
+        await this.prisma.publisher.delete({ where: { id: entryId } });
+        break;
+      case 'designer':
+        await this.prisma.designer.delete({ where: { id: entryId } });
+        break;
+    }
+
+    return {
+      success: true,
+      id: entryId,
+      type: normalizedType,
     };
   }
 
@@ -1877,6 +2483,168 @@ export class AdminService {
     }
 
     return normalizedIssues;
+  }
+
+  private async getCollectionByIdForAdmin(collectionId: string) {
+    const collection = await this.prisma.collection.findUnique({
+      where: {
+        id: collectionId,
+      },
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            displayName: true,
+            email: true,
+            role: true,
+          },
+        },
+        items: {
+          orderBy: [{ sortOrder: 'asc' }],
+          include: {
+            family: {
+              select: {
+                id: true,
+                slug: true,
+                nameEn: true,
+                nameAm: true,
+                nativeName: true,
+                status: true,
+                publishedAt: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!collection) {
+      throw new NotFoundException('Collection not found');
+    }
+
+    return this.mapAdminCollection(collection);
+  }
+
+  private mapAdminCollection(collection: {
+    id: string;
+    slug: string;
+    titleEn: string;
+    titleAm: string | null;
+    descriptionEn: string | null;
+    descriptionAm: string | null;
+    isFeatured: boolean;
+    status: CollectionStatus;
+    publishedAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+    createdBy: {
+      id: string;
+      displayName: string;
+      email: string;
+      role: UserRole;
+    } | null;
+    items: Array<{
+      sortOrder: number;
+      family: {
+        id: string;
+        slug: string;
+        nameEn: string;
+        nameAm: string | null;
+        nativeName: string | null;
+        status: FamilyStatus;
+        publishedAt: Date | null;
+      };
+    }>;
+  }) {
+    return {
+      id: collection.id,
+      slug: collection.slug,
+      title: {
+        en: collection.titleEn,
+        am: collection.titleAm,
+      },
+      description: {
+        en: collection.descriptionEn,
+        am: collection.descriptionAm,
+      },
+      isFeatured: collection.isFeatured,
+      status: collection.status,
+      publishedAt: collection.publishedAt,
+      createdAt: collection.createdAt,
+      updatedAt: collection.updatedAt,
+      itemCount: collection.items.length,
+      createdBy: collection.createdBy,
+      items: collection.items.map((item) => ({
+        sortOrder: item.sortOrder,
+        family: {
+          id: item.family.id,
+          slug: item.family.slug,
+          name: {
+            en: item.family.nameEn,
+            am: item.family.nameAm,
+            native: item.family.nativeName,
+          },
+          status: item.family.status,
+          publishedAt: item.family.publishedAt,
+        },
+      })),
+    };
+  }
+
+  private assertVocabularyType(
+    type: string,
+  ): 'category' | 'tag' | 'publisher' | 'designer' {
+    if (['category', 'tag', 'publisher', 'designer'].includes(type)) {
+      return type as 'category' | 'tag' | 'publisher' | 'designer';
+    }
+
+    throw new BadRequestException('Unsupported vocabulary type');
+  }
+
+  private async ensureVocabularySlug(
+    type: 'category' | 'tag' | 'publisher' | 'designer',
+    rawValue: string,
+    excludeId?: string,
+  ) {
+    const slug = this.normalizeSlug(rawValue);
+
+    const duplicateWhere = {
+      slug,
+      id: excludeId
+        ? {
+            not: excludeId,
+          }
+        : undefined,
+    };
+
+    const duplicate =
+      type === 'category'
+        ? await this.prisma.category.findFirst({ where: duplicateWhere, select: { id: true } })
+        : type === 'tag'
+          ? await this.prisma.tag.findFirst({ where: duplicateWhere, select: { id: true } })
+          : type === 'publisher'
+            ? await this.prisma.publisher.findFirst({ where: duplicateWhere, select: { id: true } })
+            : await this.prisma.designer.findFirst({ where: duplicateWhere, select: { id: true } });
+
+    if (duplicate) {
+      throw new BadRequestException('A vocabulary entry with this slug already exists');
+    }
+
+    return slug;
+  }
+
+  private normalizeSlug(value: string) {
+    const slug = value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+    if (!slug) {
+      throw new BadRequestException('A valid slug could not be generated');
+    }
+
+    return slug;
   }
 
   private formatAnalyticsDay(date: Date, timezone?: string): string {
