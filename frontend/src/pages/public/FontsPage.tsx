@@ -31,6 +31,10 @@ export default function FontsPage() {
     <>
       <Helmet>
         <title>{t('catalog.title')} — Fonthabesha</title>
+        <meta name="description" content="Browse, filter, and preview free Ethiopic and Amharic fonts. Download open-source typefaces for your projects." />
+        <meta property="og:title"       content={`${t('catalog.title')} — Fonthabesha`} />
+        <meta property="og:description" content="Browse, filter, and preview free Ethiopic and Amharic fonts. Download open-source typefaces for your projects." />
+        <meta property="og:type"        content="website" />
       </Helmet>
 
       {/* Sticky two-row filter bar */}

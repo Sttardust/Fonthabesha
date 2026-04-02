@@ -12,6 +12,7 @@
  */
 import * as Dialog from '@radix-ui/react-dialog';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   /** The element that opens the dialog */
@@ -36,6 +37,7 @@ export default function ConfirmDialog({
   onConfirm,
   children,
 }: Props) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
   const handleConfirm = () => {
@@ -60,7 +62,7 @@ export default function ConfirmDialog({
           <div className="confirm-dialog__actions">
             <Dialog.Close asChild>
               <button type="button" className="btn btn--secondary" disabled={isPending}>
-                Cancel
+                {t('common.cancel')}
               </button>
             </Dialog.Close>
             <button
@@ -69,7 +71,7 @@ export default function ConfirmDialog({
               disabled={isPending}
               onClick={handleConfirm}
             >
-              {isPending ? 'Working…' : confirmLabel}
+              {isPending ? t('common.loading') : confirmLabel}
             </button>
           </div>
 

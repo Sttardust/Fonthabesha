@@ -1,9 +1,11 @@
 import { Outlet, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import SiteNav from './SiteNav';
 import SkipLink from './SkipLink';
 import { useScrollToTop } from '@/hooks/useScrollToTop';
 
 export default function PublicLayout() {
+  const { t } = useTranslation();
   useScrollToTop();
 
   return (
@@ -20,22 +22,21 @@ export default function PublicLayout() {
               <span aria-hidden="true">ፍ</span> Fonthabesha
             </Link>
             <p className="site-footer__tagline">
-              Free Ethiopic &amp; Amharic fonts for everyone.
+              {t('footer.tagline')}
             </p>
           </div>
 
           <nav className="site-footer__nav" aria-label="Footer navigation">
             <div className="site-footer__col">
-              <p className="site-footer__col-title">Fonts</p>
-              <Link to="/fonts">Browse all</Link>
-              <Link to="/fonts?feat=true">Featured</Link>
-              <Link to="/collections">Collections</Link>
+              <p className="site-footer__col-title">{t('footer.colFonts')}</p>
+              <Link to="/fonts">{t('footer.browseAll')}</Link>
+              <Link to="/fonts?feat=true">{t('footer.featured')}</Link>
             </div>
             <div className="site-footer__col">
-              <p className="site-footer__col-title">Info</p>
-              <Link to="/about">About</Link>
-              <Link to="/licenses">Licenses</Link>
-              <Link to="/contributor">Contribute</Link>
+              <p className="site-footer__col-title">{t('footer.colInfo')}</p>
+              <Link to="/about">{t('nav.about')}</Link>
+              <Link to="/licenses">{t('nav.licenses')}</Link>
+              <Link to="/contributor">{t('about.contribute')}</Link>
             </div>
           </nav>
         </div>
@@ -43,7 +44,7 @@ export default function PublicLayout() {
         <div className="site-footer__bottom">
           <span>© {new Date().getFullYear()} Fonthabesha</span>
           <span className="site-footer__made">
-            Made with ❤️ for the Ethiopian community
+            {t('footer.madeWith')}
           </span>
         </div>
       </footer>

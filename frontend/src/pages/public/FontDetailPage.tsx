@@ -100,8 +100,16 @@ export default function FontDetailPage() {
         <title>{displayName} — Fonthabesha</title>
         <meta
           name="description"
-          content={`${displayName} — ${family.styles.length} styles. Free ${family.category ?? ''} Ethiopic font.`}
+          content={`${displayName} — ${family.styles.length} ${family.styles.length === 1 ? 'style' : 'styles'}. Free ${family.category ?? 'Ethiopic'} font by ${family.designers.map((d) => d.name).join(', ') || 'Fonthabesha'}.`}
         />
+        <meta property="og:type"        content="article" />
+        <meta property="og:title"       content={`${displayName} — Fonthabesha`} />
+        <meta property="og:description" content={family.description?.en ?? `${displayName} — free Ethiopic font family with ${family.styles.length} styles.`} />
+        {family.coverImageUrl && (
+          <meta property="og:image" content={family.coverImageUrl} />
+        )}
+        <meta name="twitter:card"  content="summary_large_image" />
+        <meta name="twitter:title" content={`${displayName} — Fonthabesha`} />
       </Helmet>
 
       {/* ── Sticky detail nav ── */}
@@ -220,7 +228,7 @@ export default function FontDetailPage() {
           </button>
         ) : (
           <div className="detail-download-cta__locked">
-            <p>Log in to download this font family for free.</p>
+            <p>{t('fontDetail.loginToDownload')}</p>
             <Link to="/login" className="btn btn--primary">
               {t('nav.login')}
             </Link>

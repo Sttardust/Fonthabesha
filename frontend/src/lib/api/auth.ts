@@ -1,5 +1,14 @@
 import { apiClient } from './client';
-import type { LoginRequest, AuthResponse } from '@/lib/types';
+import type {
+  LoginRequest,
+  AuthResponse,
+  CurrentUserProfile,
+  UpdateProfileRequest,
+  RegisterContributorRequest,
+  EmailActionResponse,
+  ConfirmEmailVerificationResponse,
+  PasswordChangeResponse,
+} from '@/lib/types';
 import { useAuthStore } from '@/lib/store/authStore';
 
 const REFRESH_KEY = 'fh_refresh';
@@ -23,13 +32,28 @@ export const authApi = {
     return res;
   },
 
+  register: async (payload: RegisterContributorRequest): Promise<AuthResponse> => {
+    const res = await apiClient.post<AuthResponse>(`${PREFIX}/register`, payload, {
+      skipAuth: true,
+      skipRefresh: true,
+    });
+    if (res.refreshToken) {
+      localStorage.setItem(REFRESH_KEY, res.refreshToken);
+    }
+    useAuthStore.getState().setSession(res.accessToken, res.user);
+    return res;
+  },
+
   /**
    * Log out — clears auth store and removes the refresh token.
    * Best-effort: ignores server errors.
    */
   logout: async (): Promise<void> => {
+    const refreshToken = localStorage.getItem(REFRESH_KEY);
     try {
-      await apiClient.post(`${PREFIX}/logout`);
+      if (refreshToken) {
+        await apiClient.post(`${PREFIX}/logout`, { refreshToken });
+      }
     } catch {
       // ignore
     } finally {
@@ -62,6 +86,37 @@ export const authApi = {
     }
   },
 
-  /** Fetch the currently authenticated user's profile */
-  me: () => apiClient.get<AuthResponse['user']>(`${PREFIX}/me`),
+  /** Fetch the currently authenticated user's full profile */
+  me: () => apiClient.get<CurrentUserProfile>(`${PREFIX}/me`),
+
+  /** Update the currently authenticated user's profile (PATCH /auth/me/profile) */
+  updateProfile: (data: UpdateProfileRequest) =>
+    apiClient.patch<CurrentUserProfile>(`${PREFIX}/me/profile`, data),
+
+  requestPasswordReset: (email: string) =>
+    apiClient.post<EmailActionResponse>(`${PREFIX}/password/reset/request`, { email }, {
+      skipAuth: true,
+      skipRefresh: true,
+    }),
+
+  confirmPasswordReset: (token: string, newPassword: string) =>
+    apiClient.post<PasswordChangeResponse>(`${PREFIX}/password/reset/confirm`, { token, newPassword }, {
+      skipAuth: true,
+      skipRefresh: true,
+    }),
+
+  requestEmailVerification: () =>
+    apiClient.post<EmailActionResponse>(`${PREFIX}/email/verification/request`),
+
+  confirmEmailVerification: (token: string) =>
+    apiClient.post<ConfirmEmailVerificationResponse>(`${PREFIX}/email/verification/confirm`, { token }, {
+      skipAuth: true,
+      skipRefresh: true,
+    }),
+
+  changePassword: (currentPassword: string, newPassword: string) =>
+    apiClient.post<PasswordChangeResponse>(`${PREFIX}/password/change`, {
+      currentPassword,
+      newPassword,
+    }),
 };

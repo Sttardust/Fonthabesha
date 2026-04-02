@@ -22,6 +22,13 @@ const UPLOAD_STATUS_LABEL: Record<string, string> = {
   failed:     'Error',
 };
 
+const REVIEW_PHASE_LABEL: Record<string, string> = {
+  idle: 'Draft in progress',
+  awaiting_contributor: 'Waiting for your changes',
+  awaiting_staff: 'Waiting for staff review',
+  closed: 'Review cycle closed',
+};
+
 /** Submission statuses where the contributor can still make changes */
 const EDITABLE_STATUSES = new Set([
   'draft',
@@ -83,6 +90,7 @@ export default function SubmissionDetailPage() {
 
   // Latest reviewer feedback from review history
   const latestFeedback = data.review.latestContributorFeedback;
+  const reviewCycle = data.review.cycle;
 
   return (
     <>
@@ -109,8 +117,56 @@ export default function SubmissionDetailPage() {
       {latestFeedback && (
         <div className="review-notes" role="note">
           <strong>{t('contributor.upload.reviewerNotes')}</strong>
-          {latestFeedback.notes && <p>{latestFeedback.notes}</p>}
+          <p>{latestFeedback.notes ?? latestFeedback.summary}</p>
         </div>
+      )}
+
+      {(reviewCycle.currentPhase !== 'idle' || data.review.issueResolutions.length > 0) && (
+        <section className="submission-section">
+          <h2 className="submission-section__title">Review Cycle</h2>
+          <div className="processing-warnings" role="status">
+            <p>
+              <strong>{REVIEW_PHASE_LABEL[reviewCycle.currentPhase] ?? reviewCycle.currentPhase}</strong>
+            </p>
+            {reviewCycle.awaitingReviewSince && (
+              <p>
+                Awaiting review since {new Date(reviewCycle.awaitingReviewSince).toLocaleString()}
+              </p>
+            )}
+            {reviewCycle.lastResubmittedAt && (
+              <p>
+                Last resubmitted at {new Date(reviewCycle.lastResubmittedAt).toLocaleString()}
+              </p>
+            )}
+          </div>
+        </section>
+      )}
+
+      {data.review.actionRequired && data.review.actionItems.length > 0 && (
+        <section className="submission-section">
+          <h2 className="submission-section__title">Action Items</h2>
+          <ul className="processing-list">
+            {data.review.actionItems.map((item) => (
+              <li key={item.id} className="processing-item">
+                <div className="processing-item__info">
+                  <span className="processing-item__name">{item.summary}</span>
+                  <span className="processing-item__meta">
+                    {item.issueCode ?? item.sourceAction}
+                  </span>
+                </div>
+                <div className="processing-item__status">
+                  {item.style && <span className="badge">{item.style.name}</span>}
+                  {item.upload && <span className="badge">{item.upload.originalFilename}</span>}
+                </div>
+                {item.note && (
+                  <p className="processing-item__error" style={{ color: 'var(--color-text-muted)' }}>
+                    {item.note}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {/* ── Processing / blocking issues ── */}
@@ -193,6 +249,34 @@ export default function SubmissionDetailPage() {
                     {style.status}
                   </span>
                 </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {data.review.issueResolutions.length > 0 && (
+        <section className="submission-section">
+          <h2 className="submission-section__title">Issue Resolution Status</h2>
+          <ul className="processing-list">
+            {data.review.issueResolutions.map((item) => (
+              <li key={item.id} className="processing-item">
+                <div className="processing-item__info">
+                  <span className="processing-item__name">{item.summary}</span>
+                  <span className="processing-item__meta">
+                    {item.resolutionStatus === 'resubmitted' ? 'Resubmitted' : 'Open'}
+                  </span>
+                </div>
+                <div className="processing-item__status">
+                  <span className={`upload-badge upload-badge--${item.resolutionStatus === 'resubmitted' ? 'completed' : 'queued'}`}>
+                    {item.resolutionStatus}
+                  </span>
+                </div>
+                {item.resubmittedAt && (
+                  <p className="processing-item__meta">
+                    Resubmitted {new Date(item.resubmittedAt).toLocaleString()}
+                  </p>
+                )}
               </li>
             ))}
           </ul>

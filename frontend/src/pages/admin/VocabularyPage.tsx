@@ -15,7 +15,7 @@ export default function VocabularyPage() {
       </div>
       <div className="dashboard-empty">
         <span className="dashboard-empty__icon" aria-hidden="true">🏷️</span>
-        <p>Vocabulary management is not yet available. The backend endpoint is pending implementation.</p>
+        <p>{t('placeholder.vocabulary')}</p>
       </div>
     </>
   );

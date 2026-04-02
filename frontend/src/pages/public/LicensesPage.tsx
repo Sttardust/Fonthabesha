@@ -75,14 +75,17 @@ export default function LicensesPage() {
   return (
     <>
       <Helmet>
-        <title>ፈቃዶች — Fonthabesha</title>
+        <title>{t('nav.licenses')} — Fonthabesha</title>
+        <meta name="description" content="All fonts on Fonthabesha are open-source. A plain-language guide to OFL, Apache, MIT, and CC licenses used on this platform." />
+        <meta property="og:title"       content={`${t('nav.licenses')} — Fonthabesha`} />
+        <meta property="og:description" content="All fonts on Fonthabesha are open-source. A plain-language guide to OFL, Apache, MIT, and CC licenses used on this platform." />
+        <meta property="og:type"        content="website" />
       </Helmet>
 
       <div className="page-container page-container--narrow">
-        <h1 className="page-title">Font Licenses</h1>
+        <h1 className="page-title">{t('nav.licenses')}</h1>
         <p className="licenses-intro">
-          All fonts on Fonthabesha are open-source. Below is a plain-language guide
-          to the licenses used on this platform.
+          {t('licenses.intro')}
         </p>
 
         <div className="licenses-list">
@@ -98,23 +101,23 @@ export default function LicensesPage() {
               <table className="license-card__table">
                 <tbody>
                   <tr>
-                    <td>Redistribute</td>
+                    <td>{t('licenses.permissions.redistribute')}</td>
                     <td><Check ok={lic.permissions.redistribute} /></td>
                   </tr>
                   <tr>
-                    <td>Commercial use</td>
+                    <td>{t('licenses.permissions.commercial')}</td>
                     <td><Check ok={lic.permissions.commercial} /></td>
                   </tr>
                   <tr>
-                    <td>Modify</td>
+                    <td>{t('licenses.permissions.modify')}</td>
                     <td><Check ok={lic.permissions.modify} /></td>
                   </tr>
                   <tr>
-                    <td>Embed in apps / docs</td>
+                    <td>{t('licenses.permissions.embed')}</td>
                     <td><Check ok={lic.permissions.embedding} /></td>
                   </tr>
                   <tr>
-                    <td>Attribution required</td>
+                    <td>{t('licenses.permissions.attribution')}</td>
                     <td><Check ok={lic.permissions.attribution} /></td>
                   </tr>
                 </tbody>
@@ -125,8 +128,9 @@ export default function LicensesPage() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="license-card__link"
+                aria-label={`Read full ${lic.name} license (opens in new tab)`}
               >
-                Read full license →
+                {lang === 'am' ? 'ሙሉ ፈቃዱን ያንብቡ →' : 'Read full license →'}
               </a>
             </div>
           ))}

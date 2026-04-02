@@ -240,7 +240,7 @@ export default function FilterBar({
         >
           <option value="newest">{t('catalog.sort.newest')}</option>
           <option value="popular">{t('catalog.sort.popular')}</option>
-          <option value="name">{t('catalog.sort.name')}</option>
+          <option value="alphabetical">{t('catalog.sort.name')}</option>
         </select>
 
         {/* Reset */}

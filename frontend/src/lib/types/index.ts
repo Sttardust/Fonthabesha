@@ -151,6 +151,16 @@ export interface LoginRequest {
   password: string;
 }
 
+export interface RegisterContributorRequest {
+  email: string;
+  password: string;
+  displayName: string;
+  legalFullName: string;
+  countryCode: string;
+  organizationName?: string | null;
+  phoneNumber?: string | null;
+}
+
 /** Full user profile returned by backend (toCurrentUserProfile) */
 export interface CurrentUserProfile {
   id: string;
@@ -169,6 +179,34 @@ export interface AuthResponse {
   accessToken: string;
   refreshToken: string;
   user: CurrentUserProfile;
+  emailVerificationRequired?: boolean;
+  emailDelivery?: 'queued' | 'smtp' | 'preview';
+}
+
+/** Payload for PATCH /auth/me/profile */
+export interface UpdateProfileRequest {
+  displayName?: string;
+  legalFullName?: string | null;
+  countryCode?: string | null;
+  organizationName?: string | null;
+  phoneNumber?: string | null;
+}
+
+export interface EmailActionResponse {
+  success: true;
+  expiresInMinutes?: number;
+  alreadyVerified?: boolean;
+  emailDelivery?: 'queued' | 'smtp' | 'preview';
+}
+
+export interface ConfirmEmailVerificationResponse {
+  success: true;
+  emailVerifiedAt: string;
+}
+
+export interface PasswordChangeResponse {
+  success: true;
+  revokedRefreshSessions: true;
 }
 
 // ── Downloads ─────────────────────────────────────────────────────────────────
@@ -263,9 +301,9 @@ export interface SubmissionDetail {
   };
   review: {
     actionRequired: boolean;
-    actionItems: unknown[];
-    issueResolutions: unknown[];
-    cycle: unknown;
+    actionItems: ContributorActionItem[];
+    issueResolutions: ContributorIssueResolution[];
+    cycle: ContributorReviewCycle;
     latestContributorFeedback: ReviewEvent | null;
     history: ReviewEvent[];
   };
@@ -315,13 +353,72 @@ export interface ReviewActor {
   role: UserRole;
 }
 
+export interface ReviewTarget {
+  uploadId: string | null;
+  styleId: string | null;
+}
+
+export interface ReviewIssue {
+  issueCode: string | null;
+  note: string | null;
+  targetUploadId: string | null;
+  targetStyleId: string | null;
+}
+
 export interface ReviewEvent {
   id: string;
   /** ReviewAction enum from backend (e.g. submitted, approved, request_changes, ...) */
   action: string;
+  kind: 'feedback' | 'decision' | 'system' | 'submission';
   notes: string | null;
+  issueCode: string | null;
+  targets: ReviewTarget[];
+  issues: ReviewIssue[];
+  summary: string;
+  metadata: Record<string, unknown> | null;
   createdAt: string;
   actor: ReviewActor | null;
+}
+
+export interface ContributorActionItemUpload {
+  id: string;
+  originalFilename: string;
+  processingStatus: UploadProcessingStatus;
+}
+
+export interface ContributorActionItemStyle {
+  id: string;
+  name: string;
+  slug: string;
+  weightClass: number | null;
+  weightLabel: string | null;
+  isItalic: boolean;
+  isDefault: boolean;
+}
+
+export interface ContributorActionItem {
+  id: string;
+  sourceEventId: string;
+  sourceAction: string;
+  issueCode: string | null;
+  note: string | null;
+  summary: string;
+  createdAt: string;
+  upload: ContributorActionItemUpload | null;
+  style: ContributorActionItemStyle | null;
+}
+
+export interface ContributorIssueResolution extends ContributorActionItem {
+  resolutionStatus: 'open' | 'resubmitted';
+  resubmittedAt: string | null;
+}
+
+export interface ContributorReviewCycle {
+  currentPhase: 'idle' | 'awaiting_contributor' | 'awaiting_staff' | 'closed';
+  latestActionableFeedbackAt: string | null;
+  latestContributorFeedbackAt: string | null;
+  lastResubmittedAt: string | null;
+  awaitingReviewSince: string | null;
 }
 
 // ── Admin / review ─────────────────────────────────────────────────────────────

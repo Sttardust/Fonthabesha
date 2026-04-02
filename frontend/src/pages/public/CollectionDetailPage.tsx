@@ -13,7 +13,7 @@ export default function CollectionDetailPage() {
         <h1 className="page-title">{t('nav.collections')}</h1>
         <div className="dashboard-empty">
           <span className="dashboard-empty__icon" aria-hidden="true">📚</span>
-          <p>Collection detail is coming soon.</p>
+          <p>{t('placeholder.collectionDetail')}</p>
         </div>
       </div>
     </>

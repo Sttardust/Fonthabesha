@@ -3,6 +3,7 @@
     "fonts": "ፊደሎች",
     "collections": "ስብስቦች",
     "about": "ስለ እኛ",
+    "licenses": "ፈቃዶች",
     "login": "ግባ",
     "logout": "ውጣ",
     "dashboard": "ዳሽቦርድ",
@@ -12,7 +13,8 @@
     "tagline": "የኢትዮጵያ ፊደሎች ቤት",
     "subTagline": "ነፃ የሆኑ አማርኛ እና ኢትዮጵያዊ ፊደሎችን አግኝ፣ ፈትሽ፣ አውርድ።",
     "browseAll": "ሁሉንም ፊደሎች ይመልከቱ",
-    "featured": "ተለይቶ የቀረበ"
+    "featured": "ተለይቶ የቀረበ",
+    "fontsCount": "{{count}} ፊደሎች እና ከዚያ በላይ"
   },
   "catalog": {
     "title": "ፊደሎች",
@@ -56,21 +58,79 @@
     "license": "ፈቃድ",
     "pairings": "ጥምረቶች",
     "designer": "ዲዛይነር",
-    "addToCollection": "ስብስብ ውስጥ አስገባ"
+    "publisher": "አሳታሚ",
+    "category": "ምድብ",
+    "scriptSupport": "ስክሪፕት ድጋፍ",
+    "tags": "መለያዎች",
+    "published": "የታተመበት ቀን",
+    "nameAmharic": "ስም (አማርኛ)",
+    "nameEnglish": "ስም (እንግሊዝኛ)",
+    "addToCollection": "ስብስብ ውስጥ አስገባ",
+    "loginToDownload": "ይህን የፊደል ቤተሰብ ለማውረድ ያስገቡ።"
   },
   "auth": {
     "login": "ስርዓቱ ውስጥ ግባ",
+    "loginSubtitle": "ወደ አስተዋጽዖ ወይም የአስተዳዳሪ ስራ ቦታዎ ይግቡ።",
+    "register": "የአስተዋጽዖ መለያ ፍጠር",
+    "registerSubtitle": "ፊደሎችን ለመስቀል፣ የትንተና ውጤቶችን ለማረጋገጥ እና ለክለሳ ለማቅረብ ይመዝገቡ።",
     "email": "ኢሜይል",
     "password": "የይለፍ ቃል",
+    "newPassword": "አዲስ የይለፍ ቃል",
+    "confirmPassword": "የይለፍ ቃሉን ያረጋግጡ",
     "submit": "ግባ",
+    "createAccount": "መለያ ፍጠር",
+    "registering": "መለያ በመፍጠር ላይ…",
+    "forgotPassword": "የይለፍ ቃል ረስተዋል?",
+    "forgotPasswordHelp": "የመለያ ኢሜይልዎን ያስገቡ እና የይለፍ ቃል መቀየሪያ አገናኝ እንልካለን።",
+    "sendResetLink": "መቀየሪያ አገናኝ ላክ",
+    "resetPassword": "የይለፍ ቃል ቀይር",
+    "resetPasswordHelp": "ለመለያዎ አዲስ የይለፍ ቃል ይምረጡ።",
+    "resetEmailSent": "ያ መለያ ካለ የይለፍ ቃል መቀየሪያ አገናኝ ተልኳል።",
+    "passwordResetSuccess": "የይለፍ ቃልዎ ተቀይሯል። አሁን መግባት ይችላሉ።",
+    "verifyEmail": "ኢሜይልዎን ያረጋግጡ",
+    "verifyingEmail": "ኢሜይልዎን በማረጋገጥ ላይ…",
+    "emailVerified": "የኢሜይል አድራሻዎ ተረጋግጧል።",
+    "backToLogin": "ወደ መግቢያ ተመለስ",
+    "noAccount": "የአስተዋጽዖ መለያ ይፈልጋሉ?",
+    "haveAccount": "መለያ አለዎት?",
+    "deliveryMethod": "የመላኪያ ዘዴ",
+    "invalidResetToken": "ይህ የይለፍ ቃል መቀየሪያ አገናኝ ጎድሎአል ወይም ልክ አይደለም።",
+    "invalidVerificationToken": "ይህ የኢሜይል ማረጋገጫ አገናኝ ጎድሎአል ወይም ልክ አይደለም።",
     "loggingIn": "በመግባት ላይ…",
     "invalidCredentials": "ኢሜይሉ ወይም የይለፍ ቃሉ ትክክለኛ አይደለም።",
-    "serverError": "የሰርቨር ስህተት። እባክዎ እንደገና ይሞክሩ።"
+    "serverError": "የሰርቨር ስህተት። እባክዎ እንደገና ይሞክሩ።",
+    "changePassword": "የይለፍ ቃል ቀይር",
+    "currentPassword": "የአሁኑ የይለፍ ቃል",
+    "changingPassword": "በመቀየር ላይ…",
+    "passwordChanged": "የይለፍ ቃሉ ተቀይሯል። እንደገና ይግቡ።",
+    "emailVerificationSent": "የማረጋገጫ አገናኝ ወደ ኢሜይልዎ ተልኳል።",
+    "resendVerification": "የማረጋገጫ ኢሜይል ድጋሚ ላክ",
+    "checkYourEmail": "ኢሜይልዎን ያረጋግጡ",
+    "emailVerificationPending": "ወደ {{email}} የማረጋገጫ አገናኝ ልከናል። ከመቀጠልዎ በፊት ሳጥንዎን ያረጋግጡ።",
+    "continueToPortal": "ወደ ፖርታሉ ቀጥል",
+    "passwordsDoNotMatch": "የይለፍ ቃሎቹ አይዛመዱም።",
+    "registrationError": "ምዝገባ አልተሳካም። ዝርዝሮቹን ያረጋግጡ እና እንደገና ይሞክሩ።",
+    "emailAlreadyRegistered": "ያ ኢሜይል አድራሻ ቀደም ብሎ ተመዝግቧል።",
+    "invalidToken": "ይህ አገናኝ ልክ ያልሆነ ወይም ጊዜ ያለፈው ነው።"
+  },
+  "profile": {
+    "title": "የእኔ መገለጫ",
+    "displayName": "የማሳያ ስም",
+    "legalFullName": "ሙሉ ህጋዊ ስም",
+    "countryCode": "የሀገር ኮድ",
+    "organizationName": "ድርጅት",
+    "phoneNumber": "ስልክ ቁጥር",
+    "emailNote": "የኢሜይል አድራሻዎ እዚህ ሊለወጥ አይችልም።",
+    "saved": "መገለጫ ተቀምጧል።",
+    "saving": "በማስቀመጥ ላይ…",
+    "saveProfile": "መገለጫ አስቀምጥ",
+    "countryCodeHint": "ሁለት-ፊደል የ ISO ሀገር ኮድ (ለምሳሌ ET, US, GB)"
   },
   "contributor": {
     "portal": "አስተዋጽዖ ፖርታል",
     "mySubmissions": "ማቅረቢያዎቼ",
     "newSubmission": "አዲስ ማቅረቢያ",
+    "profile": "መገለጫ",
     "status": {
       "draft": "ረቂቅ",
       "uploaded": "ተጭኗል",
@@ -137,6 +197,45 @@
       "monthlyBreakdown": "ወርሃዊ ዝርዝር"
     }
   },
+  "licenses": {
+    "title": "የፊደል ፈቃዶች",
+    "intro": "በፎንትሃቤሻ ላይ ያሉ ሁሉም ፊደሎች ክፍት ምንጭ ናቸው። ከዚህ በታች በዚህ መድረክ ላይ ጥቅም ላይ ስለሚውሉ ፈቃዶች ቀለል ያለ ማብራሪያ አለ።",
+    "permissions": {
+      "redistribute": "ማሰራጨት",
+      "commercial": "ለንግድ አጠቃቀም",
+      "modify": "ማሻሻል",
+      "embed": "ወደ መተግበሪያ / ሰነዶች ማስገባት",
+      "attribution": "ምንጭ መጥቀስ ያስፈልጋል"
+    }
+  },
+  "about": {
+    "title": "ስለ ፎንትሃቤሻ",
+    "mission": "ተልዕኮ",
+    "howItWorks": "እንዴት ይሠራል",
+    "contribute": "አስተዋጽዖ ያድርጉ",
+    "contact": "ያግኙን"
+  },
+  "notFound": {
+    "title": "ገጹ አልተገኘም",
+    "description": "እየፈለጉት ያለው ገጽ የለም፣ ወይም ተዛውሯል።",
+    "backHome": "ወደ መነሻ ተመለስ",
+    "browseFonts": "ፊደሎችን ያስሱ"
+  },
+  "placeholder": {
+    "collections": "ስብስቦች በቅርቡ ይገኛሉ።",
+    "collectionDetail": "የስብስብ ዝርዝር በቅርቡ ይገኛል።",
+    "manageFonts": "ቀጥተኛ የፊደል አስተዳደር እስካሁን አይገኝም። ፊደሎችን ለማጽደቅ፣ ለማቅ ወይም ለማደስ የግምገማ ወረፋ ይጠቀሙ።",
+    "collectionsAdmin": "የስብስቦች አስተዳደር እስካሁን አይገኝም። የኋለኛው ክፍል ነጥብ ጥበቃ ላይ ነው።",
+    "vocabulary": "የቃላት አስተዳደር እስካሁን አይገኝም። የኋለኛው ክፍል ነጥብ ጥበቃ ላይ ነው።"
+  },
+  "footer": {
+    "tagline": "ለሁሉም ነፃ የኢትዮጵያ ፊደሎች።",
+    "colFonts": "ፊደሎች",
+    "colInfo": "መረጃ",
+    "browseAll": "ሁሉንም ያስሱ",
+    "featured": "ተለይተው የቀረቡ",
+    "madeWith": "ለኢትዮጵያ ማህበረሰብ በፍቅር ❤️"
+  },
   "common": {
     "loading": "በመጫን ላይ…",
     "error": "ስህተት ተከስቷል።",
@@ -149,6 +248,9 @@
     "next": "ቀጣይ",
     "previous": "ቀዳሚ",
     "page": "ገጽ",
-    "of": "ከ"
+    "of": "ከ",
+    "yes": "አዎ",
+    "no": "አይ",
+    "optional": "አማራጭ"
   }
 }

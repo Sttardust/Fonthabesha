@@ -14,7 +14,7 @@ export default function ManageFontsPage() {
       <h1 className="portal-page-title">{t('admin.manageFonts')}</h1>
       <div className="dashboard-empty">
         <span className="dashboard-empty__icon" aria-hidden="true">🔤</span>
-        <p>Direct font management is not yet available. Use the Review Queue to approve, reject, or reprocess font submissions.</p>
+        <p>{t('placeholder.manageFonts')}</p>
       </div>
     </>
   );

@@ -58,10 +58,7 @@ export default function SiteNav() {
         {/* Desktop nav links (hidden on mobile) */}
         <div className="site-nav__links" role="list">
           <NavLink to="/fonts"    className={navCell} role="listitem">{t('nav.fonts')}</NavLink>
-          {isAuthenticated && (
-            <NavLink to="/collections" className={navCell} role="listitem">{t('nav.collections')}</NavLink>
-          )}
-          <NavLink to="/licenses" className={navCell} role="listitem">Licenses</NavLink>
+          <NavLink to="/licenses" className={navCell} role="listitem">{t('nav.licenses')}</NavLink>
           <NavLink to="/about"    className={navCell} role="listitem">{t('nav.about')}</NavLink>
         </div>
 
@@ -121,10 +118,7 @@ export default function SiteNav() {
       >
         <nav aria-label="Mobile navigation links">
           <NavLink to="/fonts"    className={mobileLink}>{t('nav.fonts')}</NavLink>
-          {isAuthenticated && (
-            <NavLink to="/collections" className={mobileLink}>{t('nav.collections')}</NavLink>
-          )}
-          <NavLink to="/licenses" className={mobileLink}>Licenses</NavLink>
+          <NavLink to="/licenses" className={mobileLink}>{t('nav.licenses')}</NavLink>
           <NavLink to="/about"    className={mobileLink}>{t('nav.about')}</NavLink>
 
           {isContributor && !isAdmin && (

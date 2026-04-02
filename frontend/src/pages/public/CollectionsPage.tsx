@@ -14,7 +14,7 @@ export default function CollectionsPage() {
         <h1 className="page-title">{t('nav.collections')}</h1>
         <div className="dashboard-empty">
           <span className="dashboard-empty__icon" aria-hidden="true">📚</span>
-          <p>Collections are coming soon.</p>
+          <p>{t('placeholder.collections')}</p>
         </div>
       </div>
     </>

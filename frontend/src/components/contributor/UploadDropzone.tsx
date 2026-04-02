@@ -1,6 +1,6 @@
 /**
  * UploadDropzone — drag-and-drop font file upload zone.
- * Accepts .ttf .otf .woff .woff2 files.
+ * Accepts .ttf .otf and .woff files.
  * Renders a StyleMetaRow for each queued file.
  */
 import { useRef, useState, useCallback } from 'react';

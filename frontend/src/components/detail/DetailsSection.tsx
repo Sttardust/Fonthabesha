@@ -2,7 +2,7 @@
  * DetailsSection  (#details anchor)
  *
  * Two-column layout:
- *   Left  — spec table (names, designers, category, styles, script support, tags, license)
+ *   Left  — spec table (names, designers, publisher, category, styles, script support, tags, license, published)
  *   Right — bilingual description text
  */
 
@@ -47,7 +47,7 @@ export default function DetailsSection({ family }: DetailsSectionProps) {
   return (
     <section id="details" className="detail-section">
       <div className="detail-section__header">
-        <h2 className="detail-section__title">Details</h2>
+        <h2 className="detail-section__title">{t('fontDetail.details')}</h2>
       </div>
 
       <div className="details-body">
@@ -55,8 +55,12 @@ export default function DetailsSection({ family }: DetailsSectionProps) {
         <div className="details-spec">
           <table className="spec-table">
             <tbody>
-              {amName && <SpecRow label="ስም (አማርኛ)">{amName}</SpecRow>}
-              {enName && <SpecRow label="Name (English)">{enName}</SpecRow>}
+              {amName && (
+                <SpecRow label={t('fontDetail.nameAmharic')}>{amName}</SpecRow>
+              )}
+              {enName && (
+                <SpecRow label={t('fontDetail.nameEnglish')}>{enName}</SpecRow>
+              )}
 
               {family.designers.length > 0 && (
                 <SpecRow label={t('fontDetail.designer')}>
@@ -64,15 +68,23 @@ export default function DetailsSection({ family }: DetailsSectionProps) {
                 </SpecRow>
               )}
 
+              {family.publisher && (
+                <SpecRow label={t('fontDetail.publisher')}>
+                  {family.publisher.name}
+                </SpecRow>
+              )}
+
               {family.category && (
-                <SpecRow label="Category">
+                <SpecRow label={t('fontDetail.category')}>
                   <span className="badge">
-                    {t(`catalog.filters.${family.category}`, { defaultValue: family.category })}
+                    {t(`catalog.filters.${family.category.toLowerCase()}`, {
+                      defaultValue: family.category,
+                    })}
                   </span>
                 </SpecRow>
               )}
 
-              <SpecRow label="Styles">
+              <SpecRow label={t('fontDetail.styles')}>
                 {family.styles.length}
                 {family.styles.some((s) => s.isVariable) && (
                   <span className="badge badge--variable" style={{ marginLeft: 8 }}>
@@ -81,13 +93,13 @@ export default function DetailsSection({ family }: DetailsSectionProps) {
                 )}
               </SpecRow>
 
-              <SpecRow label="Script support">
+              <SpecRow label={t('fontDetail.scriptSupport')}>
                 <span style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                   <span>
-                    Ethiopic <Check ok={family.supports.ethiopic} />
+                    {t('catalog.filters.ethiopic')} <Check ok={family.supports.ethiopic} />
                   </span>
                   <span>
-                    Latin <Check ok={family.supports.latin} />
+                    {t('catalog.filters.latin')} <Check ok={family.supports.latin} />
                   </span>
                 </span>
               </SpecRow>
@@ -98,14 +110,16 @@ export default function DetailsSection({ family }: DetailsSectionProps) {
                   {family.license.summary.en && (
                     <span className="spec-license-summary">
                       {' — '}
-                      {lang === 'am' ? (family.license.summary.am ?? family.license.summary.en) : family.license.summary.en}
+                      {lang === 'am'
+                        ? (family.license.summary.am ?? family.license.summary.en)
+                        : family.license.summary.en}
                     </span>
                   )}
                 </SpecRow>
               )}
 
               {family.tags.length > 0 && (
-                <SpecRow label="Tags">
+                <SpecRow label={t('fontDetail.tags')}>
                   <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                     {family.tags.map((tag) => (
                       <span key={tag.id} className="badge">
@@ -117,10 +131,11 @@ export default function DetailsSection({ family }: DetailsSectionProps) {
               )}
 
               {family.publishedAt && (
-                <SpecRow label="Published">
-                  {new Date(family.publishedAt).toLocaleDateString('en-GB', {
-                    year: 'numeric', month: 'long', day: 'numeric',
-                  })}
+                <SpecRow label={t('fontDetail.published')}>
+                  {new Date(family.publishedAt).toLocaleDateString(
+                    lang === 'am' ? 'am-ET' : 'en-GB',
+                    { year: 'numeric', month: 'long', day: 'numeric' },
+                  )}
                 </SpecRow>
               )}
             </tbody>
@@ -132,7 +147,7 @@ export default function DetailsSection({ family }: DetailsSectionProps) {
           <div className="details-description">
             <p className="details-description__text">{description}</p>
 
-            {/* Show both languages if available */}
+            {/* Show both languages side-by-side when both are available */}
             {family.description?.am && family.description?.en && lang === 'en' && (
               <p className="details-description__alt" lang="am">
                 {family.description.am}

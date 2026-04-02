@@ -13,6 +13,10 @@ import HomePage from '@/pages/public/HomePage';
 import FontsPage from '@/pages/public/FontsPage';
 import LoginPage from '@/pages/auth/LoginPage';
 import NotFoundPage from '@/pages/NotFoundPage';
+import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage';
+import ResetPasswordPage from '@/pages/auth/ResetPasswordPage';
+import VerifyEmailPage from '@/pages/auth/VerifyEmailPage';
+import RegisterPage from '@/pages/auth/RegisterPage';
 
 // ── Lazy-loaded pages ──────────────────────────────────────────────────────────
 const FontDetailPage = lazy(() => import('@/pages/public/FontDetailPage'));
@@ -26,6 +30,7 @@ const ContributorDashboard = lazy(() => import('@/pages/contributor/ContributorD
 const SubmissionsListPage = lazy(() => import('@/pages/contributor/SubmissionsListPage'));
 const NewSubmissionPage = lazy(() => import('@/pages/contributor/NewSubmissionPage'));
 const SubmissionDetailPage = lazy(() => import('@/pages/contributor/SubmissionDetailPage'));
+const ProfilePage = lazy(() => import('@/pages/contributor/ProfilePage'));
 
 // Admin / reviewer
 const AdminDashboard        = lazy(() => import('@/pages/admin/AdminDashboard'));
@@ -101,6 +106,24 @@ export const router = createBrowserRouter([
       </RedirectIfAuth>
     ),
   },
+  {
+    path: '/register',
+    element: (
+      <RedirectIfAuth>
+        <RegisterPage />
+      </RedirectIfAuth>
+    ),
+  },
+  {
+    path: '/forgot-password',
+    element: (
+      <RedirectIfAuth>
+        <ForgotPasswordPage />
+      </RedirectIfAuth>
+    ),
+  },
+  { path: '/reset-password', element: <ResetPasswordPage /> },
+  { path: '/verify-email', element: <VerifyEmailPage /> },
 
   // ── Contributor portal ───────────────────────────────────────────────────────
   {
@@ -115,6 +138,7 @@ export const router = createBrowserRouter([
       { path: 'submissions', element: <Lazy><SubmissionsListPage /></Lazy> },
       { path: 'submissions/new', element: <Lazy><NewSubmissionPage /></Lazy> },
       { path: 'submissions/:id', element: <Lazy><SubmissionDetailPage /></Lazy> },
+      { path: 'profile', element: <Lazy><ProfilePage /></Lazy> },
     ],
   },
 

@@ -30,30 +30,6 @@ export default function AdminLayout() {
               {t('admin.reviewQueue')}
             </NavLink>
             <NavLink
-              to="/admin/fonts"
-              className={({ isActive }) =>
-                `portal-nav-link${isActive ? ' portal-nav-link--active' : ''}`
-              }
-            >
-              {t('admin.manageFonts')}
-            </NavLink>
-            <NavLink
-              to="/admin/collections"
-              className={({ isActive }) =>
-                `portal-nav-link${isActive ? ' portal-nav-link--active' : ''}`
-              }
-            >
-              {t('admin.collections.title')}
-            </NavLink>
-            <NavLink
-              to="/admin/vocabulary"
-              className={({ isActive }) =>
-                `portal-nav-link${isActive ? ' portal-nav-link--active' : ''}`
-              }
-            >
-              {t('admin.vocabulary.title')}
-            </NavLink>
-            <NavLink
               to="/admin/analytics"
               className={({ isActive }) =>
                 `portal-nav-link${isActive ? ' portal-nav-link--active' : ''}`

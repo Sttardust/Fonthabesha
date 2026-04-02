@@ -56,7 +56,7 @@ export default function HomePage() {
           <p className="home-hero__sub">{t('home.subTagline')}</p>
           {totalItems !== undefined && (
             <p className="home-hero__count">
-              {totalItems.toLocaleString()} fonts and counting
+              {t('home.fontsCount', { count: totalItems.toLocaleString() })}
             </p>
           )}
         </div>

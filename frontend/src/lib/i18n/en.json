@@ -3,6 +3,7 @@
     "fonts": "Fonts",
     "collections": "Collections",
     "about": "About",
+    "licenses": "Licenses",
     "login": "Log in",
     "logout": "Log out",
     "dashboard": "Dashboard",
@@ -12,7 +13,8 @@
     "tagline": "Home of Ethiopian Fonts",
     "subTagline": "Discover, preview, and download free Amharic and Ethiopic fonts.",
     "browseAll": "Browse All Fonts",
-    "featured": "Featured"
+    "featured": "Featured",
+    "fontsCount": "{{count}} fonts and counting"
   },
   "catalog": {
     "title": "Fonts",
@@ -56,21 +58,79 @@
     "license": "License",
     "pairings": "Pairings",
     "designer": "Designer",
-    "addToCollection": "Add to Collection"
+    "publisher": "Publisher",
+    "category": "Category",
+    "scriptSupport": "Script support",
+    "tags": "Tags",
+    "published": "Published",
+    "nameAmharic": "ስም (አማርኛ)",
+    "nameEnglish": "Name (English)",
+    "addToCollection": "Add to Collection",
+    "loginToDownload": "Log in to download this font family for free."
   },
   "auth": {
     "login": "Sign in to your account",
+    "loginSubtitle": "Access your contributor or admin workspace.",
+    "register": "Create a contributor account",
+    "registerSubtitle": "Register to upload fonts, review analysis results, and submit for approval.",
     "email": "Email",
     "password": "Password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm password",
     "submit": "Sign in",
+    "createAccount": "Create account",
+    "registering": "Creating account…",
+    "forgotPassword": "Forgot password?",
+    "forgotPasswordHelp": "Enter your account email and we will send you a password reset link.",
+    "sendResetLink": "Send reset link",
+    "resetPassword": "Reset password",
+    "resetPasswordHelp": "Choose a new password for your account.",
+    "resetEmailSent": "If that account exists, a reset link has been sent.",
+    "passwordResetSuccess": "Your password has been reset. You can sign in now.",
+    "verifyEmail": "Verify your email",
+    "verifyingEmail": "Verifying your email…",
+    "emailVerified": "Your email address has been verified.",
+    "backToLogin": "Back to login",
+    "noAccount": "Need a contributor account?",
+    "haveAccount": "Already have an account?",
+    "deliveryMethod": "Delivery method",
+    "invalidResetToken": "This password reset link is missing or invalid.",
+    "invalidVerificationToken": "This email verification link is missing or invalid.",
     "loggingIn": "Signing in…",
     "invalidCredentials": "Invalid email or password.",
-    "serverError": "Server error. Please try again."
+    "serverError": "Server error. Please try again.",
+    "changePassword": "Change password",
+    "currentPassword": "Current password",
+    "changingPassword": "Changing…",
+    "passwordChanged": "Password changed. Please sign in again.",
+    "emailVerificationSent": "A verification link has been sent to your email.",
+    "resendVerification": "Resend verification email",
+    "checkYourEmail": "Check your email",
+    "emailVerificationPending": "We sent a verification link to {{email}}. Please check your inbox before continuing.",
+    "continueToPortal": "Continue to portal",
+    "passwordsDoNotMatch": "Passwords do not match.",
+    "registrationError": "Registration failed. Please check your details and try again.",
+    "emailAlreadyRegistered": "That email address is already registered.",
+    "invalidToken": "This link is invalid or has expired."
+  },
+  "profile": {
+    "title": "My Profile",
+    "displayName": "Display name",
+    "legalFullName": "Legal full name",
+    "countryCode": "Country code",
+    "organizationName": "Organization",
+    "phoneNumber": "Phone number",
+    "emailNote": "Your email address cannot be changed here.",
+    "saved": "Profile saved.",
+    "saving": "Saving…",
+    "saveProfile": "Save profile",
+    "countryCodeHint": "Two-letter ISO country code (e.g. ET, US, GB)"
   },
   "contributor": {
     "portal": "Contributor Portal",
     "mySubmissions": "My Submissions",
     "newSubmission": "New Submission",
+    "profile": "Profile",
     "status": {
       "draft": "Draft",
       "uploaded": "Uploaded",
@@ -137,6 +197,45 @@
       "monthlyBreakdown": "Monthly Breakdown"
     }
   },
+  "licenses": {
+    "title": "Font Licenses",
+    "intro": "All fonts on Fonthabesha are open-source. Below is a plain-language guide to the licenses used on this platform.",
+    "permissions": {
+      "redistribute": "Redistribute",
+      "commercial": "Commercial use",
+      "modify": "Modify",
+      "embed": "Embed in apps / docs",
+      "attribution": "Attribution required"
+    }
+  },
+  "about": {
+    "title": "About Fonthabesha",
+    "mission": "Mission",
+    "howItWorks": "How It Works",
+    "contribute": "Contribute",
+    "contact": "Contact"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "description": "The page you're looking for doesn't exist, or may have moved.",
+    "backHome": "Back to home",
+    "browseFonts": "Browse fonts"
+  },
+  "placeholder": {
+    "collections": "Collections are coming soon.",
+    "collectionDetail": "Collection detail is coming soon.",
+    "manageFonts": "Direct font management is not yet available. Use the Review Queue to approve, reject, or reprocess font submissions.",
+    "collectionsAdmin": "Collections management is not yet available. The backend endpoint is pending implementation.",
+    "vocabulary": "Vocabulary management is not yet available. The backend endpoint is pending implementation."
+  },
+  "footer": {
+    "tagline": "Free Ethiopic & Amharic fonts for everyone.",
+    "colFonts": "Fonts",
+    "colInfo": "Info",
+    "browseAll": "Browse all",
+    "featured": "Featured",
+    "madeWith": "Made with ❤️ for the Ethiopian community"
+  },
   "common": {
     "loading": "Loading…",
     "error": "Something went wrong.",
@@ -149,6 +248,9 @@
     "next": "Next",
     "previous": "Previous",
     "page": "Page",
-    "of": "of"
+    "of": "of",
+    "yes": "Yes",
+    "no": "No",
+    "optional": "optional"
   }
 }

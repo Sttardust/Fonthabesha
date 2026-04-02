@@ -29,6 +29,14 @@ export default function ContributorLayout() {
             >
               {t('contributor.newSubmission')}
             </NavLink>
+            <NavLink
+              to="/contributor/profile"
+              className={({ isActive }) =>
+                `portal-nav-link${isActive ? ' portal-nav-link--active' : ''}`
+              }
+            >
+              {t('contributor.profile')}
+            </NavLink>
           </nav>
         </aside>
         <main className="portal-content">

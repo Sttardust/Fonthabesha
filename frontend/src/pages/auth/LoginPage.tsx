@@ -7,7 +7,7 @@ import { Helmet } from 'react-helmet-async';
 
 import { authApi } from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/client';
-import { useAuthStore, selectIsAdmin, selectIsContributor } from '@/lib/store/authStore';
+import { useAuthStore } from '@/lib/store/authStore';
 
 // ── Schema ─────────────────────────────────────────────────────────────────────
 
@@ -68,6 +68,7 @@ export default function LoginPage() {
           </Link>
 
           <h1 className="auth-card__title">{t('auth.login')}</h1>
+          <p className="auth-card__subtitle">{t('auth.loginSubtitle')}</p>
 
           <form onSubmit={handleSubmit(onSubmit)} noValidate>
             <div className="form-group">
@@ -114,6 +115,14 @@ export default function LoginPage() {
               {isSubmitting ? t('auth.loggingIn') : t('auth.submit')}
             </button>
           </form>
+
+          <p className="form-hint">
+            <Link to="/forgot-password">{t('auth.forgotPassword')}</Link>
+          </p>
+          <p className="form-hint">
+            {t('auth.noAccount')}{' '}
+            <Link to="/register">{t('auth.createAccount')}</Link>
+          </p>
         </div>
       </div>
     </>

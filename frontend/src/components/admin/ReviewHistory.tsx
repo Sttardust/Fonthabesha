@@ -69,6 +69,20 @@ export default function ReviewHistory({ history }: Props) {
                 {event.actor.displayName ?? event.actor.email}
               </span>
             )}
+            {event.summary && (
+              <p className="review-event__summary">{event.summary}</p>
+            )}
+            {event.targets.length > 0 && (
+              <div className="review-event__targets">
+                {event.targets.map((target, index) => (
+                  <span key={`${event.id}:${index}`} className="badge">
+                    {target.styleId ? `Style ${target.styleId}` : 'Style'}
+                    {target.styleId && target.uploadId ? ' · ' : ''}
+                    {target.uploadId ? `Upload ${target.uploadId}` : ''}
+                  </span>
+                ))}
+              </div>
+            )}
             {event.notes && (
               <blockquote className="review-event__notes">{event.notes}</blockquote>
             )}
