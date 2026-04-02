@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { resolve } from 'node:path';
 
 import { AdminModule } from './admin/admin.module';
 import { AssetsModule } from './assets/assets.module';
@@ -24,7 +25,10 @@ import { UsersModule } from './users/users.module';
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,
-      envFilePath: ['.env.local', '.env'],
+      envFilePath: [
+        resolve(__dirname, '..', '..', '.env.local'),
+        resolve(__dirname, '..', '..', '.env'),
+      ],
       validate: validateEnvironment,
     }),
     PrismaModule,
