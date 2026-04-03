@@ -2,19 +2,25 @@
   "name": "fonthabesha-workspace",
   "private": true,
   "workspaces": [
-    "apps/api",
-    "apps/web"
+    "backend",
+    "frontend"
   ],
   "scripts": {
-    "dev": "echo \"Run npm run dev:api and npm run dev:web in separate terminals.\"",
-    "dev:api": "npm run start:dev --workspace @fonthabesha/api",
-    "dev:web": "npm run dev --workspace @fonthabesha/web",
-    "build": "npm run build:api",
-    "build:api": "npm run build --workspace @fonthabesha/api",
-    "build:web": "npm run build --workspace @fonthabesha/web",
-    "start:api": "npm run start --workspace @fonthabesha/api",
-    "seed:api": "npm run db:seed --workspace @fonthabesha/api",
-    "prisma:generate:api": "npm run prisma:generate --workspace @fonthabesha/api",
-    "prisma:validate:api": "npm run prisma:validate --workspace @fonthabesha/api"
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:worker\" \"npm run dev:frontend\"",
+    "dev:backend": "npm run dev --workspace @fonthabesha/backend",
+    "dev:worker": "npm run dev:worker --workspace @fonthabesha/backend",
+    "dev:frontend": "npm run dev --workspace @fonthabesha/frontend",
+    "build": "npm run build:backend && npm run build:frontend",
+    "build:backend": "npm run build --workspace @fonthabesha/backend",
+    "build:frontend": "npm run build --workspace @fonthabesha/frontend",
+    "start:backend": "npm run start --workspace @fonthabesha/backend",
+    "start:worker": "npm run start:worker --workspace @fonthabesha/backend",
+    "seed:backend": "npm run db:seed --workspace @fonthabesha/backend",
+    "prisma:migrate:deploy:backend": "npm run prisma:migrate:deploy --workspace @fonthabesha/backend",
+    "prisma:generate:backend": "npm run prisma:generate --workspace @fonthabesha/backend",
+    "prisma:validate:backend": "npm run prisma:validate --workspace @fonthabesha/backend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   }
 }
