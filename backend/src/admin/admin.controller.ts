@@ -26,6 +26,7 @@ import { AddCollectionFamilyDto } from './dto/add-collection-family.dto';
 import { UpsertVocabularyEntryDto } from './dto/upsert-vocabulary-entry.dto';
 import { ListAdminFamiliesDto } from './dto/list-admin-families.dto';
 import { UpdateAdminFamilyDto } from './dto/update-admin-family.dto';
+import { UpdateAdminStyleDto } from './dto/update-admin-style.dto';
 
 @Controller('admin')
 export class AdminController {
@@ -63,6 +64,43 @@ export class AdminController {
   @Post('families/:familyId/restore')
   restoreFamily(@Req() request: AuthenticatedRequest, @Param('familyId') familyId: string) {
     return this.adminService.restoreFamily(request, familyId);
+  }
+
+  @Get('families/:familyId/styles/:styleId')
+  getFamilyStyleDetail(
+    @Req() request: AuthenticatedRequest,
+    @Param('familyId') familyId: string,
+    @Param('styleId') styleId: string,
+  ) {
+    return this.adminService.getFamilyStyleDetail(request, familyId, styleId);
+  }
+
+  @Patch('families/:familyId/styles/:styleId')
+  updateFamilyStyle(
+    @Req() request: AuthenticatedRequest,
+    @Param('familyId') familyId: string,
+    @Param('styleId') styleId: string,
+    @Body() payload: UpdateAdminStyleDto,
+  ) {
+    return this.adminService.updateFamilyStyle(request, familyId, styleId, payload);
+  }
+
+  @Post('families/:familyId/styles/:styleId/archive')
+  archiveFamilyStyle(
+    @Req() request: AuthenticatedRequest,
+    @Param('familyId') familyId: string,
+    @Param('styleId') styleId: string,
+  ) {
+    return this.adminService.archiveFamilyStyle(request, familyId, styleId);
+  }
+
+  @Post('families/:familyId/styles/:styleId/restore')
+  restoreFamilyStyle(
+    @Req() request: AuthenticatedRequest,
+    @Param('familyId') familyId: string,
+    @Param('styleId') styleId: string,
+  ) {
+    return this.adminService.restoreFamilyStyle(request, familyId, styleId);
   }
 
   @Get('collections')

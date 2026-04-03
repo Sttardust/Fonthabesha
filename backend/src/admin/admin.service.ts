@@ -34,6 +34,7 @@ import { UpdateAdminCollectionDto } from './dto/update-admin-collection.dto';
 import { AddCollectionFamilyDto } from './dto/add-collection-family.dto';
 import { UpsertVocabularyEntryDto } from './dto/upsert-vocabulary-entry.dto';
 import { UpdateAdminFamilyDto } from './dto/update-admin-family.dto';
+import { UpdateAdminStyleDto } from './dto/update-admin-style.dto';
 
 @Injectable()
 export class AdminService {
@@ -577,6 +578,233 @@ export class AdminService {
     }
 
     return this.getFamilyDetailForAdmin(familyId);
+  }
+
+  async getFamilyStyleDetail(
+    request: AuthenticatedRequest,
+    familyId: string,
+    styleId: string,
+  ) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
+    return this.getStyleDetailForAdmin(familyId, styleId);
+  }
+
+  async updateFamilyStyle(
+    request: AuthenticatedRequest,
+    familyId: string,
+    styleId: string,
+    payload: UpdateAdminStyleDto,
+  ) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin]);
+
+    const style = await this.prisma.fontStyle.findFirst({
+      where: {
+        id: styleId,
+        familyId,
+      },
+      select: {
+        id: true,
+        familyId: true,
+        family: {
+          select: {
+            id: true,
+            status: true,
+          },
+        },
+      },
+    });
+
+    if (!style) {
+      throw new NotFoundException('Style not found');
+    }
+
+    if (payload.slug !== undefined) {
+      const slug = this.normalizeSlug(payload.slug);
+      const duplicate = await this.prisma.fontStyle.findFirst({
+        where: {
+          familyId,
+          slug,
+          id: {
+            not: styleId,
+          },
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (duplicate) {
+        throw new BadRequestException('A style with this slug already exists in the family');
+      }
+    }
+
+    await this.prisma.fontStyle.update({
+      where: {
+        id: styleId,
+      },
+      data: {
+        name: payload.name?.trim(),
+        slug: payload.slug === undefined ? undefined : this.normalizeSlug(payload.slug),
+        weightClass: payload.weightClass,
+        weightLabel:
+          payload.weightLabel === undefined ? undefined : payload.weightLabel?.trim() || null,
+        isItalic: payload.isItalic,
+        isVariable: payload.isVariable,
+        versionLabel:
+          payload.versionLabel === undefined ? undefined : payload.versionLabel?.trim() || null,
+      },
+    });
+
+    if (style.family.status === 'approved') {
+      await Promise.all([
+        this.backgroundJobs.enqueueSearchSync(familyId, 'upsert'),
+        this.backgroundJobs.enqueueFamilyPackageWarmup(familyId),
+      ]);
+    }
+
+    return this.getStyleDetailForAdmin(familyId, styleId);
+  }
+
+  async archiveFamilyStyle(
+    request: AuthenticatedRequest,
+    familyId: string,
+    styleId: string,
+  ) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin]);
+
+    const style = await this.prisma.fontStyle.findFirst({
+      where: {
+        id: styleId,
+        familyId,
+      },
+      select: {
+        id: true,
+        isDefault: true,
+        family: {
+          select: {
+            status: true,
+          },
+        },
+      },
+    });
+
+    if (!style) {
+      throw new NotFoundException('Style not found');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.fontStyle.update({
+        where: {
+          id: styleId,
+        },
+        data: {
+          status: 'archived',
+          publishedAt: null,
+          isDefault: false,
+        },
+      });
+
+      if (style.isDefault) {
+        const fallback = await tx.fontStyle.findFirst({
+          where: {
+            familyId,
+            id: {
+              not: styleId,
+            },
+            status: {
+              not: 'archived',
+            },
+          },
+          orderBy: [{ weightClass: 'asc' }, { name: 'asc' }],
+          select: {
+            id: true,
+          },
+        });
+
+        if (fallback) {
+          await tx.fontStyle.update({
+            where: {
+              id: fallback.id,
+            },
+            data: {
+              isDefault: true,
+            },
+          });
+        }
+      }
+    });
+
+    if (style.family.status === 'approved') {
+      await Promise.all([
+        this.backgroundJobs.enqueueSearchSync(familyId, 'upsert'),
+        this.backgroundJobs.enqueueFamilyPackageWarmup(familyId),
+      ]);
+    }
+
+    return this.getStyleDetailForAdmin(familyId, styleId);
+  }
+
+  async restoreFamilyStyle(
+    request: AuthenticatedRequest,
+    familyId: string,
+    styleId: string,
+  ) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin]);
+
+    const style = await this.prisma.fontStyle.findFirst({
+      where: {
+        id: styleId,
+        familyId,
+      },
+      select: {
+        id: true,
+        family: {
+          select: {
+            status: true,
+            publishedAt: true,
+          },
+        },
+      },
+    });
+
+    if (!style) {
+      throw new NotFoundException('Style not found');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const hasDefault = await tx.fontStyle.findFirst({
+        where: {
+          familyId,
+          status: {
+            not: 'archived',
+          },
+          isDefault: true,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      await tx.fontStyle.update({
+        where: {
+          id: styleId,
+        },
+        data: {
+          status: style.family.status === 'approved' ? 'approved' : 'draft',
+          publishedAt: style.family.status === 'approved' ? style.family.publishedAt ?? new Date() : null,
+          isDefault: hasDefault ? undefined : true,
+        },
+      });
+    });
+
+    if (style.family.status === 'approved') {
+      await Promise.all([
+        this.backgroundJobs.enqueueSearchSync(familyId, 'upsert'),
+        this.backgroundJobs.enqueueFamilyPackageWarmup(familyId),
+      ]);
+    }
+
+    return this.getStyleDetailForAdmin(familyId, styleId);
   }
 
   async listCollections(request: AuthenticatedRequest) {
@@ -2927,6 +3155,86 @@ export class AdminService {
       publishedAt: family.publishedAt,
       updatedAt: family.updatedAt,
       coverImageKey: family.coverImageKey,
+    };
+  }
+
+  private async getStyleDetailForAdmin(familyId: string, styleId: string) {
+    const style = await this.prisma.fontStyle.findFirst({
+      where: {
+        id: styleId,
+        familyId,
+      },
+      select: {
+        id: true,
+        familyId: true,
+        name: true,
+        slug: true,
+        weightClass: true,
+        weightLabel: true,
+        isItalic: true,
+        isVariable: true,
+        isDefault: true,
+        format: true,
+        versionLabel: true,
+        fileSizeBytes: true,
+        sha256: true,
+        metricsJson: true,
+        axesJson: true,
+        featuresJson: true,
+        glyphCoverageJson: true,
+        status: true,
+        publishedAt: true,
+        createdAt: true,
+        updatedAt: true,
+        family: {
+          select: {
+            id: true,
+            slug: true,
+            nameEn: true,
+            nameAm: true,
+            nativeName: true,
+            status: true,
+          },
+        },
+      },
+    });
+
+    if (!style) {
+      throw new NotFoundException('Style not found');
+    }
+
+    return {
+      id: style.id,
+      familyId: style.familyId,
+      name: style.name,
+      slug: style.slug,
+      weightClass: style.weightClass,
+      weightLabel: style.weightLabel,
+      isItalic: style.isItalic,
+      isVariable: style.isVariable,
+      isDefault: style.isDefault,
+      format: style.format,
+      versionLabel: style.versionLabel,
+      fileSizeBytes: Number(style.fileSizeBytes ?? 0n),
+      sha256: style.sha256,
+      metrics: style.metricsJson ?? {},
+      axes: style.axesJson ?? [],
+      features: style.featuresJson ?? [],
+      glyphCoverage: style.glyphCoverageJson ?? {},
+      status: style.status,
+      publishedAt: style.publishedAt,
+      createdAt: style.createdAt,
+      updatedAt: style.updatedAt,
+      family: {
+        id: style.family.id,
+        slug: style.family.slug,
+        name: {
+          en: style.family.nameEn,
+          am: style.family.nameAm,
+          native: style.family.nativeName,
+        },
+        status: style.family.status,
+      },
     };
   }
 

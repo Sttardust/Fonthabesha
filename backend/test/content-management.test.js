@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const { after, before, test } = require('node:test');
 
 const { closeTestContext, createTestContext, requestJson } = require('./helpers/app');
+const { buildTestFontBuffer, sha256Hex } = require('./helpers/font');
 
 let context;
 
@@ -15,6 +16,8 @@ after(async () => {
 
 test('collections, vocabulary, and admin family listing endpoints are available', async () => {
   const slugSeed = Date.now().toString();
+  const fontBuffer = buildTestFontBuffer();
+  const fontSha = sha256Hex(fontBuffer);
 
   const vocabularyResponse = await requestJson(context, {
     method: 'GET',
@@ -150,6 +153,43 @@ test('collections, vocabulary, and admin family listing endpoints are available'
   });
   assert.equal(createSubmissionResponse.status, 201);
   const familyId = createSubmissionResponse.body.family.id;
+  const submissionId = createSubmissionResponse.body.id;
+
+  const initUploadResponse = await requestJson(context, {
+    method: 'POST',
+    path: '/api/v1/uploads/init',
+    headers: {
+      authorization: `Bearer ${registerContributorResponse.body.accessToken}`,
+    },
+    body: {
+      submissionId,
+      filename: `admin-family-${slugSeed}.ttf`,
+      contentType: 'font/ttf',
+    },
+  });
+  assert.equal(initUploadResponse.status, 201);
+
+  const uploadPutResponse = await fetch(initUploadResponse.body.upload.url, {
+    method: 'PUT',
+    headers: {
+      'content-type': 'font/ttf',
+    },
+    body: fontBuffer,
+  });
+  assert.equal(uploadPutResponse.status, 200);
+
+  const completeUploadResponse = await requestJson(context, {
+    method: 'POST',
+    path: '/api/v1/uploads/complete',
+    headers: {
+      authorization: `Bearer ${registerContributorResponse.body.accessToken}`,
+    },
+    body: {
+      uploadId: initUploadResponse.body.uploadId,
+      sha256: fontSha,
+    },
+  });
+  assert.equal(completeUploadResponse.status, 201);
 
   const familyDetailResponse = await requestJson(context, {
     method: 'GET',
@@ -161,6 +201,9 @@ test('collections, vocabulary, and admin family listing endpoints are available'
   assert.equal(familyDetailResponse.status, 200);
   assert.equal(familyDetailResponse.body.id, familyId);
   assert.equal(familyDetailResponse.body.status, 'draft');
+  assert.ok(Array.isArray(familyDetailResponse.body.styles));
+  assert.ok(familyDetailResponse.body.styles.length >= 1);
+  const styleId = familyDetailResponse.body.styles[0].id;
 
   const updateFamilyResponse = await requestJson(context, {
     method: 'PATCH',
@@ -179,6 +222,54 @@ test('collections, vocabulary, and admin family listing endpoints are available'
   assert.equal(updateFamilyResponse.body.description.en, 'Updated through the admin family management endpoint.');
   assert.equal(updateFamilyResponse.body.supports.ethiopic, true);
   assert.equal(updateFamilyResponse.body.category.id, createCategoryResponse.body.id);
+
+  const styleDetailResponse = await requestJson(context, {
+    method: 'GET',
+    path: `/api/v1/admin/families/${familyId}/styles/${styleId}`,
+    headers: {
+      'x-user-email': 'admin@fonthabesha.local',
+    },
+  });
+  assert.equal(styleDetailResponse.status, 200);
+  assert.equal(styleDetailResponse.body.id, styleId);
+
+  const updateStyleResponse = await requestJson(context, {
+    method: 'PATCH',
+    path: `/api/v1/admin/families/${familyId}/styles/${styleId}`,
+    headers: {
+      'x-user-email': 'admin@fonthabesha.local',
+    },
+    body: {
+      name: `Admin Style ${slugSeed}`,
+      weightLabel: 'Book',
+      isItalic: false,
+      versionLabel: 'v-test',
+    },
+  });
+  assert.equal(updateStyleResponse.status, 200);
+  assert.equal(updateStyleResponse.body.name, `Admin Style ${slugSeed}`);
+  assert.equal(updateStyleResponse.body.weightLabel, 'Book');
+  assert.equal(updateStyleResponse.body.versionLabel, 'v-test');
+
+  const archiveStyleResponse = await requestJson(context, {
+    method: 'POST',
+    path: `/api/v1/admin/families/${familyId}/styles/${styleId}/archive`,
+    headers: {
+      'x-user-email': 'admin@fonthabesha.local',
+    },
+  });
+  assert.equal(archiveStyleResponse.status, 201);
+  assert.equal(archiveStyleResponse.body.status, 'archived');
+
+  const restoreStyleResponse = await requestJson(context, {
+    method: 'POST',
+    path: `/api/v1/admin/families/${familyId}/styles/${styleId}/restore`,
+    headers: {
+      'x-user-email': 'admin@fonthabesha.local',
+    },
+  });
+  assert.equal(restoreStyleResponse.status, 201);
+  assert.equal(restoreStyleResponse.body.status, 'draft');
 
   const archiveFamilyResponse = await requestJson(context, {
     method: 'POST',
