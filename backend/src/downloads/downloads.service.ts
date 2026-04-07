@@ -28,54 +28,8 @@ export class DownloadsService {
     familyId: string,
   ) {
     const user = await this.authContext.findActiveUserFromRequest(request);
-    const family = await this.prisma.fontFamily.findUnique({
-      where: {
-        id: familyId,
-        status: 'approved',
-      },
-      select: {
-        id: true,
-        slug: true,
-        nameEn: true,
-        styles: {
-          where: {
-            status: 'approved',
-            fileKey: {
-              not: null,
-            },
-          },
-          orderBy: [{ isDefault: 'desc' }, { weightClass: 'asc' }, { name: 'asc' }],
-          select: {
-            id: true,
-            slug: true,
-            name: true,
-            format: true,
-            fileKey: true,
-            sha256: true,
-            updatedAt: true,
-          },
-        },
-      },
-    });
-
-    if (!family || family.styles.length === 0) {
-      throw new NotFoundException('Approved family package not found');
-    }
-
-    const packageKey = this.buildFamilyPackageKey(
-      family.id,
-      family.slug,
-      family.styles.map((style) => ({
-        id: style.id,
-        sha256: style.sha256,
-        updatedAt: style.updatedAt,
-      })),
-    );
-
-    if (!(await this.storageService.rawObjectExists(packageKey))) {
-      const packageBuffer = await this.buildFamilyPackageZip(family.slug, family.styles);
-      await this.storageService.putRawObject(packageKey, packageBuffer, 'application/zip');
-    }
+    const family = await this.getApprovedFamilyPackageData(familyId);
+    const packageKey = await this.ensureFamilyPackage(family);
 
     const download = await this.storageService.createRawDownloadUrl(
       packageKey,
@@ -93,6 +47,18 @@ export class DownloadsService {
     return {
       downloadUrl: download.url,
       expiresAt: download.expiresAt,
+    };
+  }
+
+  async warmFamilyPackage(
+    familyId: string,
+  ): Promise<{ familyId: string; packageKey: string }> {
+    const family = await this.getApprovedFamilyPackageData(familyId);
+    const packageKey = await this.ensureFamilyPackage(family);
+
+    return {
+      familyId: family.id,
+      packageKey,
     };
   }
 
@@ -193,6 +159,76 @@ export class DownloadsService {
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }
+  }
+
+  private async getApprovedFamilyPackageData(familyId: string) {
+    const family = await this.prisma.fontFamily.findUnique({
+      where: {
+        id: familyId,
+        status: 'approved',
+      },
+      select: {
+        id: true,
+        slug: true,
+        nameEn: true,
+        styles: {
+          where: {
+            status: 'approved',
+            fileKey: {
+              not: null,
+            },
+          },
+          orderBy: [{ isDefault: 'desc' }, { weightClass: 'asc' }, { name: 'asc' }],
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+            format: true,
+            fileKey: true,
+            sha256: true,
+            updatedAt: true,
+          },
+        },
+      },
+    });
+
+    if (!family || family.styles.length === 0) {
+      throw new NotFoundException('Approved family package not found');
+    }
+
+    return family;
+  }
+
+  private async ensureFamilyPackage(family: {
+    id: string;
+    slug: string;
+    nameEn: string;
+    styles: Array<{
+      id: string;
+      slug: string;
+      name: string;
+      format: string | null;
+      fileKey: string | null;
+      sha256: string | null;
+      updatedAt: Date;
+    }>;
+  }): Promise<string> {
+    const packageKey = this.buildFamilyPackageKey(
+      family.id,
+      family.slug,
+      family.styles.map((style) => ({
+        id: style.id,
+        sha256: style.sha256,
+        updatedAt: style.updatedAt,
+      })),
+    );
+
+    if (!(await this.storageService.rawObjectExists(packageKey))) {
+      const packageBuffer = await this.buildFamilyPackageZip(family.slug, family.styles);
+      await this.storageService.putRawObject(packageKey, packageBuffer, 'application/zip');
+    }
+
+    return packageKey;
   }
 
   private buildFamilyPackageKey(

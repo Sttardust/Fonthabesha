@@ -80,6 +80,10 @@ export class AuthContextService {
       return user;
     }
 
+    if (!this.configService.get('ALLOW_DEV_HEADER_AUTH', { infer: true })) {
+      return null;
+    }
+
     return this.findActiveUserByEmail(this.getHeaderValue(request, 'x-user-email'));
   }
 

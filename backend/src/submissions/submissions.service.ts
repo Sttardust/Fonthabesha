@@ -11,6 +11,8 @@ import { SubmissionStatus, UserRole } from '@prisma/client';
 import { AuthContextService } from '../auth/auth-context.service';
 import type { AuthenticatedRequest } from '../auth/auth-request';
 import { PrismaService } from '../prisma/prisma.service';
+import { presentReviewHistoryEvent } from '../shared/review-history';
+import { summarizeUploadProcessingState } from '../uploads/upload-processing-state';
 import { CreateSubmissionDto } from './dto/create-submission.dto';
 import { UpdateSubmissionMetadataDto } from './dto/update-submission-metadata.dto';
 import { UpdateSubmissionStyleDto } from './dto/update-submission-style.dto';
@@ -77,8 +79,15 @@ export class SubmissionsService {
 
   async getContributorSubmissionDetail(request: AuthenticatedRequest, submissionId: string) {
     const submission = await this.getOwnedSubmissionWithDetails(request, submissionId);
+    const uploadStatuses = submission.uploads.map((upload) => upload.processingStatus);
     const completedUploadCount = submission.uploads.filter(
       (upload) => upload.processingStatus === 'completed',
+    ).length;
+    const queuedUploadCount = submission.uploads.filter(
+      (upload) => upload.processingStatus === 'queued',
+    ).length;
+    const processingUploadCount = submission.uploads.filter(
+      (upload) => upload.processingStatus === 'processing',
     ).length;
     const processingWarnings = submission.uploads.flatMap(
       (upload) => (upload.processingWarningsJson as unknown[] | null) ?? [],
@@ -89,6 +98,49 @@ export class SubmissionsService {
         uploadId: upload.id,
         message: upload.processingError,
       }));
+    const reviewHistory = submission.reviewEvents.map((event) =>
+      presentReviewHistoryEvent({
+        id: event.id,
+        action: event.action,
+        notes: event.notes,
+        metadataJson: event.metadataJson,
+        createdAt: event.createdAt,
+        actor: event.actorUser
+          ? {
+              id: event.actorUser.id,
+              displayName: event.actorUser.displayName,
+              role: event.actorUser.role,
+            }
+          : null,
+      }),
+    );
+    const latestContributorFeedback = [...reviewHistory]
+      .reverse()
+      .find((event) => ['request_changes', 'rejected', 'processing_failed'].includes(event.action));
+    const latestActionableFeedback = [...reviewHistory]
+      .reverse()
+      .find((event) => ['request_changes', 'processing_failed'].includes(event.action));
+    const reviewActionItems = this.buildContributorReviewActionItems(
+      submission.status,
+      latestContributorFeedback,
+      submission.uploads,
+      submission.family.styles,
+    );
+    const issueResolutions = this.buildContributorIssueResolutions(
+      submission.status,
+      latestContributorFeedback,
+      latestActionableFeedback,
+      reviewHistory,
+      submission.uploads,
+      submission.family.styles,
+    );
+    const reviewCycle = this.buildContributorReviewCycle(
+      submission.status,
+      submission.submittedAt,
+      latestContributorFeedback,
+      latestActionableFeedback,
+      reviewHistory,
+    );
 
     return {
       id: submission.id,
@@ -137,9 +189,20 @@ export class SubmissionsService {
         status: style.status,
       })),
       analysis: {
+        status: summarizeUploadProcessingState(uploadStatuses),
         completedUploadCount,
+        queuedUploadCount,
+        processingUploadCount,
         processingWarnings,
         blockingIssues,
+      },
+      review: {
+        actionRequired: reviewActionItems.length > 0,
+        actionItems: reviewActionItems,
+        issueResolutions,
+        cycle: reviewCycle,
+        latestContributorFeedback: latestContributorFeedback ?? null,
+        history: reviewHistory,
       },
       permissions: {
         canEditMetadata: this.isContributorEditableStatus(submission.status),
@@ -615,6 +678,25 @@ export class SubmissionsService {
             },
           },
         },
+        reviewEvents: {
+          orderBy: {
+            createdAt: 'asc',
+          },
+          select: {
+            id: true,
+            action: true,
+            notes: true,
+            metadataJson: true,
+            createdAt: true,
+            actorUser: {
+              select: {
+                id: true,
+                displayName: true,
+                role: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -629,5 +711,327 @@ export class SubmissionsService {
     return ['draft', 'uploaded', 'ready_for_submission', 'changes_requested', 'processing_failed'].includes(
       status,
     );
+  }
+
+  private buildContributorReviewActionItems(
+    status: SubmissionStatus,
+    latestContributorFeedback:
+      | ReturnType<typeof presentReviewHistoryEvent>
+      | null
+      | undefined,
+    uploads: Array<{
+      id: string;
+      originalFilename: string;
+      processingStatus: string;
+    }>,
+    styles: Array<{
+      id: string;
+      name: string;
+      slug: string;
+      weightClass: number | null;
+      weightLabel: string | null;
+      isItalic: boolean;
+      isDefault: boolean;
+    }>,
+  ) {
+    if (!latestContributorFeedback || !['changes_requested', 'processing_failed'].includes(status)) {
+      return [];
+    }
+
+    const uploadById = new Map(uploads.map((upload) => [upload.id, upload]));
+    const styleById = new Map(styles.map((style) => [style.id, style]));
+
+    const actionItems =
+      latestContributorFeedback.issues.length > 0
+        ? latestContributorFeedback.issues.map((issue, index) => ({
+            id: `${latestContributorFeedback.id}:${index + 1}`,
+            sourceEventId: latestContributorFeedback.id,
+            sourceAction: latestContributorFeedback.action,
+            issueCode: issue.issueCode,
+            note: issue.note ?? latestContributorFeedback.notes,
+            summary: this.buildContributorActionItemSummary(
+              issue.issueCode,
+              issue.note ?? latestContributorFeedback.notes,
+              issue.targetUploadId,
+              issue.targetStyleId,
+              uploadById,
+              styleById,
+            ),
+            createdAt: latestContributorFeedback.createdAt,
+            upload: issue.targetUploadId
+              ? this.presentContributorActionItemUpload(uploadById.get(issue.targetUploadId))
+              : null,
+            style: issue.targetStyleId
+              ? this.presentContributorActionItemStyle(styleById.get(issue.targetStyleId))
+              : null,
+          }))
+        : [
+            {
+              id: `${latestContributorFeedback.id}:1`,
+              sourceEventId: latestContributorFeedback.id,
+              sourceAction: latestContributorFeedback.action,
+              issueCode: latestContributorFeedback.issueCode,
+              note: latestContributorFeedback.notes,
+              summary: this.buildContributorActionItemSummary(
+                latestContributorFeedback.issueCode,
+                latestContributorFeedback.notes,
+                latestContributorFeedback.targets[0]?.uploadId ?? null,
+                latestContributorFeedback.targets[0]?.styleId ?? null,
+                uploadById,
+                styleById,
+              ),
+              createdAt: latestContributorFeedback.createdAt,
+              upload: latestContributorFeedback.targets[0]?.uploadId
+                ? this.presentContributorActionItemUpload(
+                    uploadById.get(latestContributorFeedback.targets[0].uploadId),
+                  )
+                : null,
+              style: latestContributorFeedback.targets[0]?.styleId
+                ? this.presentContributorActionItemStyle(
+                    styleById.get(latestContributorFeedback.targets[0].styleId),
+                  )
+                : null,
+            },
+          ];
+
+    return actionItems;
+  }
+
+  private buildContributorIssueResolutions(
+    status: SubmissionStatus,
+    latestContributorFeedback:
+      | ReturnType<typeof presentReviewHistoryEvent>
+      | null
+      | undefined,
+    latestActionableFeedback:
+      | ReturnType<typeof presentReviewHistoryEvent>
+      | null
+      | undefined,
+    reviewHistory: Array<ReturnType<typeof presentReviewHistoryEvent>>,
+    uploads: Array<{
+      id: string;
+      originalFilename: string;
+      processingStatus: string;
+    }>,
+    styles: Array<{
+      id: string;
+      name: string;
+      slug: string;
+      weightClass: number | null;
+      weightLabel: string | null;
+      isItalic: boolean;
+      isDefault: boolean;
+    }>,
+  ) {
+    if (!latestActionableFeedback || latestContributorFeedback?.action === 'rejected') {
+      return [];
+    }
+
+    const uploadById = new Map(uploads.map((upload) => [upload.id, upload]));
+    const styleById = new Map(styles.map((style) => [style.id, style]));
+    const laterResubmission = reviewHistory.find(
+      (event) =>
+        event.action === 'submitted' && event.createdAt.getTime() > latestActionableFeedback.createdAt.getTime(),
+    );
+    const resolutionStatus =
+      ['changes_requested', 'processing_failed'].includes(status) || !laterResubmission
+        ? 'open'
+        : 'resubmitted';
+    const issues =
+      latestActionableFeedback.issues.length > 0
+        ? latestActionableFeedback.issues
+        : [
+            {
+              issueCode: latestActionableFeedback.issueCode,
+              note: latestActionableFeedback.notes,
+              targetUploadId: latestActionableFeedback.targets[0]?.uploadId ?? null,
+              targetStyleId: latestActionableFeedback.targets[0]?.styleId ?? null,
+            },
+          ];
+
+    return issues.map((issue, index) => ({
+      id: `${latestActionableFeedback.id}:${index + 1}`,
+      sourceEventId: latestActionableFeedback.id,
+      sourceAction: latestActionableFeedback.action,
+      resolutionStatus,
+      resubmittedAt: laterResubmission?.createdAt ?? null,
+      issueCode: issue.issueCode,
+      note: issue.note ?? latestActionableFeedback.notes,
+      summary: this.buildContributorActionItemSummary(
+        issue.issueCode,
+        issue.note ?? latestActionableFeedback.notes,
+        issue.targetUploadId,
+        issue.targetStyleId,
+        uploadById,
+        styleById,
+      ),
+      createdAt: latestActionableFeedback.createdAt,
+      upload: issue.targetUploadId
+        ? this.presentContributorActionItemUpload(uploadById.get(issue.targetUploadId))
+        : null,
+      style: issue.targetStyleId
+        ? this.presentContributorActionItemStyle(styleById.get(issue.targetStyleId))
+        : null,
+    }));
+  }
+
+  private buildContributorReviewCycle(
+    status: SubmissionStatus,
+    submittedAt: Date | null,
+    latestContributorFeedback:
+      | ReturnType<typeof presentReviewHistoryEvent>
+      | null
+      | undefined,
+    latestActionableFeedback:
+      | ReturnType<typeof presentReviewHistoryEvent>
+      | null
+      | undefined,
+    reviewHistory: Array<ReturnType<typeof presentReviewHistoryEvent>>,
+  ) {
+    const lastResubmittedAt =
+      latestActionableFeedback
+        ? reviewHistory.find(
+            (event) =>
+              event.action === 'submitted' &&
+              event.createdAt.getTime() > latestActionableFeedback.createdAt.getTime(),
+          )?.createdAt ?? null
+        : submittedAt ?? null;
+
+    const currentPhase = this.mapContributorReviewPhase(
+      status,
+      latestContributorFeedback,
+      latestActionableFeedback,
+      lastResubmittedAt,
+      submittedAt,
+    );
+
+    return {
+      currentPhase,
+      latestActionableFeedbackAt: latestActionableFeedback?.createdAt ?? null,
+      latestContributorFeedbackAt: latestContributorFeedback?.createdAt ?? null,
+      lastResubmittedAt: latestActionableFeedback ? lastResubmittedAt : submittedAt ?? null,
+      awaitingReviewSince:
+        currentPhase === 'awaiting_staff' ? (lastResubmittedAt ?? submittedAt ?? null) : null,
+    };
+  }
+
+  private mapContributorReviewPhase(
+    status: SubmissionStatus,
+    latestContributorFeedback:
+      | ReturnType<typeof presentReviewHistoryEvent>
+      | null
+      | undefined,
+    latestActionableFeedback:
+      | ReturnType<typeof presentReviewHistoryEvent>
+      | null
+      | undefined,
+    lastResubmittedAt: Date | null,
+    submittedAt: Date | null,
+  ): 'idle' | 'awaiting_contributor' | 'awaiting_staff' | 'closed' {
+    if (status === 'approved' || status === 'rejected') {
+      return 'closed';
+    }
+
+    if (['changes_requested', 'processing_failed'].includes(status)) {
+      return 'awaiting_contributor';
+    }
+
+    if (status === 'needs_review' && (lastResubmittedAt || submittedAt)) {
+      return 'awaiting_staff';
+    }
+
+    if (latestActionableFeedback && lastResubmittedAt) {
+      return 'awaiting_staff';
+    }
+
+    if (latestContributorFeedback?.action === 'submitted' || submittedAt) {
+      return 'awaiting_staff';
+    }
+
+    return 'idle';
+  }
+
+  private buildContributorActionItemSummary(
+    issueCode: string | null,
+    note: string | null,
+    uploadId: string | null,
+    styleId: string | null,
+    uploadById: Map<
+      string,
+      {
+        id: string;
+        originalFilename: string;
+        processingStatus: string;
+      }
+    >,
+    styleById: Map<
+      string,
+      {
+        id: string;
+        name: string;
+        slug: string;
+        weightClass: number | null;
+        weightLabel: string | null;
+        isItalic: boolean;
+        isDefault: boolean;
+      }
+    >,
+  ): string {
+    const parts = [
+      issueCode?.replaceAll('_', ' '),
+      styleId ? styleById.get(styleId)?.name ?? `style ${styleId}` : null,
+      uploadId ? uploadById.get(uploadId)?.originalFilename ?? `upload ${uploadId}` : null,
+      note,
+    ].filter((value): value is string => Boolean(value));
+
+    return parts.join(' - ');
+  }
+
+  private presentContributorActionItemUpload(
+    upload:
+      | {
+          id: string;
+          originalFilename: string;
+          processingStatus: string;
+        }
+      | undefined,
+  ) {
+    if (!upload) {
+      return null;
+    }
+
+    return {
+      id: upload.id,
+      originalFilename: upload.originalFilename,
+      processingStatus: upload.processingStatus,
+    };
+  }
+
+  private presentContributorActionItemStyle(
+    style:
+      | {
+          id: string;
+          name: string;
+          slug: string;
+          weightClass: number | null;
+          weightLabel: string | null;
+          isItalic: boolean;
+          isDefault: boolean;
+        }
+      | undefined,
+  ) {
+    if (!style) {
+      return null;
+    }
+
+    return {
+      id: style.id,
+      name: style.name,
+      slug: style.slug,
+      weightClass: style.weightClass,
+      weightLabel: style.weightLabel,
+      isItalic: style.isItalic,
+      isDefault: style.isDefault,
+    };
   }
 }
