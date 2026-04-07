@@ -52,13 +52,14 @@ export type ScriptSupport = string;
 // ── Catalog filter options (GET /api/v1/fonts/filters) ────────────────────────
 
 export interface CatalogCategory { name: string; slug: string; }
-export interface CatalogLicense { code: string; name: string; }
+export interface CatalogLicense { code: string; name: string; summary: string; url: string; }
 export interface CatalogPublisher { id: string; name: string; slug: string; }
 export interface CatalogDesigner { id: string; name: string; slug: string; }
 export interface CatalogTag { id: string; nameEn: string; nameAm: string | null; slug: string; }
 
 export interface CatalogFilters {
-  categories: CatalogCategory[];
+  categories: string[];
+  scripts: string[];
   licenses: CatalogLicense[];
   publishers: CatalogPublisher[];
   designers: CatalogDesigner[];
@@ -656,13 +657,18 @@ export interface ReprocessResponse {
 
 export interface Collection {
   id: string;
-  name: string;
+  slug: string;
+  title: string;
   description?: string | null;
-  slug?: string | null;
+  isFeatured?: boolean;
+  status?: string;
+  publishedAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  familyCount?: number;
   coverImageUrl?: string | null;
   specimenText?: string | null;
-  familyCount?: number;
-  families?: FontFamilySummary[];
+  featuredFamilies?: FontFamilySummary[];
 }
 
 // ── Admin license management ───────────────────────────────────────────────────

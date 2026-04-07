@@ -36,10 +36,10 @@ export default function HomePage() {
   // Featured collections for the horizontal scroll row
   const { data: collectionsData } = useQuery({
     queryKey: ['collections-featured-home'],
-    queryFn: () => collectionsApi.list(1, 8),
+    queryFn: () => collectionsApi.list(),
     staleTime: 5 * 60_000,
   });
-  const featuredCollections = collectionsData?.items ?? [];
+  const featuredCollections = (collectionsData ?? []).slice(0, 8);
 
   const gridClass =
     viewMode === 'grid'
@@ -88,10 +88,10 @@ export default function HomePage() {
                 to={`/collections/${col.id}`}
                 className="home-collection-chip"
               >
-                <span className="home-collection-chip__name">{col.name}</span>
-                {((col.familyCount ?? 0) > 0 || (col.families?.length ?? 0) > 0) && (
+                <span className="home-collection-chip__name">{col.title}</span>
+                {((col.familyCount ?? 0) > 0 || (col.featuredFamilies?.length ?? 0) > 0) && (
                   <span className="home-collection-chip__count">
-                    {col.familyCount ?? col.families?.length}
+                    {col.familyCount ?? col.featuredFamilies?.length}
                   </span>
                 )}
               </Link>

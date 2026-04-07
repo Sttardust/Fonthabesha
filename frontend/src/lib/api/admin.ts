@@ -12,6 +12,7 @@ import type {
   VocabEntry,
   ProcessingFailure,
   LicenseAdmin,
+  FontFamilySummary,
 } from '@/lib/types';
 
 // All real admin routes live under /api/v1/admin/reviews
@@ -99,6 +100,40 @@ export const adminApi = {
   /** POST /api/v1/admin/search/reindex — rebuild the search index */
   reindex: (): Promise<void> =>
     apiClient.post('/api/v1/admin/search/reindex'),
+
+  // ── Admin families ────────────────────────────────────────────────────────────
+
+  listFamilies: (page = 1, pageSize = 25, q?: string): Promise<PaginatedResponse<FontFamilySummary>> => {
+    const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+    if (q) params.set('q', q);
+    return apiClient.get<PaginatedResponse<FontFamilySummary>>(`/api/v1/admin/families?${params}`);
+  },
+
+  archiveFamily: (id: string): Promise<void> =>
+    apiClient.post(`/api/v1/admin/families/${id}/archive`),
+
+  restoreFamily: (id: string): Promise<void> =>
+    apiClient.post(`/api/v1/admin/families/${id}/restore`),
+
+  // ── Admin collections ────────────────────────────────────────────────────────
+
+  listAdminCollections: (): Promise<unknown[]> =>
+    apiClient.get<unknown[]>('/api/v1/admin/collections'),
+
+  createAdminCollection: (payload: { name: string; description?: string; isPublic: boolean }): Promise<unknown> =>
+    apiClient.post('/api/v1/admin/collections', payload),
+
+  updateAdminCollection: (id: string, payload: { name?: string; description?: string; isPublic?: boolean }): Promise<unknown> =>
+    apiClient.patch(`/api/v1/admin/collections/${id}`, payload),
+
+  deleteAdminCollection: (id: string): Promise<void> =>
+    apiClient.delete(`/api/v1/admin/collections/${id}`),
+
+  addFamilyToCollection: (collectionId: string, familyId: string): Promise<void> =>
+    apiClient.post(`/api/v1/admin/collections/${collectionId}/families`, { familyId }),
+
+  removeFamilyFromCollection: (collectionId: string, familyId: string): Promise<void> =>
+    apiClient.delete(`/api/v1/admin/collections/${collectionId}/families/${familyId}`),
 
   // ── Processing failures ───────────────────────────────────────────────────────
 

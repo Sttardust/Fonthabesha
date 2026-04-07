@@ -7,40 +7,28 @@ import LoadingSpinner from '@/components/shared/LoadingSpinner';
 import ErrorState from '@/components/shared/ErrorState';
 import type { Collection } from '@/lib/types';
 
-// ── Collection card ───────────────────────────────────────────────────────────
-
 function CollectionCard({ collection }: { collection: Collection }) {
   const { i18n } = useTranslation();
   const isAm = i18n.language === 'am';
 
   const specimenText = collection.specimenText ?? (isAm ? 'አዲስ ፊደሎች' : 'New Fonts');
-  const familyCount  = collection.familyCount ?? collection.families?.length ?? 0;
+  const familyCount = collection.familyCount ?? collection.featuredFamilies?.length ?? 0;
 
   return (
     <Link
-      to={`/collections/${collection.id}`}
+      to={`/collections/${collection.slug ?? collection.id}`}
       className="collection-card"
-      aria-label={`${collection.name} — ${familyCount} fonts`}
+      aria-label={`${collection.title} — ${familyCount} fonts`}
     >
-      {/* Visual area — cover image or specimen text */}
       <div className="collection-card__visual">
         {collection.coverImageUrl ? (
-          <img
-            src={collection.coverImageUrl}
-            alt=""
-            className="collection-card__cover"
-            loading="lazy"
-          />
+          <img src={collection.coverImageUrl} alt="" className="collection-card__cover" loading="lazy" />
         ) : (
-          <div className="collection-card__specimen" aria-hidden="true">
-            {specimenText}
-          </div>
+          <div className="collection-card__specimen" aria-hidden="true">{specimenText}</div>
         )}
       </div>
-
-      {/* Card meta */}
       <div className="collection-card__body">
-        <h2 className="collection-card__name">{collection.name}</h2>
+        <h2 className="collection-card__name">{collection.title}</h2>
         {collection.description && (
           <p className="collection-card__desc">{collection.description}</p>
         )}
@@ -52,8 +40,6 @@ function CollectionCard({ collection }: { collection: Collection }) {
   );
 }
 
-// ── Page ──────────────────────────────────────────────────────────────────────
-
 export default function CollectionsPage() {
   const { t } = useTranslation();
 
@@ -62,20 +48,19 @@ export default function CollectionsPage() {
     queryFn: () => collectionsApi.list(),
   });
 
-  const collections = data?.items ?? [];
+  const collections = data ?? [];
 
   return (
     <>
       <Helmet>
         <title>{t('nav.collections')} — Fonthabesha</title>
       </Helmet>
-
       <div className="page-container">
         <header className="page-header">
           <h1 className="page-title">{t('nav.collections')}</h1>
           {data && (
             <p className="page-subtitle">
-              {data.pagination.totalItems} {t('nav.collections').toLowerCase()}
+              {data.length} {t('nav.collections').toLowerCase()}
             </p>
           )}
         </header>
@@ -83,10 +68,7 @@ export default function CollectionsPage() {
         {isLoading && <LoadingSpinner fullPage label={t('common.loading')} />}
 
         {isError && (
-          <ErrorState
-            message={t('common.error')}
-            onRetry={() => refetch()}
-          />
+          <ErrorState message={t('common.error')} onRetry={() => refetch()} />
         )}
 
         {!isLoading && !isError && collections.length === 0 && (

@@ -7,15 +7,19 @@ import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-// Local shape sufficient for the modal (AdminCollection type removed from shared types)
+import { useMutation } from '@tanstack/react-query';
+import { apiClient } from '@/lib/api/client';
+
+// Local shape sufficient for the modal
 interface AdminCollection {
-  name: string;
-  description?: string;
+  id?: string;
+  title: string;
+  description?: string | null;
   isPublic: boolean;
 }
 
 const schema = z.object({
-  name:        z.string().min(1, 'Name is required').max(80),
+  title:       z.string().min(1, 'Title is required').max(80),
   description: z.string().max(300).optional(),
   isPublic:    z.boolean(),
 });
@@ -23,21 +27,15 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 interface Props {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
   initialData?: AdminCollection | null;
-  isPending: boolean;
-  onSubmit: (data: { name: string; description?: string; isPublic: boolean }) => void;
+  onClose: () => void;
+  onSaved: () => void;
 }
 
-export default function CollectionEditModal({
-  open,
-  onOpenChange,
-  initialData,
-  isPending,
-  onSubmit,
-}: Props) {
-  const isEdit = !!initialData;
+const PREFIX = '/api/v1/admin/collections';
+
+export default function CollectionEditModal({ initialData, onClose, onSaved }: Props) {
+  const isEdit = !!initialData?.id;
 
   const {
     register,
@@ -47,7 +45,7 @@ export default function CollectionEditModal({
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
-      name:        initialData?.name        ?? '',
+      title:       initialData?.title       ?? '',
       description: initialData?.description ?? '',
       isPublic:    initialData?.isPublic    ?? true,
     },
@@ -56,22 +54,33 @@ export default function CollectionEditModal({
   // Re-populate form when switching between create / edit
   useEffect(() => {
     reset({
-      name:        initialData?.name        ?? '',
+      title:       initialData?.title       ?? '',
       description: initialData?.description ?? '',
       isPublic:    initialData?.isPublic    ?? true,
     });
   }, [initialData, reset]);
 
+  const saveMut = useMutation({
+    mutationFn: (data: FormData) => {
+      const payload = {
+        title:       data.title,
+        description: data.description || undefined,
+        isPublic:    data.isPublic,
+      };
+      if (isEdit && initialData?.id) {
+        return apiClient.patch(`${PREFIX}/${initialData.id}`, payload);
+      }
+      return apiClient.post(PREFIX, payload);
+    },
+    onSuccess: () => onSaved(),
+  });
+
   const handleFormSubmit = (data: FormData) => {
-    onSubmit({
-      name:        data.name,
-      description: data.description || undefined,
-      isPublic:    data.isPublic,
-    });
+    saveMut.mutate(data);
   };
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+    <Dialog.Root open onOpenChange={(open) => { if (!open) onClose(); }}>
       <Dialog.Portal>
         <Dialog.Overlay className="confirm-overlay" />
         <Dialog.Content
@@ -83,22 +92,22 @@ export default function CollectionEditModal({
           </Dialog.Title>
           <Dialog.Description id="col-modal-desc" className="confirm-dialog__desc">
             {isEdit
-              ? 'Update the collection name, description, or visibility.'
+              ? 'Update the collection title, description, or visibility.'
               : 'Create a curated collection of font families.'}
           </Dialog.Description>
 
           <form onSubmit={handleSubmit(handleFormSubmit)} noValidate>
             <div className="form-group">
-              <label className="form-label" htmlFor="col-name">
-                Name <span aria-hidden="true">*</span>
+              <label className="form-label" htmlFor="col-title">
+                Title <span aria-hidden="true">*</span>
               </label>
               <input
-                id="col-name"
-                className={`form-input${errors.name ? ' form-input--error' : ''}`}
+                id="col-title"
+                className={`form-input${errors.title ? ' form-input--error' : ''}`}
                 placeholder="e.g. Headline Favorites"
-                {...register('name')}
+                {...register('title')}
               />
-              {errors.name && <p className="form-error">{errors.name.message}</p>}
+              {errors.title && <p className="form-error">{errors.title.message}</p>}
             </div>
 
             <div className="form-group">
@@ -135,12 +144,12 @@ export default function CollectionEditModal({
 
             <div className="confirm-dialog__actions">
               <Dialog.Close asChild>
-                <button type="button" className="btn btn--secondary" disabled={isPending}>
+                <button type="button" className="btn btn--secondary" disabled={saveMut.isPending}>
                   Cancel
                 </button>
               </Dialog.Close>
-              <button type="submit" className="btn btn--primary" disabled={isPending}>
-                {isPending ? 'Saving…' : isEdit ? 'Save changes' : 'Create collection'}
+              <button type="submit" className="btn btn--primary" disabled={saveMut.isPending}>
+                {saveMut.isPending ? 'Saving…' : isEdit ? 'Save changes' : 'Create collection'}
               </button>
             </div>
           </form>
@@ -150,7 +159,7 @@ export default function CollectionEditModal({
               type="button"
               className="confirm-dialog__close"
               aria-label="Close"
-              disabled={isPending}
+              disabled={saveMut.isPending}
             >
               ✕
             </button>

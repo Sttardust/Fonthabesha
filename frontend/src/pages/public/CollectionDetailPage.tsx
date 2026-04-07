@@ -19,30 +19,23 @@ export default function CollectionDetailPage() {
 
   if (isLoading) return <LoadingSpinner fullPage label={t('common.loading')} />;
   if (isError || !data) {
-    return (
-      <ErrorState
-        message={t('common.error')}
-        onRetry={() => refetch()}
-      />
-    );
+    return <ErrorState message={t('common.error')} onRetry={() => refetch()} />;
   }
 
-  const families = data.families ?? [];
+  const families = data.featuredFamilies ?? [];
   const familyCount = data.familyCount ?? families.length;
 
   return (
     <>
       <Helmet>
-        <title>{data.name} — Fonthabesha</title>
+        <title>{data.title} — Fonthabesha</title>
       </Helmet>
-
-      {/* Collection hero */}
       <div className="collection-detail-hero">
         <div className="page-container">
           <Link to="/collections" className="back-link">
             ← {t('nav.collections')}
           </Link>
-          <h1 className="page-title">{data.name}</h1>
+          <h1 className="page-title">{data.title}</h1>
           {data.description && (
             <p className="collection-detail-hero__desc">{data.description}</p>
           )}
@@ -51,8 +44,6 @@ export default function CollectionDetailPage() {
           </p>
         </div>
       </div>
-
-      {/* Font list — reuse the same FontCard as the catalog */}
       <div className="page-container">
         {families.length === 0 ? (
           <p className="empty-state">{t('catalog.noResults')}</p>
