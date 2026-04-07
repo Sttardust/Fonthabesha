@@ -1,6 +1,6 @@
 /**
  * ReviewHistory — timeline of review events for a submission.
- * Renders an empty state when no events exist yet.
+ * Uses ReviewEvent from types/index.ts (actor.email, not actorEmail).
  */
 import type { ReviewEvent } from '@/lib/types';
 
@@ -8,48 +8,49 @@ interface Props {
   history: ReviewEvent[];
 }
 
-const ACTION_LABEL: Record<ReviewEvent['action'], string> = {
-  submitted:       'Submitted for review',
-  resubmitted:     'Resubmitted',
-  approved:        'Approved',
-  request_changes: 'Changes requested',
-  rejected:        'Rejected',
+const ACTION_LABEL: Record<string, string> = {
+  submitted:        'Submitted for review',
+  resubmitted:      'Resubmitted',
+  approved:         'Approved',
+  request_changes:  'Changes requested',
+  rejected:         'Rejected',
+  processing_failed: 'Processing failed',
 };
 
-const ACTION_ICON: Record<ReviewEvent['action'], string> = {
-  submitted:       '📨',
-  resubmitted:     '🔄',
-  approved:        '✅',
-  request_changes: '↩',
-  rejected:        '❌',
+const ACTION_ICON: Record<string, string> = {
+  submitted:        '📨',
+  resubmitted:      '🔄',
+  approved:         '✅',
+  request_changes:  '↩',
+  rejected:         '❌',
+  processing_failed: '⚠️',
 };
 
-const ACTION_CLASS: Record<ReviewEvent['action'], string> = {
-  submitted:       '',
-  resubmitted:     '',
-  approved:        'review-event--approved',
-  request_changes: 'review-event--changes',
-  rejected:        'review-event--rejected',
+const ACTION_CLASS: Record<string, string> = {
+  submitted:        '',
+  resubmitted:      '',
+  approved:         'review-event--approved',
+  request_changes:  'review-event--changes',
+  rejected:         'review-event--rejected',
+  processing_failed: 'review-event--error',
 };
 
 export default function ReviewHistory({ history }: Props) {
   if (history.length === 0) {
-    return (
-      <p className="review-history__empty">No review history yet.</p>
-    );
+    return <p className="review-history__empty">No review history yet.</p>;
   }
 
   return (
     <ol className="review-history" aria-label="Review history">
       {history.map((event) => (
-        <li key={event.id} className={`review-event ${ACTION_CLASS[event.action]}`}>
+        <li key={event.id} className={`review-event ${ACTION_CLASS[event.action] ?? ''}`}>
           <span className="review-event__icon" aria-hidden="true">
-            {ACTION_ICON[event.action]}
+            {ACTION_ICON[event.action] ?? '•'}
           </span>
           <div className="review-event__body">
             <div className="review-event__header">
               <strong className="review-event__action">
-                {ACTION_LABEL[event.action]}
+                {ACTION_LABEL[event.action] ?? event.action}
               </strong>
               <time
                 className="review-event__time"
@@ -63,7 +64,25 @@ export default function ReviewHistory({ history }: Props) {
                 })}
               </time>
             </div>
-            <span className="review-event__actor">{event.actorEmail}</span>
+            {event.actor && (
+              <span className="review-event__actor">
+                {event.actor.displayName ?? event.actor.email}
+              </span>
+            )}
+            {event.summary && (
+              <p className="review-event__summary">{event.summary}</p>
+            )}
+            {event.targets.length > 0 && (
+              <div className="review-event__targets">
+                {event.targets.map((target, index) => (
+                  <span key={`${event.id}:${index}`} className="badge">
+                    {target.styleId ? `Style ${target.styleId}` : 'Style'}
+                    {target.styleId && target.uploadId ? ' · ' : ''}
+                    {target.uploadId ? `Upload ${target.uploadId}` : ''}
+                  </span>
+                ))}
+              </div>
+            )}
             {event.notes && (
               <blockquote className="review-event__notes">{event.notes}</blockquote>
             )}

@@ -128,6 +128,7 @@ async function seedUsers(): Promise<void> {
       email: 'admin@fonthabesha.local',
       displayName: 'Fonthabesha Admin',
       passwordHash: passwordHashes.admin,
+      emailVerifiedAt: new Date('2026-03-31T00:00:00Z'),
       role: UserRole.admin,
       status: UserStatus.active,
       legalFullName: 'Fonthabesha Admin',
@@ -139,6 +140,7 @@ async function seedUsers(): Promise<void> {
       email: 'reviewer@fonthabesha.local',
       displayName: 'Fonthabesha Reviewer',
       passwordHash: passwordHashes.reviewer,
+      emailVerifiedAt: new Date('2026-03-31T00:00:00Z'),
       role: UserRole.reviewer,
       status: UserStatus.active,
       legalFullName: 'Fonthabesha Reviewer',
@@ -154,8 +156,8 @@ async function seedUsers(): Promise<void> {
         where: {
           email: user.email,
         },
-        update: user,
-        create: user,
+        update: user as never,
+        create: user as never,
       }),
     ),
   );

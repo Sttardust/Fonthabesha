@@ -16,7 +16,7 @@
 import { useState, useEffect } from 'react';
 import { bilingualValue } from '@/lib/utils/bilingualValue';
 import { loadFontStyle } from '@/lib/utils/fontLoader';
-import type { FontFamilySummary } from '@/lib/types';
+import type { FontFamilyDetail } from '@/lib/types';
 
 // ── Glyph ranges ───────────────────────────────────────────────────────────────
 
@@ -86,7 +86,7 @@ function GlyphCell({ codepoint, cssFamily, isActive, onClick }: GlyphCellProps) 
 // ── Main component ─────────────────────────────────────────────────────────────
 
 interface GlyphsSectionProps {
-  family: FontFamilySummary;
+  family: FontFamilyDetail;
 }
 
 export default function GlyphsSection({ family }: GlyphsSectionProps) {
@@ -131,7 +131,7 @@ export default function GlyphsSection({ family }: GlyphsSectionProps) {
           >
             {family.styles.map((s) => (
               <option key={s.id} value={s.id}>
-                {bilingualValue(s.name)} {s.weight}
+                {s.name} {s.weightLabel ?? (s.weightClass ? String(s.weightClass) : '')}
                 {s.isItalic ? ' Italic' : ''}
               </option>
             ))}

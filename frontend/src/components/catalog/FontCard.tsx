@@ -14,14 +14,20 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
-import { loadFontStyle, getCssFamilyName } from '@/lib/utils/fontLoader';
+import { loadFontStyle } from '@/lib/utils/fontLoader';
 import { bilingualValue } from '@/lib/utils/bilingualValue';
 import { useSpecimenStore } from '@/lib/store/specimenStore';
+import { API_BASE } from '@/lib/api/client';
 import type { FontFamilySummary } from '@/lib/types';
 
 interface FontCardProps {
   family: FontFamilySummary;
   view?: 'list' | 'grid';
+}
+
+/** Build the asset URL for a style from its ID. */
+function styleAssetUrl(styleId: string): string {
+  return `${API_BASE}/api/v1/assets/styles/${styleId}`;
 }
 
 export default function FontCard({ family, view = 'list' }: FontCardProps) {
@@ -32,24 +38,24 @@ export default function FontCard({ family, view = 'list' }: FontCardProps) {
   const [fontCssFamily, setFontCssFamily] = useState<string | null>(null);
   const [fontLoaded, setFontLoaded] = useState(false);
 
-  // Pick the first style as the preview style
-  const previewStyle = family.styles[0] ?? null;
+  // Use the designated preview style from the summary
+  const previewStyleId = family.defaultPreviewStyleId;
 
   // IntersectionObserver: trigger font load when card scrolls into view
   const loadFont = useCallback(async () => {
-    if (!previewStyle || fontLoaded) return;
+    if (!previewStyleId || fontLoaded) return;
     const cssFamily = await loadFontStyle(
       family.id,
-      previewStyle.id,
-      previewStyle.assetUrl,
+      previewStyleId,
+      styleAssetUrl(previewStyleId),
     );
     setFontCssFamily(cssFamily);
     setFontLoaded(true);
-  }, [family.id, previewStyle, fontLoaded]);
+  }, [family.id, previewStyleId, fontLoaded]);
 
   useEffect(() => {
     const el = cardRef.current;
-    if (!el || !previewStyle) return;
+    if (!el || !previewStyleId) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -63,11 +69,12 @@ export default function FontCard({ family, view = 'list' }: FontCardProps) {
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, [loadFont, previewStyle]);
+  }, [loadFont, previewStyleId]);
 
   const familyName = bilingualValue(family.name);
-  const designerName = family.designer ? bilingualValue(family.designer) : null;
-  const styleCount = family.styles.length;
+  // Use first designer's name if available
+  const designerName = family.designers.length > 0 ? family.designers[0].name : null;
+  const styleCount = family.numberOfStyles;
 
   const specimenStyle: React.CSSProperties = {
     fontFamily: fontCssFamily
@@ -101,7 +108,7 @@ export default function FontCard({ family, view = 'list' }: FontCardProps) {
           <div className="font-card__footer">
             <div className="font-card__title-row">
               <span className="font-card__name">{familyName}</span>
-              {family.isVariable && (
+              {family.hasVariableStyles && (
                 <span className="badge badge--variable" aria-label="Variable font">
                   Var
                 </span>
@@ -132,12 +139,14 @@ export default function FontCard({ family, view = 'list' }: FontCardProps) {
             <span className="font-card__style-count">
               {styleCount} {styleCount === 1 ? 'style' : 'styles'}
             </span>
-            {family.isVariable && (
+            {family.hasVariableStyles && (
               <span className="badge badge--variable">Variable</span>
             )}
-            <span className="badge">
-              {t(`catalog.filters.${family.category}`)}
-            </span>
+            {family.category && (
+              <span className="badge">
+                {t(`catalog.filters.${family.category}`, { defaultValue: family.category })}
+              </span>
+            )}
           </div>
         </div>
 
@@ -153,12 +162,14 @@ export default function FontCard({ family, view = 'list' }: FontCardProps) {
         </div>
 
         {/* List footer */}
-        {designerName && (
+        {(designerName || family.script) && (
           <div className="font-card__footer font-card__footer--list">
-            <span className="font-card__designer">{designerName}</span>
-            <span className="font-card__script">
-              {t(`catalog.filters.${family.scriptSupport}`)}
-            </span>
+            {designerName && (
+              <span className="font-card__designer">{designerName}</span>
+            )}
+            {family.script && (
+              <span className="font-card__script">{family.script}</span>
+            )}
           </div>
         )}
       </Link>

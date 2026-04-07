@@ -25,16 +25,22 @@ export default function FontsPage() {
       ? `font-card-grid font-grid-${columnCount}`
       : 'font-card-list';
 
+  const totalPages = data?.pagination.totalPages ?? 1;
+
   return (
     <>
       <Helmet>
         <title>{t('catalog.title')} — Fonthabesha</title>
+        <meta name="description" content="Browse, filter, and preview free Ethiopic and Amharic fonts. Download open-source typefaces for your projects." />
+        <meta property="og:title"       content={`${t('catalog.title')} — Fonthabesha`} />
+        <meta property="og:description" content="Browse, filter, and preview free Ethiopic and Amharic fonts. Download open-source typefaces for your projects." />
+        <meta property="og:type"        content="website" />
       </Helmet>
 
       {/* Sticky two-row filter bar */}
       <FilterBar
         filters={filters}
-        totalCount={data?.total}
+        totalCount={data?.pagination.totalItems}
         onFiltersChange={setFilters}
         onReset={resetFilters}
       />
@@ -60,7 +66,7 @@ export default function FontsPage() {
           </div>
         )}
 
-        {!isLoading && !isError && data?.data.length === 0 && (
+        {!isLoading && !isError && data?.items.length === 0 && (
           <div className="catalog-status">
             <p>{t('catalog.noResults')}</p>
             <button
@@ -73,16 +79,16 @@ export default function FontsPage() {
           </div>
         )}
 
-        {data && data.data.length > 0 && (
+        {data && data.items.length > 0 && (
           <ul className={gridClass} role="list" aria-label="Font families">
-            {data.data.map((family) => (
+            {data.items.map((family) => (
               <FontCard key={family.id} family={family} view={viewMode} />
             ))}
           </ul>
         )}
 
         {/* Pagination */}
-        {data && data.totalPages > 1 && (
+        {data && totalPages > 1 && (
           <nav className="pagination" aria-label="Pagination">
             <button
               type="button"
@@ -94,12 +100,12 @@ export default function FontsPage() {
             </button>
             <span className="pagination__info">
               {t('common.page')} <strong>{filters.page}</strong> {t('common.of')}{' '}
-              <strong>{data.totalPages}</strong>
+              <strong>{totalPages}</strong>
             </span>
             <button
               type="button"
               className="pagination__btn"
-              disabled={filters.page === data.totalPages}
+              disabled={filters.page === totalPages}
               onClick={() => setFilters({ page: (filters.page ?? 1) + 1 })}
             >
               {t('common.next')} →

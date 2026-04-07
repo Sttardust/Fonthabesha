@@ -8,7 +8,7 @@ import type { UploadFile, FilePhase } from '@/hooks/useUpload';
 
 interface Props {
   entry: UploadFile;
-  onMeta: (uid: string, meta: Partial<Pick<UploadFile, 'nameAm' | 'nameEn' | 'weight' | 'isItalic'>>) => void;
+  onMeta: (uid: string, meta: Partial<Pick<UploadFile, 'nameAm' | 'nameEn' | 'weightClass' | 'isItalic'>>) => void;
   onUpload: (uid: string) => void;
   onRemove: (uid: string) => void;
 }
@@ -37,7 +37,7 @@ const WEIGHT_NAMES: Record<number, string> = {
 
 export default function StyleMetaRow({ entry, onMeta, onUpload, onRemove }: Props) {
   const { t } = useTranslation();
-  const { uid, file, phase, progress, errorMessage, nameAm, nameEn, weight, isItalic } = entry;
+  const { uid, file, phase, progress, errorMessage, nameAm, nameEn, weightClass, isItalic } = entry;
 
   const isActive = phase === 'hashing' || phase === 'uploading' || phase === 'processing';
   const canUpload = phase === 'idle' || phase === 'error';
@@ -140,9 +140,9 @@ export default function StyleMetaRow({ entry, onMeta, onUpload, onRemove }: Prop
               <select
                 id={`weight-${uid}`}
                 className="form-input form-input--sm"
-                value={weight}
+                value={weightClass}
                 disabled={isActive}
-                onChange={(e) => onMeta(uid, { weight: Number(e.target.value) })}
+                onChange={(e) => onMeta(uid, { weightClass: Number(e.target.value) })}
               >
                 {WEIGHTS.map((w) => (
                   <option key={w} value={w}>

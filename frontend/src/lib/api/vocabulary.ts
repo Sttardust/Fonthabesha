@@ -1,24 +1,20 @@
-import { apiClient } from './client';
-import type { VocabularyTag, PaginatedResponse } from '@/lib/types';
+/**
+ * Vocabulary / tag management API
+ *
+ * NOTE: The vocabulary admin feature is not yet implemented in the backend.
+ * These stubs are kept so pages compile and show a graceful "not available"
+ * state rather than crashing. Remove this notice and implement when the
+ * backend /api/v1/admin/vocabulary routes are added.
+ */
+import { ApiError } from './client';
 
-const PREFIX = '/api/v1/admin/vocabulary';
+const NOT_IMPLEMENTED = (): never => {
+  throw new ApiError(501, 'NOT_IMPLEMENTED', 'Vocabulary management is not yet available.');
+};
 
 export const vocabularyApi = {
-  /** List all tags with usage counts */
-  list: (page = 1, pageSize = 50): Promise<PaginatedResponse<VocabularyTag>> =>
-    apiClient.get<PaginatedResponse<VocabularyTag>>(
-      `${PREFIX}?page=${page}&pageSize=${pageSize}`,
-    ),
-
-  /** Create a new tag */
-  create: (name: string): Promise<VocabularyTag> =>
-    apiClient.post<VocabularyTag>(PREFIX, { name }),
-
-  /** Rename an existing tag */
-  update: (id: string, name: string): Promise<VocabularyTag> =>
-    apiClient.patch<VocabularyTag>(`${PREFIX}/${id}`, { name }),
-
-  /** Delete a tag (backend should handle re-tagging or warn if in use) */
-  delete: (id: string): Promise<void> =>
-    apiClient.delete(`${PREFIX}/${id}`),
+  list: NOT_IMPLEMENTED,
+  create: NOT_IMPLEMENTED,
+  update: NOT_IMPLEMENTED,
+  delete: NOT_IMPLEMENTED,
 };

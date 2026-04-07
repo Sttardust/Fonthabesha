@@ -1,73 +1,117 @@
 import { apiClient } from './client';
-import type { SubmissionSummary, SubmissionDetail, PaginatedResponse, BilingualString } from '@/lib/types';
+import type {
+  SubmissionSummary,
+  SubmissionDetail,
+  CreateSubmissionResponse,
+  UpdateMetadataResponse,
+  UpdateStyleResponse,
+  SubmitSubmissionResponse,
+} from '@/lib/types';
 
 const PREFIX = '/api/v1/submissions';
 
+// ── Request payload types (aligned with backend DTOs) ─────────────────────────
+
+/**
+ * Matches backend CreateSubmissionDto.
+ * Note: `declaredLicenseId` is the UUID of a License record (GET /api/v1/licenses).
+ * `ownershipEvidenceType` must be one of the OwnershipEvidenceType enum values.
+ */
 export interface CreateSubmissionPayload {
-  familyName: BilingualString;
-  designerName?: BilingualString;
-  description?: BilingualString;
-  category: string;
-  scriptSupport: string;
-  license: string;
-  licenseUrl?: string;
-  tags?: string[];
+  familyNameEn: string;
+  familyNameAm?: string;
+  nativeName?: string;
+  slug?: string;
+  descriptionEn?: string;
+  descriptionAm?: string;
+  primaryLanguage?: string;
+  categoryId?: string;
+  declaredLicenseId: string;
+  ownershipEvidenceType:
+    | 'source_url'
+    | 'repository_url'
+    | 'license_file'
+    | 'ownership_statement'
+    | 'other_document';
+  ownershipEvidenceValue: string;
+  contributorStatementText: string;
+  termsAcceptanceName: string;
+  supportsLatin?: boolean;
 }
 
-export interface StyleUploadMeta {
-  name: BilingualString;
-  weight: number;
-  isItalic: boolean;
-  fileName: string;
+/** Matches backend UpdateSubmissionMetadataDto */
+export interface UpdateSubmissionMetadataPayload {
+  familyNameEn?: string;
+  familyNameAm?: string | null;
+  nativeName?: string | null;
+  slug?: string;
+  descriptionEn?: string | null;
+  descriptionAm?: string | null;
+  primaryLanguage?: string | null;
+  categoryId?: string | null;
+  supportsLatin?: boolean;
 }
+
+/** Matches backend UpdateSubmissionStyleDto */
+export interface UpdateSubmissionStylePayload {
+  name?: string;
+  slug?: string;
+  weightClass?: number;
+  weightLabel?: string;
+  isItalic?: boolean;
+  isDefault?: boolean;
+}
+
+// ── API client ────────────────────────────────────────────────────────────────
 
 export const contributorApi = {
-  /** List all submissions by the authenticated contributor */
-  list: (page = 1, pageSize = 20): Promise<PaginatedResponse<SubmissionSummary>> =>
-    apiClient.get<PaginatedResponse<SubmissionSummary>>(
-      `${PREFIX}?page=${page}&pageSize=${pageSize}`,
-    ),
+  /**
+   * List all submissions for the authenticated contributor.
+   * Returns a flat array (not paginated).
+   */
+  list: (): Promise<SubmissionSummary[]> =>
+    apiClient.get<SubmissionSummary[]>(PREFIX),
 
-  /** Get a single submission with its styles */
+  /** Get full detail of a single submission */
   get: (id: string): Promise<SubmissionDetail> =>
     apiClient.get<SubmissionDetail>(`${PREFIX}/${id}`),
 
-  /** Create a new submission (draft) */
-  create: (payload: CreateSubmissionPayload): Promise<SubmissionDetail> =>
-    apiClient.post<SubmissionDetail>(PREFIX, payload),
-
-  /** Update submission metadata */
-  update: (id: string, payload: Partial<CreateSubmissionPayload>): Promise<SubmissionDetail> =>
-    apiClient.patch<SubmissionDetail>(`${PREFIX}/${id}`, payload),
-
-  /** Submit for review (transitions status from draft → pending_review) */
-  submit: (id: string): Promise<SubmissionDetail> =>
-    apiClient.post<SubmissionDetail>(`${PREFIX}/${id}/submit`),
-
-  /** Delete a draft submission */
-  delete: (id: string): Promise<void> =>
-    apiClient.delete(`${PREFIX}/${id}`),
+  /**
+   * Create a new draft submission.
+   * Returns a minimal response — navigate to detail page using response.id.
+   */
+  create: (payload: CreateSubmissionPayload): Promise<CreateSubmissionResponse> =>
+    apiClient.post<CreateSubmissionResponse>(PREFIX, payload),
 
   /**
-   * Get a pre-signed upload URL for a font style file.
-   * Returns the upload URL and the style id to track progress.
+   * Update submission metadata (family name, description, category, etc.).
+   * Returns the updated family fields only, not the full submission detail.
    */
-  getUploadUrl: (
+  updateMetadata: (
+    id: string,
+    payload: UpdateSubmissionMetadataPayload,
+  ): Promise<UpdateMetadataResponse> =>
+    apiClient.patch<UpdateMetadataResponse>(`${PREFIX}/${id}/metadata`, payload),
+
+  /**
+   * Update a single style's metadata (name, weight, italic flag, etc.).
+   * Returns the updated style record only, not the full submission detail.
+   */
+  updateStyle: (
     submissionId: string,
-    meta: StyleUploadMeta,
-  ): Promise<{ uploadUrl: string; styleId: string }> =>
-    apiClient.post(`${PREFIX}/${submissionId}/styles/upload-url`, meta),
+    styleId: string,
+    payload: UpdateSubmissionStylePayload,
+  ): Promise<UpdateStyleResponse> =>
+    apiClient.patch<UpdateStyleResponse>(
+      `${PREFIX}/${submissionId}/styles/${styleId}`,
+      payload,
+    ),
 
   /**
-   * Upload a font file directly to S3 using a pre-signed URL.
-   * This does NOT use the apiClient (no auth header needed for S3).
+   * Submit for review.
+   * Transitions status from ready_for_submission / changes_requested → needs_review.
+   * Requires at least one completed upload.
    */
-  uploadToS3: async (uploadUrl: string, file: File): Promise<void> => {
-    const res = await fetch(uploadUrl, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/octet-stream' },
-      body: file,
-    });
-    if (!res.ok) throw new Error(`S3 upload failed: ${res.statusText}`);
-  },
+  submit: (id: string): Promise<SubmitSubmissionResponse> =>
+    apiClient.post<SubmitSubmissionResponse>(`${PREFIX}/${id}/submit`),
 };

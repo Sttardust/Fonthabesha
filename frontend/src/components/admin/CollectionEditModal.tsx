@@ -7,7 +7,12 @@ import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import type { AdminCollection } from '@/lib/types';
+// Local shape sufficient for the modal (AdminCollection type removed from shared types)
+interface AdminCollection {
+  name: string;
+  description?: string;
+  isPublic: boolean;
+}
 
 const schema = z.object({
   name:        z.string().min(1, 'Name is required').max(80),

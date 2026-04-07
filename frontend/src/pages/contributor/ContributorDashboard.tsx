@@ -3,15 +3,17 @@ import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { contributorApi } from '@/lib/api/contributor';
-import { bilingualValue } from '@/lib/utils/bilingualValue';
 
 export default function ContributorDashboard() {
   const { t } = useTranslation();
 
+  // list() returns SubmissionSummary[] (flat array, not paginated)
   const { data, isLoading } = useQuery({
     queryKey: ['contributor', 'submissions'],
-    queryFn: () => contributorApi.list(1, 5),
+    queryFn: () => contributorApi.list(),
   });
+
+  const recent = data?.slice(0, 5) ?? [];
 
   return (
     <>
@@ -28,7 +30,13 @@ export default function ContributorDashboard() {
 
       {isLoading && <p>{t('common.loading')}</p>}
 
-      {data && (
+      {data && recent.length === 0 && (
+        <p style={{ color: 'var(--color-text-muted)' }}>
+          No submissions yet. Start by uploading a font family.
+        </p>
+      )}
+
+      {data && recent.length > 0 && (
         <table className="data-table">
           <thead>
             <tr>
@@ -38,11 +46,11 @@ export default function ContributorDashboard() {
             </tr>
           </thead>
           <tbody>
-            {data.data.map((s) => (
+            {recent.map((s) => (
               <tr key={s.id}>
                 <td>
                   <Link to={`/contributor/submissions/${s.id}`}>
-                    {bilingualValue(s.familyName)}
+                    {s.family.nameAm ?? s.family.nameEn}
                   </Link>
                 </td>
                 <td>

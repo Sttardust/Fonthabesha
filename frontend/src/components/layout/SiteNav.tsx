@@ -1,10 +1,8 @@
-import { useState, useRef, useEffect } from 'react';
-import { NavLink, Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
 import { useAuthStore, selectIsAdmin, selectIsContributor } from '@/lib/store/authStore';
 import { authApi } from '@/lib/api/auth';
-import { catalogApi } from '@/lib/api/catalog';
 
 // ── Language switcher ─────────────────────────────────────────────────────────
 
@@ -31,196 +29,148 @@ function LanguageSwitcher() {
   );
 }
 
-// ── Hamburger menu ─────────────────────────────────────────────────────────────
-
-function HamburgerMenu() {
-  const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  // Close on outside click
-  useEffect(() => {
-    if (!open) return;
-    function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [open]);
-
-  // Close on Escape
-  useEffect(() => {
-    if (!open) return;
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false);
-    }
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [open]);
-
-  return (
-    <div ref={menuRef} className="site-nav__hamburger-wrap">
-      <button
-        type="button"
-        className={`site-nav__cell site-nav__cell--btn site-nav__cell--hamburger${open ? ' site-nav__cell--active' : ''}`}
-        onClick={() => setOpen((v) => !v)}
-        aria-label="Menu"
-        aria-expanded={open}
-        aria-haspopup="true"
-      >
-        <span className="site-nav__hamburger" aria-hidden="true">
-          <span />
-          <span />
-          <span />
-        </span>
-      </button>
-
-      {open && (
-        <div className="site-nav__dropdown" role="menu" aria-label="Menu">
-          <NavLink
-            to="/about"
-            className="site-nav__dropdown-item"
-            onClick={() => setOpen(false)}
-            role="menuitem"
-          >
-            {t('nav.about')}
-          </NavLink>
-          <NavLink
-            to="/faq"
-            className="site-nav__dropdown-item"
-            onClick={() => setOpen(false)}
-            role="menuitem"
-          >
-            {t('nav.faq')}
-          </NavLink>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── SiteNav ────────────────────────────────────────────────────────────────────
-
 export default function SiteNav() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const isContributor = useAuthStore(selectIsContributor);
-  const isAdmin = useAuthStore(selectIsAdmin);
+  const isContributor   = useAuthStore(selectIsContributor);
+  const isAdmin         = useAuthStore(selectIsAdmin);
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef    = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  // Close mobile menu on route change
+  useEffect(() => { setMenuOpen(false); }, [pathname]);
+
+  // Lock body scroll while menu is open
+  useEffect(() => {
+    document.body.style.overflow = menuOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [menuOpen]);
+
+  // Trap focus inside menu & close on Escape
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { setMenuOpen(false); triggerRef.current?.focus(); }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [menuOpen]);
 
   const handleLogout = async () => {
     await authApi.logout();
     navigate('/');
   };
 
-  // Fetch font + collection counts for nav badges
-  const { data: filtersData } = useQuery({
-    queryKey: ['catalog-filters-nav'],
-    queryFn: () => catalogApi.filters(),
-    staleTime: 5 * 60 * 1000, // 5 min
-  });
+  const navCell = ({ isActive }: { isActive: boolean }) =>
+    `site-nav__cell${isActive ? ' site-nav__cell--active' : ''}`;
 
-  // We don't have a cheap "total count" endpoint, so fetch page 1 and use total
-  const { data: fontCountData } = useQuery({
-    queryKey: ['catalog-count-nav'],
-    queryFn: () => catalogApi.list({ pageSize: 1 }),
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const fontCount = fontCountData?.total;
-  // filtersData could include collection count in future; for now keep undefined
-  void filtersData;
+  const mobileLink = ({ isActive }: { isActive: boolean }) =>
+    `mobile-nav__link${isActive ? ' mobile-nav__link--active' : ''}`;
 
   return (
-    <nav className="site-nav" aria-label="Main navigation">
-      {/* Brand / Logo cell */}
-      <Link to="/" className="site-nav__brand site-nav__cell" aria-label="Fonthabesha home">
-        <span className="site-nav__logo" aria-hidden="true">ፍ</span>
-        <span className="site-nav__name">Fonthabesha</span>
-      </Link>
+    <>
+      <nav className="site-nav" aria-label="Main navigation">
+        {/* Brand */}
+        <Link to="/" className="site-nav__brand" aria-label="Fonthabesha home">
+          <span className="site-nav__logo" aria-hidden="true">ፍ</span>
+          <span className="site-nav__name">Fonthabesha</span>
+        </Link>
 
-      {/* Primary nav links */}
-      <div className="site-nav__links">
-        <NavLink
-          to="/fonts"
-          className={({ isActive }) =>
-            `site-nav__cell${isActive ? ' site-nav__cell--active' : ''}`
-          }
-        >
-          <span className="site-nav__label">{t('nav.fonts')}</span>
-          {fontCount !== undefined && (
-            <span className="site-nav__count">{fontCount.toLocaleString()}</span>
+        {/* Desktop nav links (hidden on mobile) */}
+        <div className="site-nav__links" role="list">
+          <NavLink to="/fonts"       className={navCell} role="listitem">{t('nav.fonts')}</NavLink>
+          <NavLink to="/collections" className={navCell} role="listitem">{t('nav.collections')}</NavLink>
+          <NavLink to="/licenses"    className={navCell} role="listitem">{t('nav.licenses')}</NavLink>
+          <NavLink to="/about"       className={navCell} role="listitem">{t('nav.about')}</NavLink>
+        </div>
+
+        {/* Desktop right actions */}
+        <div className="site-nav__actions">
+          {isContributor && !isAdmin && (
+            <NavLink to="/contributor" className={navCell}>{t('nav.dashboard')}</NavLink>
           )}
-        </NavLink>
+          {isAdmin && (
+            <NavLink to="/admin" className={navCell}>{t('nav.admin')}</NavLink>
+          )}
+          {isAuthenticated ? (
+            <button
+              type="button"
+              className="site-nav__cell site-nav__cell--btn"
+              onClick={handleLogout}
+            >
+              {t('nav.logout')}
+            </button>
+          ) : (
+            <NavLink to="/login" className={navCell}>{t('nav.login')}</NavLink>
+          )}
+          <LanguageSwitcher />
+        </div>
 
-        {/* Collections — always public, no auth gate */}
-        <NavLink
-          to="/collections"
-          className={({ isActive }) =>
-            `site-nav__cell${isActive ? ' site-nav__cell--active' : ''}`
-          }
+        {/* Mobile hamburger button */}
+        <button
+          ref={triggerRef}
+          type="button"
+          className={`site-nav__hamburger${menuOpen ? ' site-nav__hamburger--open' : ''}`}
+          aria-expanded={menuOpen}
+          aria-controls="mobile-nav-menu"
+          aria-label={menuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+          onClick={() => setMenuOpen((v) => !v)}
         >
-          <span className="site-nav__label">{t('nav.collections')}</span>
-        </NavLink>
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+        </button>
+      </nav>
 
-        <NavLink
-          to="/licenses"
-          className={({ isActive }) =>
-            `site-nav__cell${isActive ? ' site-nav__cell--active' : ''}`
-          }
-        >
-          <span className="site-nav__label">{t('nav.licenses')}</span>
-        </NavLink>
+      {/* Mobile nav overlay */}
+      {menuOpen && (
+        <div
+          className="mobile-nav-backdrop"
+          aria-hidden="true"
+          onClick={() => setMenuOpen(false)}
+        />
+      )}
+      <div
+        id="mobile-nav-menu"
+        ref={menuRef}
+        className={`mobile-nav${menuOpen ? ' mobile-nav--open' : ''}`}
+        role="dialog"
+        aria-label="Navigation menu"
+        aria-modal="true"
+        aria-hidden={!menuOpen}
+      >
+        <nav aria-label="Mobile navigation links">
+          <NavLink to="/fonts"       className={mobileLink}>{t('nav.fonts')}</NavLink>
+          <NavLink to="/collections" className={mobileLink}>{t('nav.collections')}</NavLink>
+          <NavLink to="/licenses"    className={mobileLink}>{t('nav.licenses')}</NavLink>
+          <NavLink to="/about"       className={mobileLink}>{t('nav.about')}</NavLink>
+
+          {isContributor && !isAdmin && (
+            <NavLink to="/contributor" className={mobileLink}>{t('nav.dashboard')}</NavLink>
+          )}
+          {isAdmin && (
+            <NavLink to="/admin" className={mobileLink}>{t('nav.admin')}</NavLink>
+          )}
+
+          <div className="mobile-nav__divider" role="separator" />
+
+          {isAuthenticated ? (
+            <button
+              type="button"
+              className="mobile-nav__action-btn"
+              onClick={handleLogout}
+            >
+              {t('nav.logout')}
+            </button>
+          ) : (
+            <NavLink to="/login" className={mobileLink}>{t('nav.login')}</NavLink>
+          )}
+        </nav>
       </div>
-
-      {/* Right-side actions */}
-      <div className="site-nav__actions">
-        {isContributor && !isAdmin && (
-          <NavLink
-            to="/contributor"
-            className={({ isActive }) =>
-              `site-nav__cell${isActive ? ' site-nav__cell--active' : ''}`
-            }
-          >
-            <span className="site-nav__label">{t('nav.dashboard')}</span>
-          </NavLink>
-        )}
-
-        {isAdmin && (
-          <NavLink
-            to="/admin"
-            className={({ isActive }) =>
-              `site-nav__cell${isActive ? ' site-nav__cell--active' : ''}`
-            }
-          >
-            <span className="site-nav__label">{t('nav.admin')}</span>
-          </NavLink>
-        )}
-
-        {isAuthenticated ? (
-          <button
-            type="button"
-            className="site-nav__cell site-nav__cell--btn"
-            onClick={handleLogout}
-          >
-            <span className="site-nav__label">{t('nav.logout')}</span>
-          </button>
-        ) : (
-          <NavLink
-            to="/login"
-            className={({ isActive }) =>
-              `site-nav__cell${isActive ? ' site-nav__cell--active' : ''}`
-            }
-          >
-            <span className="site-nav__label">{t('nav.login')}</span>
-          </NavLink>
-        )}
-
-        <LanguageSwitcher />
-        <HamburgerMenu />
-      </div>
-    </nav>
+    </>
   );
 }

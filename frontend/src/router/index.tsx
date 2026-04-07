@@ -13,6 +13,9 @@ import HomePage from '@/pages/public/HomePage';
 import FontsPage from '@/pages/public/FontsPage';
 import LoginPage from '@/pages/auth/LoginPage';
 import NotFoundPage from '@/pages/NotFoundPage';
+import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage';
+import ResetPasswordPage from '@/pages/auth/ResetPasswordPage';
+import VerifyEmailPage from '@/pages/auth/VerifyEmailPage';
 
 // ── Lazy-loaded pages ──────────────────────────────────────────────────────────
 const FontDetailPage       = lazy(() => import('@/pages/public/FontDetailPage'));
@@ -104,6 +107,16 @@ export const router = createBrowserRouter([
       </RedirectIfAuth>
     ),
   },
+  {
+    path: '/forgot-password',
+    element: (
+      <RedirectIfAuth>
+        <ForgotPasswordPage />
+      </RedirectIfAuth>
+    ),
+  },
+  { path: '/reset-password', element: <ResetPasswordPage /> },
+  { path: '/verify-email', element: <VerifyEmailPage /> },
 
   // ── Contributor portal ───────────────────────────────────────────────────────
   {

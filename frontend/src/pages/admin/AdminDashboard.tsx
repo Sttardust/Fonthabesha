@@ -1,29 +1,32 @@
 /**
- * AdminDashboard — stats overview + quick links + recent pending queue.
+ * AdminDashboard — review summary overview + recent pending queue.
  */
 import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { adminApi } from '@/lib/api/admin';
-import { bilingualValue } from '@/lib/utils/bilingualValue';
 
 export default function AdminDashboard() {
   const { t } = useTranslation();
 
-  const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ['admin', 'stats'],
-    queryFn: adminApi.stats,
+  // reviewSummary returns AdminReviewSummary (counts per status)
+  const { data: summary, isLoading: summaryLoading } = useQuery({
+    queryKey: ['admin', 'reviewSummary'],
+    queryFn: adminApi.reviewSummary,
     staleTime: 30_000,
     refetchInterval: 60_000,
   });
 
-  // Recent pending queue — top 5
+  // Recent needs_review queue — top 5
   const { data: queue, isLoading: queueLoading } = useQuery({
-    queryKey: ['admin', 'review', 'pending_review', 1],
-    queryFn: () => adminApi.reviewQueue('pending_review', 1, 5),
+    queryKey: ['admin', 'review', 'needs_review'],
+    queryFn: () => adminApi.reviewQueue('needs_review'),
     staleTime: 30_000,
   });
+
+  const pendingCount = summary?.counts.needsReview ?? 0;
+  const recentQueue  = queue?.slice(0, 5) ?? [];
 
   return (
     <>
@@ -31,30 +34,30 @@ export default function AdminDashboard() {
       <h1 className="portal-page-title">{t('admin.dashboard')}</h1>
 
       {/* ── Stats grid ── */}
-      {statsLoading && <div className="stat-grid stat-grid--loading" aria-busy="true" />}
+      {summaryLoading && <div className="stat-grid stat-grid--loading" aria-busy="true" />}
 
-      {stats && (
+      {summary && (
         <div className="stat-grid">
-          <div className="stat-card">
-            <span className="stat-card__value">{stats.totalFamilies.toLocaleString()}</span>
-            <span className="stat-card__label">{t('admin.stats.totalFamilies')}</span>
-          </div>
-          <div className={`stat-card${stats.pendingReviews > 0 ? ' stat-card--accent' : ''}`}>
-            <span className="stat-card__value">{stats.pendingReviews}</span>
-            <span className="stat-card__label">{t('admin.stats.pendingReviews')}</span>
-            {stats.pendingReviews > 0 && (
+          <div className={`stat-card${summary.counts.needsReview > 0 ? ' stat-card--accent' : ''}`}>
+            <span className="stat-card__value">{summary.counts.needsReview}</span>
+            <span className="stat-card__label">Needs Review</span>
+            {summary.counts.needsReview > 0 && (
               <span className="stat-card__cta">
                 <Link to="/admin/review" className="stat-card__link">Review now →</Link>
               </span>
             )}
           </div>
           <div className="stat-card">
-            <span className="stat-card__value">{stats.totalDownloads.toLocaleString()}</span>
-            <span className="stat-card__label">{t('admin.stats.totalDownloads')}</span>
+            <span className="stat-card__value">{summary.counts.changesRequested}</span>
+            <span className="stat-card__label">Changes Requested</span>
           </div>
           <div className="stat-card">
-            <span className="stat-card__value">{stats.activeContributors}</span>
-            <span className="stat-card__label">{t('admin.stats.activeContributors')}</span>
+            <span className="stat-card__value">{summary.counts.processingFailed}</span>
+            <span className="stat-card__label">Processing Failed</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-card__value">{summary.counts.approved7d}</span>
+            <span className="stat-card__label">Approved (7d)</span>
           </div>
         </div>
       )}
@@ -63,14 +66,9 @@ export default function AdminDashboard() {
       <div className="portal-quick-links">
         <Link to="/admin/review" className="btn btn--primary">
           {t('admin.reviewQueue')}
-          {stats && stats.pendingReviews > 0 && (
-            <span className="badge badge--accent badge--count">
-              {stats.pendingReviews}
-            </span>
+          {pendingCount > 0 && (
+            <span className="badge badge--accent badge--count">{pendingCount}</span>
           )}
-        </Link>
-        <Link to="/admin/fonts" className="btn btn--secondary">
-          {t('admin.manageFonts')}
         </Link>
       </div>
 
@@ -83,14 +81,14 @@ export default function AdminDashboard() {
 
         {queueLoading && <p className="dashboard-section__loading">{t('common.loading')}</p>}
 
-        {queue && queue.data.length === 0 && (
+        {queue && recentQueue.length === 0 && (
           <div className="dashboard-empty">
             <span className="dashboard-empty__icon" aria-hidden="true">✅</span>
             <p>All clear — no pending submissions.</p>
           </div>
         )}
 
-        {queue && queue.data.length > 0 && (
+        {recentQueue.length > 0 && (
           <table className="data-table data-table--compact">
             <thead>
               <tr>
@@ -101,16 +99,18 @@ export default function AdminDashboard() {
               </tr>
             </thead>
             <tbody>
-              {queue.data.map((item) => (
+              {recentQueue.map((item) => (
                 <tr key={item.submissionId}>
                   <td className="data-table__family">
-                    {bilingualValue(item.familyName)}
+                    {item.name.am ?? item.name.en ?? '—'}
                   </td>
-                  <td className="data-table__email">{item.contributorEmail}</td>
+                  <td className="data-table__email">{item.submittedBy.email}</td>
                   <td>
-                    {new Date(item.submittedAt).toLocaleDateString(undefined, {
-                      month: 'short', day: 'numeric',
-                    })}
+                    {item.submittedAt
+                      ? new Date(item.submittedAt).toLocaleDateString(undefined, {
+                          month: 'short', day: 'numeric',
+                        })
+                      : '—'}
                   </td>
                   <td>
                     <Link

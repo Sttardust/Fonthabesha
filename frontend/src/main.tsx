@@ -8,6 +8,7 @@ import { HelmetProvider } from 'react-helmet-async';
 import './lib/i18n';
 
 import { router } from './router';
+import ErrorBoundary from './components/ui/ErrorBoundary';
 import './styles.css';
 
 // ── TanStack Query client ──────────────────────────────────────────────────────
@@ -43,11 +44,13 @@ async function bootstrap() {
 
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
-      <HelmetProvider>
-        <QueryClientProvider client={queryClient}>
-          <RouterProvider router={router} />
-        </QueryClientProvider>
-      </HelmetProvider>
+      <ErrorBoundary>
+        <HelmetProvider>
+          <QueryClientProvider client={queryClient}>
+            <RouterProvider router={router} />
+          </QueryClientProvider>
+        </HelmetProvider>
+      </ErrorBoundary>
     </React.StrictMode>,
   );
 }

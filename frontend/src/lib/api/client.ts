@@ -9,7 +9,14 @@
 
 import { useAuthStore } from '@/lib/store/authStore';
 
-const BASE_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3000';
+/**
+ * Base URL for the API server — no trailing slash, no /api/v1 suffix.
+ * All API modules append /api/v1/... themselves.
+ * e.g. VITE_API_URL=http://localhost:3000
+ */
+export const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3000';
+
+const BASE_URL = API_BASE;
 const REFRESH_KEY = 'fh_refresh';
 
 // ── Error class ────────────────────────────────────────────────────────────────
