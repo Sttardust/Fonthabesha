@@ -1,28 +1,62 @@
 # Fonthabesha
 
-Workspace layout for the Fonthabesha platform.
+Full-stack monorepo for the Fonthabesha platform.
 
-## Structure
+## Branching Strategy
+
+- `main`: production-ready only
+- `dev`: integration branch
+- `feature/*`: all new work branches from `dev`
+
+Recommended flow:
+
+1. branch from `dev`
+2. open a PR back into `dev`
+3. promote `dev` into `main` only when production-ready
+
+## Project Structure
 
 ```text
-apps/
-  api/    NestJS backend
-  web/    frontend workspace placeholder
-docs/     planning and architecture docs
+backend/   NestJS API, Prisma schema, Docker setup
+frontend/  Vite React frontend
+shared/    shared code placeholder
+docs/      planning and architecture docs
 ```
 
-## Commands
+## Local Development
 
-- `npm run dev:api` runs the backend in watch mode
-- `npm run start:api` runs the built backend
-- `npm run build:api` builds the backend
-- `npm run seed:api` seeds backend data
-- `npm run dev:web` is a placeholder until the frontend is scaffolded
+1. install dependencies
 
-## Backend Location
+```bash
+npm install
+```
 
-The current backend lives in [apps/api/README.md](/Users/semere/Workfiles/fonthabesha/apps/api/README.md).
+2. configure env files
 
-## Frontend Location
+- copy `backend/.env.example` to `backend/.env`
+- copy `frontend/.env.example` to `frontend/.env`
 
-Build the frontend inside [apps/web/README.md](/Users/semere/Workfiles/fonthabesha/apps/web/README.md).
+3. run both apps
+
+```bash
+npm run dev
+```
+
+Default local URLs:
+
+- backend: `http://localhost:3000`
+- frontend: `http://localhost:5173`
+
+Useful commands:
+
+- `npm run dev:backend`
+- `npm run dev:frontend`
+- `npm run build`
+- `npm run build:backend`
+- `npm run build:frontend`
+- `npm run seed:backend`
+
+## Notes
+
+- uploaded font assets can be served from the backend during local development
+- the frontend reads the backend URL from `VITE_API_URL`
