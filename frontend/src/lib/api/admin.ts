@@ -8,6 +8,9 @@ import type {
   AnalyticsResponse,
   PaginatedResponse,
   SubmissionStatus,
+  VocabEntry,
+  LicenseAdmin,
+  ProcessingFailure,
 } from '@/lib/types';
 
 const REVIEW_PREFIX = '/api/v1/admin/submissions';
@@ -90,4 +93,81 @@ export const adminApi = {
   // ── Analytics ─────────────────────────────────────────────────────────────────
   analytics: (months = 12): Promise<AnalyticsResponse> =>
     apiClient.get<AnalyticsResponse>(`/api/v1/admin/analytics?months=${months}`),
+
+  // ── Processing failures ───────────────────────────────────────────────────────
+  failures: (page = 1, pageSize = 20): Promise<PaginatedResponse<ProcessingFailure>> =>
+    apiClient.get<PaginatedResponse<ProcessingFailure>>(
+      `/api/v1/admin/failures?page=${page}&pageSize=${pageSize}`,
+    ),
+
+  retryFailure: (submissionId: string): Promise<void> =>
+    apiClient.post(`/api/v1/admin/uploads/${submissionId}/retry`),
+
+  // ── Publishers ────────────────────────────────────────────────────────────────
+  listPublishers: (page = 1, pageSize = 50): Promise<PaginatedResponse<VocabEntry>> =>
+    apiClient.get<PaginatedResponse<VocabEntry>>(
+      `/api/v1/admin/publishers?page=${page}&pageSize=${pageSize}`,
+    ),
+  createPublisher: (payload: { name: string; description?: string }): Promise<VocabEntry> =>
+    apiClient.post<VocabEntry>('/api/v1/admin/publishers', payload),
+  updatePublisher: (id: string, payload: Partial<{ name: string; description: string }>): Promise<VocabEntry> =>
+    apiClient.patch<VocabEntry>(`/api/v1/admin/publishers/${id}`, payload),
+  deletePublisher: (id: string): Promise<void> =>
+    apiClient.delete(`/api/v1/admin/publishers/${id}`),
+
+  // ── Designers ─────────────────────────────────────────────────────────────────
+  listDesigners: (page = 1, pageSize = 50): Promise<PaginatedResponse<VocabEntry>> =>
+    apiClient.get<PaginatedResponse<VocabEntry>>(
+      `/api/v1/admin/designers?page=${page}&pageSize=${pageSize}`,
+    ),
+  createDesigner: (payload: { name: string; description?: string }): Promise<VocabEntry> =>
+    apiClient.post<VocabEntry>('/api/v1/admin/designers', payload),
+  updateDesigner: (id: string, payload: Partial<{ name: string; description: string }>): Promise<VocabEntry> =>
+    apiClient.patch<VocabEntry>(`/api/v1/admin/designers/${id}`, payload),
+  deleteDesigner: (id: string): Promise<void> =>
+    apiClient.delete(`/api/v1/admin/designers/${id}`),
+
+  // ── Licenses (admin) ──────────────────────────────────────────────────────────
+  listLicenses: (page = 1, pageSize = 50): Promise<PaginatedResponse<LicenseAdmin>> =>
+    apiClient.get<PaginatedResponse<LicenseAdmin>>(
+      `/api/v1/admin/licenses?page=${page}&pageSize=${pageSize}`,
+    ),
+  createLicense: (payload: {
+    code: string;
+    name: string;
+    summaryEn: string;
+    summaryAm: string;
+    fullTextUrl: string;
+    allowsRedistribution: boolean;
+    allowsCommercialUse: boolean;
+    requiresAttribution: boolean;
+    isActive?: boolean;
+  }): Promise<LicenseAdmin> =>
+    apiClient.post<LicenseAdmin>('/api/v1/admin/licenses', payload),
+  updateLicense: (id: string, payload: Partial<{
+    code: string;
+    name: string;
+    summaryEn: string;
+    summaryAm: string;
+    fullTextUrl: string;
+    allowsRedistribution: boolean;
+    allowsCommercialUse: boolean;
+    requiresAttribution: boolean;
+    isActive: boolean;
+  }>): Promise<LicenseAdmin> =>
+    apiClient.patch<LicenseAdmin>(`/api/v1/admin/licenses/${id}`, payload),
+  deleteLicense: (id: string): Promise<void> =>
+    apiClient.delete(`/api/v1/admin/licenses/${id}`),
+
+  // ── Categories ────────────────────────────────────────────────────────────────
+  listCategories: (page = 1, pageSize = 50): Promise<PaginatedResponse<VocabEntry>> =>
+    apiClient.get<PaginatedResponse<VocabEntry>>(
+      `/api/v1/admin/categories?page=${page}&pageSize=${pageSize}`,
+    ),
+  createCategory: (payload: { name: string; description?: string }): Promise<VocabEntry> =>
+    apiClient.post<VocabEntry>('/api/v1/admin/categories', payload),
+  updateCategory: (id: string, payload: Partial<{ name: string; description: string }>): Promise<VocabEntry> =>
+    apiClient.patch<VocabEntry>(`/api/v1/admin/categories/${id}`, payload),
+  deleteCategory: (id: string): Promise<void> =>
+    apiClient.delete(`/api/v1/admin/categories/${id}`),
 };

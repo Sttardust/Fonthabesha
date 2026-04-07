@@ -4,6 +4,7 @@ import type {
   FontFamilyDetail,
   PaginatedResponse,
   SearchFilters,
+  CatalogFilters,
 } from '@/lib/types';
 
 const PREFIX = '/api/v1/fonts';
@@ -37,6 +38,10 @@ export const catalogApi = {
     apiClient
       .get<PaginatedResponse<FontFamilySummary>>(`${PREFIX}?isFeatured=true&pageSize=6`)
       .then((r) => r.data),
+
+  /** Get all available filter options — categories, scripts, licenses, tags */
+  filters: (): Promise<CatalogFilters> =>
+    apiClient.get<CatalogFilters>(`${PREFIX}/filters`),
 
   /** Get all available tags */
   tags: (): Promise<string[]> => apiClient.get<string[]>('/api/v1/tags'),

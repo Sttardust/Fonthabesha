@@ -64,4 +64,35 @@ export const authApi = {
 
   /** Fetch the currently authenticated user's profile */
   me: () => apiClient.get<AuthResponse['user']>(`${PREFIX}/me`),
+
+  /**
+   * Update the current user's profile.
+   * PATCH /api/v1/auth/me — accepts displayName, legalFullName,
+   * countryCode, organizationName, phoneNumber.
+   */
+  updateProfile: (payload: {
+    displayName?: string;
+    legalFullName?: string;
+    countryCode?: string;
+    organizationName?: string;
+    phoneNumber?: string;
+  }): Promise<AuthResponse['user']> =>
+    apiClient.patch<AuthResponse['user']>(`${PREFIX}/me`, payload),
+
+  /**
+   * Register a new contributor account.
+   * POST /api/v1/auth/register-contributor
+   */
+  registerContributor: (payload: {
+    email: string;
+    password: string;
+    displayName: string;
+    legalFullName?: string;
+    countryCode?: string;
+    organizationName?: string;
+  }): Promise<AuthResponse> =>
+    apiClient.post<AuthResponse>(`${PREFIX}/register-contributor`, payload, {
+      skipAuth: true,
+      skipRefresh: true,
+    }),
 };

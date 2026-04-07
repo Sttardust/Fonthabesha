@@ -12,6 +12,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 
 import { catalogApi } from '@/lib/api/catalog';
+import { collectionsApi } from '@/lib/api/collections';
 import { useSpecimenStore } from '@/lib/store/specimenStore';
 import { useCatalogFilters } from '@/hooks/useCatalogFilters';
 import FilterBar from '@/components/catalog/FilterBar';
@@ -31,6 +32,14 @@ export default function HomePage() {
     staleTime: 60_000,
     placeholderData: (prev) => prev,
   });
+
+  // Featured collections for the horizontal scroll row
+  const { data: collectionsData } = useQuery({
+    queryKey: ['collections-featured-home'],
+    queryFn: () => collectionsApi.list(1, 8),
+    staleTime: 5 * 60_000,
+  });
+  const featuredCollections = collectionsData?.data ?? [];
 
   const gridClass =
     viewMode === 'grid'
@@ -59,6 +68,34 @@ export default function HomePage() {
           )}
         </div>
       </section>
+
+      {/* ── Featured collections scroll row ── */}
+      {featuredCollections.length > 0 && (
+        <section className="home-collections" aria-label={t('nav.collections')}>
+          <div className="home-collections__header">
+            <h2 className="home-collections__title">{t('home.collections')}</h2>
+            <Link to="/collections" className="home-collections__more">
+              {t('home.viewAll')} →
+            </Link>
+          </div>
+          <div className="home-collections__scroll">
+            {featuredCollections.map((col) => (
+              <Link
+                key={col.id}
+                to={`/collections/${col.id}`}
+                className="home-collection-chip"
+              >
+                <span className="home-collection-chip__name">{col.name}</span>
+                {(col.familyCount > 0 || col.families?.length > 0) && (
+                  <span className="home-collection-chip__count">
+                    {col.familyCount ?? col.families?.length}
+                  </span>
+                )}
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ── Sticky filter bar (same as /fonts) ── */}
       <FilterBar

@@ -139,12 +139,246 @@
     "retry": "እንደገና ሞክር",
     "cancel": "ሰርዝ",
     "save": "አስቀምጥ",
+    "saving": "በማስቀመጥ ላይ…",
     "delete": "ሰርዝ",
+    "deleting": "በመሰረዝ ላይ…",
     "edit": "አርትዕ",
+    "view": "ይመልከቱ",
     "back": "ተመለስ",
     "next": "ቀጣይ",
     "previous": "ቀዳሚ",
     "page": "ገጽ",
     "of": "ከ"
+  },
+  "nav": {
+    "fonts": "ፊደሎች",
+    "collections": "ስብስቦች",
+    "about": "ስለ እኛ",
+    "licenses": "ፈቃዶች",
+    "faq": "ጥያቄዎች",
+    "login": "ግባ",
+    "logout": "ውጣ",
+    "dashboard": "ዳሽቦርድ",
+    "admin": "አስተዳዳሪ"
+  },
+  "collections": {
+    "empty": "ምንም ስብስቦች የሉም።"
+  },
+  "licenses": {
+    "title": "የፊደል ፈቃዶች",
+    "intro": "ሁሉም ፊደሎቻችን ክፍት ምንጭ ናቸው። ከዚህ በታች ስለ ፈቃዶቹ ቀላል መዝገበ ቃላት ያገኛሉ።",
+    "empty": "ምንም ፈቃዶች አልተገኙም።",
+    "redistribute": "ማሰራጨት",
+    "commercial": "ንግዳዊ አጠቃቀም",
+    "attribution": "ምስጋና ያስፈልጋል",
+    "readFull": "ሙሉ ፈቃዱን ያንብቡ"
+  },
+  "about": {
+    "title": "ስለ ፎንትሃበሻ"
+  },
+  "faq": {
+    "title": "ተደጋጋሚ ጥያቄዎች"
+  },
+  "profile": {
+    "title": "መለያዬ",
+    "subtitle": "የአስተዋጽዖ ሰጪ መረጃዎን ያዘምኑ።",
+    "displayName": "የሚታይ ስም",
+    "legalFullName": "ሕጋዊ ሙሉ ስም",
+    "legalFullNameHint": "ለቅጂ መብት ምስጋና ጥቅም ላይ ይውላል። ለህዝብ አይታይም።",
+    "organization": "ድርጅት / ፋውንደሪ",
+    "countryCode": "የሀገር ኮድ",
+    "phone": "ስልክ ቁጥር",
+    "saved": "መለያ በተሳካ ሁኔታ ተቀምጧል።"
+  },
+  "register": {
+    "title": "የአስተዋጽዖ ሰጪ መለያ ፍጠር",
+    "subtitle": "ኢትዮጵያዊ ፊደሎችን ወደ ፎንትሃበሻ አስገቡ።",
+    "confirmPassword": "የይለፍ ቃልዎን ያረጋግጡ",
+    "submit": "መለያ ፍጠር",
+    "submitting": "መለያ በመፍጠር ላይ…",
+    "emailTaken": "ይህ ኢሜይል ያለው መለያ አስቀድሞ አለ።",
+    "haveAccount": "አስቀድሞ መለያ አለዎት?"
+  },
+  "admin": {
+    "dashboard": "አስተዳደር ዳሽቦርድ",
+    "reviewQueue": "የክለሳ ወረፋ",
+    "manageFonts": "ፊደሎችን አስተዳድር",
+    "stats": {
+      "totalFamilies": "ጠቅላላ ቤተሰቦች",
+      "pendingReviews": "በወረፋ ላይ",
+      "totalDownloads": "ጠቅላላ ቅጂዎች",
+      "activeContributors": "ንቁ አስተዋጽዖ አበርካቾች"
+    },
+    "actions": {
+      "approve": "ተቀበል",
+      "requestChanges": "ለውጥ ጠይቅ",
+      "reject": "ንቀፍ"
+    },
+    "collections": {
+      "title": "ስብስቦች",
+      "new": "አዲስ ስብስብ",
+      "empty": "ምንም ስብስቦች የሉም።"
+    },
+    "vocabulary": {
+      "title": "መዝገበ ቃላት",
+      "addTag": "መለያ አክል",
+      "newTagPlaceholder": "አዲስ መለያ ስም…",
+      "empty": "ምንም መለያዎች የሉም።"
+    },
+    "analytics": {
+      "title": "ትንታኔ",
+      "totalDownloads": "ጠቅላላ ቅጂዎች",
+      "publishedFamilies": "የታተሙ ቤተሰቦች",
+      "contributors": "አስተዋጽዖ አበርካቾች",
+      "downloadTrend": "የቅጂ አዝማሚያ",
+      "topFonts": "ምርጥ ፊደሎች",
+      "monthlyBreakdown": "ወርሃዊ ዝርዝር"
+    },
+    "failures": {
+      "title": "የሂደት ስህተቶች",
+      "items": "የሳቱ ንጥሎች",
+      "empty": "ምንም ስህተቶች የሉም። ሁሉም ሥርዓቶች ጤናማ ናቸው።",
+      "family": "ቤተሰብ",
+      "contributor": "አስተዋጽዖ ሰጪ",
+      "error": "ስህተት",
+      "date": "ቀን",
+      "retry": "እንደገና ሞክር",
+      "retrying": "በሞከር ላይ…",
+      "unknownError": "ያልታወቀ ስህተት"
+    },
+    "publishers": {
+      "title": "አሳታሚዎች",
+      "items": "አሳታሚዎች",
+      "new": "አዲስ አሳታሚ",
+      "empty": "ምንም አሳታሚዎች የሉም።"
+    },
+    "designers": {
+      "title": "ዲዛይነሮች",
+      "items": "ዲዛይነሮች",
+      "new": "አዲስ ዲዛይነር",
+      "empty": "ምንም ዲዛይነሮች የሉም።"
+    },
+    "categories": {
+      "title": "ምድቦች",
+      "items": "ምድቦች",
+      "new": "አዲስ ምድብ",
+      "empty": "ምንም ምድቦች የሉም።"
+    },
+    "licenses": {
+      "title": "ፈቃዶች",
+      "items": "ፈቃዶች",
+      "new": "አዲስ ፈቃድ",
+      "edit": "ፈቃድ አርትዕ",
+      "empty": "ምንም ፈቃዶች የሉም።",
+      "code": "ኮድ",
+      "name": "ስም",
+      "summaryEn": "ማጠቃለያ (እንግሊዝኛ)",
+      "summaryAm": "ማጠቃለያ (አማርኛ)",
+      "fullTextUrl": "ሙሉ ጽሑፍ URL",
+      "active": "ንቁ",
+      "activeYes": "ንቁ",
+      "activeNo": "ንቁ ያልሆነ"
+    },
+    "vocab": {
+      "name": "ስም",
+      "description": "መግለጫ",
+      "actions": "ድርጊቶች",
+      "namePlaceholder": "የመዝገብ ስም…",
+      "descriptionPlaceholder": "መግለጫ (አማራጭ)",
+      "deleteTitle": "ሰርዝ",
+      "deleteConfirm": "\"{{name}}\" ሰርዘው እርግጠኛ ናቸው? ይህ ቀልብሰው ሊከለሰው አይቻልም።"
+    }
+  },
+  "home": {
+    "tagline": "የኢትዮጵያ ፊደሎች ቤት",
+    "subTagline": "ነፃ የሆኑ አማርኛ እና ኢትዮጵያዊ ፊደሎችን አግኝ፣ ፈትሽ፣ አውርድ።",
+    "browseAll": "ሁሉንም ፊደሎች ይመልከቱ",
+    "featured": "ተለይቶ የቀረበ",
+    "collections": "ስብስቦች",
+    "viewAll": "ሁሉንም ይመልከቱ"
+  },
+  "catalog": {
+    "title": "ፊደሎች",
+    "searchPlaceholder": "ፊደሎችን ፈልግ…",
+    "yourText": "ጽሑፍዎን ያስገቡ",
+    "noResults": "ምንም ፊደሎች አልተገኙም።",
+    "clearAll": "ሁሉንም አጽዳ",
+    "filters": {
+      "all": "ሁሉም",
+      "category": "ምድብ",
+      "script": "ስክሪፕት",
+      "variable": "ቫሪያብል",
+      "featured": "ተለይቶ የቀረበ",
+      "serif": "ሰሪፍ",
+      "sans_serif": "ሳንስ ሰሪፍ",
+      "display": "ዲስፕሌይ",
+      "handwriting": "ጽሑፍ",
+      "monospace": "ሞኖስፔስ",
+      "decorative": "ጌጣዊ",
+      "ethiopic": "ኢትዮጵያዊ",
+      "latin": "ላቲን",
+      "both": "ሁለቱም"
+    },
+    "sort": {
+      "newest": "አዲስ",
+      "popular": "ተወዳጅ",
+      "name": "ስም"
+    },
+    "view": {
+      "list": "ዝርዝር",
+      "grid": "ጥምቅ"
+    }
+  },
+  "fontDetail": {
+    "download": "አውርድ",
+    "downloading": "በማውረድ ላይ…",
+    "styles": "ዘይቤዎች",
+    "glyphs": "ፊደላት",
+    "layouts": "አቀማመጦች",
+    "details": "ዝርዝሮች",
+    "about": "ስለ ፊደሉ",
+    "license": "ፈቃድ",
+    "pairings": "ጥምረቶች",
+    "designer": "ዲዛይነር",
+    "addToCollection": "ስብስብ ውስጥ አስገባ"
+  },
+  "auth": {
+    "login": "ስርዓቱ ውስጥ ግባ",
+    "email": "ኢሜይል",
+    "password": "የይለፍ ቃል",
+    "submit": "ግባ",
+    "loggingIn": "በመግባት ላይ…",
+    "invalidCredentials": "ኢሜይሉ ወይም የይለፍ ቃሉ ትክክለኛ አይደለም።",
+    "serverError": "የሰርቨር ስህተት። እባክዎ እንደገና ይሞክሩ።"
+  },
+  "contributor": {
+    "portal": "አስተዋጽዖ ፖርታል",
+    "mySubmissions": "ማቅረቢያዎቼ",
+    "newSubmission": "አዲስ ማቅረቢያ",
+    "status": {
+      "draft": "ረቂቅ",
+      "pending_review": "በክለሳ ላይ",
+      "changes_requested": "ለውጥ ተጠይቋል",
+      "approved": "ተቀባይነት አገኘ",
+      "rejected": "ተነቅፏል",
+      "published": "ታትሟል"
+    },
+    "upload": {
+      "dropzone": "የፊደል ፋይሎችን ይጣሉ፣ ወይም ጠቅ ያድርጉ",
+      "dropHere": "ፋይሎቹን ያጥሉ",
+      "accepted": ".ttf · .otf · .woff · .woff2 ይቀበላል",
+      "uploadFile": "አውርድ",
+      "uploadAll": "ሁሉንም አውርድ",
+      "uploading": "በማስገባት ላይ…",
+      "processing": "ፊደሉን በማስኬድ ላይ…",
+      "clearUploaded": "የወጡትን አጽዳ",
+      "hasErrors": "አንዳንድ ፋይሎች አልተጫኑም። ስህተቶቹን አርትዕ ከዚያ እንደገና ሞክር።",
+      "addStyles": "የፊደል ዘይቤዎችን አክል",
+      "uploadedStyles": "የወጡ ዘይቤዎች",
+      "submitForReview": "ለክለሳ አቅርብ",
+      "needStyles": "ከማቅረብዎ በፊት ቢያንስ አንድ የፊደል ዘይቤ ያስገቡ።",
+      "waitForUploads": "እባክዎ ሁሉም ስቀሎች እስኪጨርስ ይጠብቁ።",
+      "reviewerNotes": "የገምጋሚ ማስታወሻዎች፦"
+    }
   }
 }

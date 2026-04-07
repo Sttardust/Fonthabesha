@@ -139,12 +139,246 @@
     "retry": "Try again",
     "cancel": "Cancel",
     "save": "Save",
+    "saving": "Saving…",
     "delete": "Delete",
+    "deleting": "Deleting…",
     "edit": "Edit",
+    "view": "View",
     "back": "Back",
     "next": "Next",
     "previous": "Previous",
     "page": "Page",
     "of": "of"
+  },
+  "nav": {
+    "fonts": "Fonts",
+    "collections": "Collections",
+    "about": "About",
+    "licenses": "Licenses",
+    "faq": "FAQ",
+    "login": "Log in",
+    "logout": "Log out",
+    "dashboard": "Dashboard",
+    "admin": "Admin"
+  },
+  "collections": {
+    "empty": "No collections yet."
+  },
+  "licenses": {
+    "title": "Font Licenses",
+    "intro": "All fonts on Fonthabesha are open-source. Below is a plain-language guide to the licenses used on this platform.",
+    "empty": "No licenses found.",
+    "redistribute": "Redistribute",
+    "commercial": "Commercial use",
+    "attribution": "Attribution required",
+    "readFull": "Read full license"
+  },
+  "about": {
+    "title": "About Fonthabesha"
+  },
+  "faq": {
+    "title": "Frequently Asked Questions"
+  },
+  "profile": {
+    "title": "My Profile",
+    "subtitle": "Update your contributor information.",
+    "displayName": "Display name",
+    "legalFullName": "Legal full name",
+    "legalFullNameHint": "Used for copyright attribution. Not shown publicly.",
+    "organization": "Organization / foundry",
+    "countryCode": "Country code",
+    "phone": "Phone number",
+    "saved": "Profile saved successfully."
+  },
+  "register": {
+    "title": "Create Contributor Account",
+    "subtitle": "Submit Ethiopic fonts to Fonthabesha.",
+    "confirmPassword": "Confirm password",
+    "submit": "Create account",
+    "submitting": "Creating account…",
+    "emailTaken": "An account with this email already exists.",
+    "haveAccount": "Already have an account?"
+  },
+  "admin": {
+    "dashboard": "Admin Dashboard",
+    "reviewQueue": "Review Queue",
+    "manageFonts": "Manage Fonts",
+    "stats": {
+      "totalFamilies": "Total Families",
+      "pendingReviews": "Pending Reviews",
+      "totalDownloads": "Total Downloads",
+      "activeContributors": "Active Contributors"
+    },
+    "actions": {
+      "approve": "Approve",
+      "requestChanges": "Request Changes",
+      "reject": "Reject"
+    },
+    "collections": {
+      "title": "Collections",
+      "new": "New Collection",
+      "empty": "No collections yet."
+    },
+    "vocabulary": {
+      "title": "Vocabulary",
+      "addTag": "Add Tag",
+      "newTagPlaceholder": "New tag name…",
+      "empty": "No tags yet."
+    },
+    "analytics": {
+      "title": "Analytics",
+      "totalDownloads": "Total Downloads",
+      "publishedFamilies": "Published Families",
+      "contributors": "Contributors",
+      "downloadTrend": "Download Trend",
+      "topFonts": "Top Fonts",
+      "monthlyBreakdown": "Monthly Breakdown"
+    },
+    "failures": {
+      "title": "Processing Failures",
+      "items": "failed items",
+      "empty": "No processing failures. All systems healthy.",
+      "family": "Family",
+      "contributor": "Contributor",
+      "error": "Error",
+      "date": "Date",
+      "retry": "Retry",
+      "retrying": "Retrying…",
+      "unknownError": "Unknown error"
+    },
+    "publishers": {
+      "title": "Publishers",
+      "items": "publishers",
+      "new": "New Publisher",
+      "empty": "No publishers yet."
+    },
+    "designers": {
+      "title": "Designers",
+      "items": "designers",
+      "new": "New Designer",
+      "empty": "No designers yet."
+    },
+    "categories": {
+      "title": "Categories",
+      "items": "categories",
+      "new": "New Category",
+      "empty": "No categories yet."
+    },
+    "licenses": {
+      "title": "Licenses",
+      "items": "licenses",
+      "new": "New License",
+      "edit": "Edit License",
+      "empty": "No licenses yet.",
+      "code": "Code",
+      "name": "Name",
+      "summaryEn": "Summary (English)",
+      "summaryAm": "Summary (Amharic)",
+      "fullTextUrl": "Full text URL",
+      "active": "Active",
+      "activeYes": "Active",
+      "activeNo": "Inactive"
+    },
+    "vocab": {
+      "name": "Name",
+      "description": "Description",
+      "actions": "Actions",
+      "namePlaceholder": "Entry name…",
+      "descriptionPlaceholder": "Description (optional)",
+      "deleteTitle": "Delete entry",
+      "deleteConfirm": "Are you sure you want to delete \"{{name}}\"? This cannot be undone."
+    }
+  },
+  "home": {
+    "tagline": "Home of Ethiopian Fonts",
+    "subTagline": "Discover, preview, and download free Amharic and Ethiopic fonts.",
+    "browseAll": "Browse All Fonts",
+    "featured": "Featured",
+    "collections": "Collections",
+    "viewAll": "View all"
+  },
+  "catalog": {
+    "title": "Fonts",
+    "searchPlaceholder": "Search fonts…",
+    "yourText": "Type something",
+    "noResults": "No fonts found.",
+    "clearAll": "Clear all",
+    "filters": {
+      "all": "All",
+      "category": "Category",
+      "script": "Script",
+      "variable": "Variable",
+      "featured": "Featured",
+      "serif": "Serif",
+      "sans_serif": "Sans-serif",
+      "display": "Display",
+      "handwriting": "Handwriting",
+      "monospace": "Monospace",
+      "decorative": "Decorative",
+      "ethiopic": "Ethiopic",
+      "latin": "Latin",
+      "both": "Both"
+    },
+    "sort": {
+      "newest": "Newest",
+      "popular": "Popular",
+      "name": "Name"
+    },
+    "view": {
+      "list": "List",
+      "grid": "Grid"
+    }
+  },
+  "fontDetail": {
+    "download": "Download",
+    "downloading": "Downloading…",
+    "styles": "Styles",
+    "glyphs": "Glyphs",
+    "layouts": "Layouts",
+    "details": "Details",
+    "about": "About",
+    "license": "License",
+    "pairings": "Pairings",
+    "designer": "Designer",
+    "addToCollection": "Add to Collection"
+  },
+  "auth": {
+    "login": "Sign in to your account",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "loggingIn": "Signing in…",
+    "invalidCredentials": "Invalid email or password.",
+    "serverError": "Server error. Please try again."
+  },
+  "contributor": {
+    "portal": "Contributor Portal",
+    "mySubmissions": "My Submissions",
+    "newSubmission": "New Submission",
+    "status": {
+      "draft": "Draft",
+      "pending_review": "Pending Review",
+      "changes_requested": "Changes Requested",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "published": "Published"
+    },
+    "upload": {
+      "dropzone": "Drop font files here, or click to browse",
+      "dropHere": "Drop files to upload",
+      "accepted": "Accepts .ttf · .otf · .woff · .woff2",
+      "uploadFile": "Upload",
+      "uploadAll": "Upload all",
+      "uploading": "Uploading…",
+      "processing": "Processing font…",
+      "clearUploaded": "Clear uploaded",
+      "hasErrors": "Some files failed to upload. Fix the errors and retry.",
+      "addStyles": "Add Font Styles",
+      "uploadedStyles": "Uploaded Styles",
+      "submitForReview": "Submit for Review",
+      "needStyles": "Upload at least one font style before submitting.",
+      "waitForUploads": "Please wait for all uploads to finish.",
+      "reviewerNotes": "Reviewer notes:"
+    }
   }
 }

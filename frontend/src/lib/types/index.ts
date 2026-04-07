@@ -94,13 +94,56 @@ export interface DownloadUrlResponse {
   expiresAt: string;
 }
 
+// ── Licenses ──────────────────────────────────────────────────────────────────
+
+export interface License {
+  code: string;
+  name: string;
+  summary: string;          // plain-text summary (EN or AM depending on lang)
+  url: string;
+  allowsRedistribution: boolean;
+  allowsCommercialUse: boolean;
+  requiresAttribution: boolean;
+}
+
+// For admin CRUD — server returns full bilingual payload
+export interface LicenseAdmin {
+  id: string;
+  code: string;
+  name: string;
+  summaryEn: string;
+  summaryAm: string;
+  fullTextUrl: string;
+  allowsRedistribution: boolean;
+  allowsCommercialUse: boolean;
+  requiresAttribution: boolean;
+  isActive: boolean;
+  createdAt: string;
+}
+
+// ── Catalog filters response ───────────────────────────────────────────────────
+
+export interface CatalogFilters {
+  categories: FontCategory[];
+  scripts: ScriptSupport[];
+  licenses: License[];
+  tags: string[];
+}
+
 // ── Collections ───────────────────────────────────────────────────────────────
 
 export interface Collection {
   id: string;
+  slug: string;
   name: string;
   description: string | null;
   isPublic: boolean;
+  /** Optional cover image set by admin */
+  coverImageUrl: string | null;
+  /** Specimen text to render in the collection card */
+  specimenText: string | null;
+  /** Number of font families in this collection */
+  familyCount: number;
   families: FontFamilySummary[];
   createdAt: string;
   updatedAt: string;
@@ -177,6 +220,31 @@ export interface VocabularyTag {
   name: string;
   usageCount: number;
   createdAt: string;
+}
+
+// ── Admin vocab entries (publishers, designers, categories) ───────────────────
+
+export interface VocabEntry {
+  id: string;
+  name: string;
+  slug?: string;
+  description?: string | null;
+  usageCount?: number;
+  isActive?: boolean;
+  createdAt: string;
+}
+
+// ── Admin failures (processing errors) ───────────────────────────────────────
+
+export type FailureStatus = 'processing_failed' | 'error';
+
+export interface ProcessingFailure {
+  submissionId: string;
+  familyName: BilingualString;
+  contributorEmail: string;
+  status: FailureStatus;
+  errorMessage: string | null;
+  failedAt: string;
 }
 
 // ── Analytics ──────────────────────────────────────────────────────────────────
