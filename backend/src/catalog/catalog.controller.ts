@@ -13,6 +13,16 @@ export class CatalogController {
     return this.catalogService.listFonts(query);
   }
 
+  @Get('collections')
+  listCollections() {
+    return this.catalogService.listCollections();
+  }
+
+  @Get('collections/:identifier')
+  getCollectionDetail(@Param('identifier') identifier: string) {
+    return this.catalogService.getCollectionDetail(identifier);
+  }
+
   @Get('fonts/filters')
   getFilters() {
     return this.catalogService.getFilters();

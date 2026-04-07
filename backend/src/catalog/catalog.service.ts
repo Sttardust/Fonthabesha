@@ -46,6 +46,109 @@ export class CatalogService {
     return result;
   }
 
+  async listCollections() {
+    const collections = await this.prisma.collection.findMany({
+      where: {
+        status: 'published',
+      },
+      orderBy: [{ isFeatured: 'desc' }, { publishedAt: 'desc' }, { createdAt: 'desc' }],
+      include: {
+        items: {
+          orderBy: [{ sortOrder: 'asc' }],
+          include: {
+            family: {
+              include: {
+                category: true,
+                license: true,
+                publisher: true,
+                designers: {
+                  include: {
+                    designer: true,
+                  },
+                  orderBy: {
+                    sortOrder: 'asc',
+                  },
+                },
+                tags: {
+                  include: {
+                    tag: true,
+                  },
+                },
+                styles: {
+                  where: {
+                    status: 'approved',
+                  },
+                  orderBy: [{ isDefault: 'desc' }, { weightClass: 'asc' }, { name: 'asc' }],
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return collections.map((collection) => this.mapCollectionSummary(collection));
+  }
+
+  async getCollectionDetail(identifier: string) {
+    const normalizedIdentifier = identifier.trim();
+    const collection = await this.prisma.collection.findFirst({
+      where: {
+        status: 'published',
+        OR: this.isUuid(normalizedIdentifier)
+          ? [{ id: normalizedIdentifier }, { slug: normalizedIdentifier }]
+          : [{ slug: normalizedIdentifier }],
+      },
+      include: {
+        items: {
+          orderBy: [{ sortOrder: 'asc' }],
+          include: {
+            family: {
+              include: {
+                category: true,
+                license: true,
+                publisher: true,
+                designers: {
+                  include: {
+                    designer: true,
+                  },
+                  orderBy: {
+                    sortOrder: 'asc',
+                  },
+                },
+                tags: {
+                  include: {
+                    tag: true,
+                  },
+                },
+                styles: {
+                  where: {
+                    status: 'approved',
+                  },
+                  orderBy: [{ isDefault: 'desc' }, { weightClass: 'asc' }, { name: 'asc' }],
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!collection) {
+      throw new NotFoundException('Published collection not found');
+    }
+
+    return {
+      ...this.mapCollectionSummary(collection),
+      items: collection.items
+        .filter((item) => item.family.status === 'approved')
+        .map((item) => ({
+          sortOrder: item.sortOrder,
+          family: this.mapFamilyListItem(item.family),
+        })),
+    };
+  }
+
   async getFilters() {
     const [categories, licenses, publishers, designers, tags] = await Promise.all([
       this.prisma.category.findMany({
@@ -67,6 +170,9 @@ export class CatalogService {
         select: {
           code: true,
           name: true,
+          summaryEn: true,
+          summaryAm: true,
+          fullTextUrl: true,
         },
       }),
       this.prisma.publisher.findMany({
@@ -131,7 +237,12 @@ export class CatalogService {
     return {
       categories: categories.map((category) => category.name),
       scripts: ['ethiopic'],
-      licenses,
+      licenses: licenses.map((license) => ({
+        code: license.code,
+        name: license.name,
+        summary: license.summaryEn ?? license.summaryAm ?? null,
+        url: license.fullTextUrl,
+      })),
       publishers,
       designers,
       tags: tags.map((tag) => ({
@@ -547,6 +658,58 @@ export class CatalogService {
     };
   }
 
+  private mapCollectionSummary(collection: {
+    id: string;
+    slug: string;
+    titleEn: string;
+    titleAm: string | null;
+    descriptionEn: string | null;
+    descriptionAm: string | null;
+    isFeatured: boolean;
+    status: 'draft' | 'published' | 'archived';
+    publishedAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+    items: Array<{
+      sortOrder: number;
+      family: FontFamily & {
+        category: { name: string; slug: string } | null;
+        license: { code: string; name: string } | null;
+        publisher: { id: string; name: string; slug: string } | null;
+        designers: Array<{ designer: { id: string; name: string } }>;
+        tags: Array<{ tag: { nameEn: string } }>;
+        styles: Array<{ id: string; isVariable: boolean; isDefault: boolean }>;
+      };
+    }>;
+  }) {
+    const publishedItems = collection.items.filter((item) => item.family.status === 'approved');
+
+    return {
+      id: collection.id,
+      slug: collection.slug,
+      title: {
+        en: collection.titleEn,
+        am: collection.titleAm,
+      },
+      description: {
+        en: collection.descriptionEn,
+        am: collection.descriptionAm,
+      },
+      isFeatured: collection.isFeatured,
+      status: collection.status,
+      publishedAt: collection.publishedAt,
+      createdAt: collection.createdAt,
+      updatedAt: collection.updatedAt,
+      familyCount: publishedItems.length,
+      coverImageUrl: publishedItems[0] ? this.toAssetUrl(publishedItems[0].family.coverImageKey) : null,
+      specimenText:
+        publishedItems[0]?.family.specimenTextDefaultAm ??
+        publishedItems[0]?.family.specimenTextDefaultEn ??
+        null,
+      featuredFamilies: publishedItems.slice(0, 4).map((item) => this.mapFamilyListItem(item.family)),
+    };
+  }
+
   private mapStyleDetail(style: {
     id: string;
     name: string;
@@ -583,6 +746,12 @@ export class CatalogService {
   private normalizeSearchQuery(query: string | undefined): string | undefined {
     const normalized = query?.trim();
     return normalized ? normalized : undefined;
+  }
+
+  private isUuid(value: string) {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value,
+    );
   }
 
   private hashValue(value: string | null | undefined): string | null {
