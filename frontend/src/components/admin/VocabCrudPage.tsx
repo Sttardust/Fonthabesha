@@ -136,7 +136,7 @@ export default function VocabCrudPage({
     onSuccess: () => { setDeleteTargetId(null); invalidate(); },
   });
 
-  const entries = data?.data ?? [];
+  const entries = data?.items ?? [];
 
   return (
     <>
@@ -150,7 +150,7 @@ export default function VocabCrudPage({
             <h1 className="page-title">{title}</h1>
             {data && (
               <p className="page-subtitle">
-                {data.total} {t(`${i18nPrefix}.items`)}
+                {data.pagination.totalItems} {t(`${i18nPrefix}.items`)}
               </p>
             )}
           </div>
@@ -258,7 +258,7 @@ export default function VocabCrudPage({
 
         <Pagination
           page={page}
-          totalPages={data?.totalPages ?? 1}
+          totalPages={data?.pagination.totalPages ?? 1}
           onPageChange={setPage}
         />
       </div>

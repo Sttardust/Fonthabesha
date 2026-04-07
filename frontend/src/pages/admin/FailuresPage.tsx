@@ -85,7 +85,7 @@ export default function FailuresPage() {
     },
   });
 
-  const failures = data?.data ?? [];
+  const failures = data?.items ?? [];
 
   return (
     <>
@@ -98,7 +98,7 @@ export default function FailuresPage() {
           <h1 className="page-title">{t('admin.failures.title')}</h1>
           {data && (
             <p className="page-subtitle">
-              {data.total} {t('admin.failures.items')}
+              {data.pagination.totalItems} {t(`admin.failures.items`)}
             </p>
           )}
         </header>
@@ -142,7 +142,7 @@ export default function FailuresPage() {
 
             <Pagination
               page={page}
-              totalPages={data?.totalPages ?? 1}
+              totalPages={data?.pagination.totalPages ?? 1}
               onPageChange={setPage}
             />
           </>

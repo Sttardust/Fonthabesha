@@ -167,7 +167,7 @@ export default function LicensesAdminPage() {
     onSuccess: () => invalidate(),
   });
 
-  const licenses = data?.data ?? [];
+  const licenses = data?.items ?? [];
 
   return (
     <>
@@ -181,7 +181,7 @@ export default function LicensesAdminPage() {
             <h1 className="page-title">{t('admin.licenses.title')}</h1>
             {data && (
               <p className="page-subtitle">
-                {data.total} {t('admin.licenses.items')}
+                {data.pagination.totalItems} {t(`admin.licenses.items`)}
               </p>
             )}
           </div>
@@ -271,7 +271,7 @@ export default function LicensesAdminPage() {
 
         <Pagination
           page={page}
-          totalPages={data?.totalPages ?? 1}
+          totalPages={data?.pagination.totalPages ?? 1}
           onPageChange={setPage}
         />
       </div>
