@@ -8,6 +8,10 @@ import type {
   ReviewDecisionResponse,
   ReprocessResponse,
   SubmissionStatus,
+  PaginatedResponse,
+  VocabEntry,
+  ProcessingFailure,
+  LicenseAdmin,
 } from '@/lib/types';
 
 // All real admin routes live under /api/v1/admin/reviews
@@ -95,4 +99,78 @@ export const adminApi = {
   /** POST /api/v1/admin/search/reindex — rebuild the search index */
   reindex: (): Promise<void> =>
     apiClient.post('/api/v1/admin/search/reindex'),
+
+  // ── Processing failures ───────────────────────────────────────────────────────
+
+  failures: (page = 1, pageSize = 25): Promise<PaginatedResponse<ProcessingFailure>> =>
+    apiClient.get<PaginatedResponse<ProcessingFailure>>(
+      `/api/v1/admin/failures?page=${page}&pageSize=${pageSize}`,
+    ),
+
+  retryFailure: (submissionId: string): Promise<void> =>
+    apiClient.post(`/api/v1/admin/failures/${submissionId}/retry`),
+
+  // ── Publishers ────────────────────────────────────────────────────────────────
+
+  listPublishers: (page = 1, pageSize = 25): Promise<PaginatedResponse<VocabEntry>> =>
+    apiClient.get<PaginatedResponse<VocabEntry>>(
+      `/api/v1/admin/publishers?page=${page}&pageSize=${pageSize}`,
+    ),
+
+  createPublisher: (payload: { name: string; description?: string }): Promise<VocabEntry> =>
+    apiClient.post<VocabEntry>('/api/v1/admin/publishers', payload),
+
+  updatePublisher: (id: string, payload: { name?: string; description?: string }): Promise<VocabEntry> =>
+    apiClient.patch<VocabEntry>(`/api/v1/admin/publishers/${id}`, payload),
+
+  deletePublisher: (id: string): Promise<void> =>
+    apiClient.delete(`/api/v1/admin/publishers/${id}`),
+
+  // ── Designers ─────────────────────────────────────────────────────────────────
+
+  listDesigners: (page = 1, pageSize = 25): Promise<PaginatedResponse<VocabEntry>> =>
+    apiClient.get<PaginatedResponse<VocabEntry>>(
+      `/api/v1/admin/designers?page=${page}&pageSize=${pageSize}`,
+    ),
+
+  createDesigner: (payload: { name: string; description?: string }): Promise<VocabEntry> =>
+    apiClient.post<VocabEntry>('/api/v1/admin/designers', payload),
+
+  updateDesigner: (id: string, payload: { name?: string; description?: string }): Promise<VocabEntry> =>
+    apiClient.patch<VocabEntry>(`/api/v1/admin/designers/${id}`, payload),
+
+  deleteDesigner: (id: string): Promise<void> =>
+    apiClient.delete(`/api/v1/admin/designers/${id}`),
+
+  // ── Categories ────────────────────────────────────────────────────────────────
+
+  listCategories: (page = 1, pageSize = 25): Promise<PaginatedResponse<VocabEntry>> =>
+    apiClient.get<PaginatedResponse<VocabEntry>>(
+      `/api/v1/admin/categories?page=${page}&pageSize=${pageSize}`,
+    ),
+
+  createCategory: (payload: { name: string; description?: string }): Promise<VocabEntry> =>
+    apiClient.post<VocabEntry>('/api/v1/admin/categories', payload),
+
+  updateCategory: (id: string, payload: { name?: string; description?: string }): Promise<VocabEntry> =>
+    apiClient.patch<VocabEntry>(`/api/v1/admin/categories/${id}`, payload),
+
+  deleteCategory: (id: string): Promise<void> =>
+    apiClient.delete(`/api/v1/admin/categories/${id}`),
+
+  // ── Licenses (admin CRUD) ─────────────────────────────────────────────────────
+
+  listLicenses: (page = 1, pageSize = 25): Promise<PaginatedResponse<LicenseAdmin>> =>
+    apiClient.get<PaginatedResponse<LicenseAdmin>>(
+      `/api/v1/admin/licenses?page=${page}&pageSize=${pageSize}`,
+    ),
+
+  createLicense: (payload: Omit<LicenseAdmin, 'id' | 'createdAt'>): Promise<LicenseAdmin> =>
+    apiClient.post<LicenseAdmin>('/api/v1/admin/licenses', payload),
+
+  updateLicense: (id: string, payload: Partial<Omit<LicenseAdmin, 'id' | 'createdAt'>>): Promise<LicenseAdmin> =>
+    apiClient.patch<LicenseAdmin>(`/api/v1/admin/licenses/${id}`, payload),
+
+  deleteLicense: (id: string): Promise<void> =>
+    apiClient.delete(`/api/v1/admin/licenses/${id}`),
 };

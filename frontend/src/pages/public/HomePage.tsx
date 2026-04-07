@@ -39,7 +39,7 @@ export default function HomePage() {
     queryFn: () => collectionsApi.list(1, 8),
     staleTime: 5 * 60_000,
   });
-  const featuredCollections = collectionsData?.data ?? [];
+  const featuredCollections = collectionsData?.items ?? [];
 
   const gridClass =
     viewMode === 'grid'
@@ -89,7 +89,7 @@ export default function HomePage() {
                 className="home-collection-chip"
               >
                 <span className="home-collection-chip__name">{col.name}</span>
-                {(col.familyCount > 0 || col.families?.length > 0) && (
+                {((col.familyCount ?? 0) > 0 || (col.families?.length ?? 0) > 0) && (
                   <span className="home-collection-chip__count">
                     {col.familyCount ?? col.families?.length}
                   </span>

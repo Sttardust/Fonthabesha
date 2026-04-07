@@ -44,6 +44,11 @@ export type SubmissionStatus =
 /** Real Prisma UploadProcessingStatus enum values */
 export type UploadProcessingStatus = 'queued' | 'processing' | 'completed' | 'failed';
 
+// ── Catalog filter type aliases (used in FilterChips / FilterBar) ─────────────
+
+export type FontCategory = string;
+export type ScriptSupport = string;
+
 // ── Catalog filter options (GET /api/v1/fonts/filters) ────────────────────────
 
 export interface CatalogCategory { name: string; slug: string; }
@@ -645,4 +650,83 @@ export interface ReprocessResponse {
   reprocessedUploadCount: number;
   skippedUploadCount: number;
   uploads: unknown[];
+}
+
+// ── Collections ───────────────────────────────────────────────────────────────
+
+export interface Collection {
+  id: string;
+  name: string;
+  description?: string | null;
+  slug?: string | null;
+  coverImageUrl?: string | null;
+  specimenText?: string | null;
+  familyCount?: number;
+  families?: FontFamilySummary[];
+}
+
+// ── Admin license management ───────────────────────────────────────────────────
+
+export interface LicenseAdmin {
+  id: string;
+  code: string;
+  name: string;
+  summaryEn: string;
+  summaryAm: string;
+  fullTextUrl: string;
+  allowsRedistribution: boolean;
+  allowsCommercialUse: boolean;
+  requiresAttribution: boolean;
+  isActive: boolean;
+  createdAt: string;
+}
+
+// ── Admin vocab entries (publishers, designers, categories) ───────────────────
+
+export interface VocabEntry {
+  id: string;
+  name: string;
+  slug?: string;
+  description?: string | null;
+  usageCount?: number;
+  isActive?: boolean;
+  createdAt: string;
+}
+
+// ── Admin failures (processing errors) ────────────────────────────────────────
+
+export type FailureStatus = 'processing_failed' | 'error';
+
+export interface ProcessingFailure {
+  submissionId: string;
+  familyName: BilingualString;
+  contributorEmail: string;
+  status: FailureStatus;
+  errorMessage: string | null;
+  failedAt: string;
+}
+
+// ── Analytics ─────────────────────────────────────────────────────────────────
+
+export interface AnalyticsPeriod {
+  period: string;
+  downloads: number;
+  newFamilies: number;
+  newSubmissions: number;
+}
+
+export interface TopFont {
+  familyId: string;
+  slug: string;
+  name: BilingualString;
+  downloads: number;
+  category: string;
+}
+
+export interface AnalyticsResponse {
+  periods: AnalyticsPeriod[];
+  topFonts: TopFont[];
+  totalDownloads: number;
+  totalFamilies: number;
+  totalContributors: number;
 }
