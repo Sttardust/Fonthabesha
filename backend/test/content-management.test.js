@@ -14,7 +14,7 @@ after(async () => {
   await closeTestContext(context);
 });
 
-test('collections, vocabulary, and admin family listing endpoints are available', async () => {
+test('collections, vocabulary, aliases, and admin family listing endpoints are available', async () => {
   const slugSeed = Date.now().toString();
   const fontBuffer = buildTestFontBuffer();
   const fontSha = sha256Hex(fontBuffer);
@@ -95,6 +95,11 @@ test('collections, vocabulary, and admin family listing endpoints are available'
   assert.ok(
     publicCollectionsResponse.body.some((entry) => entry.id === createCollectionResponse.body.id),
   );
+  const createdCollectionSummary = publicCollectionsResponse.body.find(
+    (entry) => entry.id === createCollectionResponse.body.id,
+  );
+  assert.ok('coverImageUrl' in createdCollectionSummary);
+  assert.ok('specimenText' in createdCollectionSummary);
 
   const publicCollectionDetailResponse = await requestJson(context, {
     method: 'GET',
@@ -120,6 +125,84 @@ test('collections, vocabulary, and admin family listing endpoints are available'
     path: '/api/v1/licenses',
   });
   assert.equal(licensesResponse.status, 200);
+
+  const filtersResponse = await requestJson(context, {
+    method: 'GET',
+    path: '/api/v1/fonts/filters',
+  });
+  assert.equal(filtersResponse.status, 200);
+  assert.ok(Array.isArray(filtersResponse.body.licenses));
+  assert.equal(typeof filtersResponse.body.licenses[0].code, 'string');
+  assert.ok(Object.hasOwn(filtersResponse.body.licenses[0], 'summary'));
+  assert.ok(Object.hasOwn(filtersResponse.body.licenses[0], 'url'));
+
+  const patchMeAliasResponse = await requestJson(context, {
+    method: 'PATCH',
+    path: '/api/v1/auth/me',
+    headers: {
+      'x-user-email': 'admin@fonthabesha.local',
+    },
+    body: {
+      displayName: `Admin Alias ${slugSeed}`,
+    },
+  });
+  assert.equal(patchMeAliasResponse.status, 200);
+  assert.equal(patchMeAliasResponse.body.displayName, `Admin Alias ${slugSeed}`);
+
+  const createPublisherAliasResponse = await requestJson(context, {
+    method: 'POST',
+    path: '/api/v1/admin/publishers',
+    headers: {
+      'x-user-email': 'admin@fonthabesha.local',
+    },
+    body: {
+      name: `Publisher ${slugSeed}`,
+      websiteUrl: 'https://example.com/publisher',
+      countryCode: 'ET',
+    },
+  });
+  assert.equal(createPublisherAliasResponse.status, 201);
+
+  const createDesignerAliasResponse = await requestJson(context, {
+    method: 'POST',
+    path: '/api/v1/admin/designers',
+    headers: {
+      'x-user-email': 'admin@fonthabesha.local',
+    },
+    body: {
+      name: `Designer ${slugSeed}`,
+      websiteUrl: 'https://example.com/designer',
+    },
+  });
+  assert.equal(createDesignerAliasResponse.status, 201);
+
+  const createLicenseAliasResponse = await requestJson(context, {
+    method: 'POST',
+    path: '/api/v1/admin/licenses',
+    headers: {
+      'x-user-email': 'admin@fonthabesha.local',
+    },
+    body: {
+      code: `TEST-${slugSeed}`,
+      name: `Test License ${slugSeed}`,
+      summaryEn: 'Temporary license for admin endpoint coverage.',
+      fullTextUrl: 'https://example.com/license',
+      allowsRedistribution: true,
+      allowsCommercialUse: true,
+      requiresAttribution: true,
+    },
+  });
+  assert.equal(createLicenseAliasResponse.status, 201);
+
+  const failuresAliasResponse = await requestJson(context, {
+    method: 'GET',
+    path: '/api/v1/admin/failures',
+    headers: {
+      'x-user-email': 'admin@fonthabesha.local',
+    },
+  });
+  assert.equal(failuresAliasResponse.status, 200);
+  assert.ok(Array.isArray(failuresAliasResponse.body));
 
   const registerContributorResponse = await requestJson(context, {
     method: 'POST',
@@ -290,6 +373,128 @@ test('collections, vocabulary, and admin family listing endpoints are available'
   });
   assert.equal(restoreFamilyResponse.status, 201);
   assert.equal(restoreFamilyResponse.body.status, 'draft');
+
+  const categoriesAliasResponse = await requestJson(context, {
+    method: 'GET',
+    path: '/api/v1/admin/categories',
+    headers: {
+      'x-user-email': 'admin@fonthabesha.local',
+    },
+  });
+  assert.equal(categoriesAliasResponse.status, 200);
+  assert.ok(categoriesAliasResponse.body.some((entry) => entry.id === createCategoryResponse.body.id));
+
+  const publishersAliasResponse = await requestJson(context, {
+    method: 'GET',
+    path: '/api/v1/admin/publishers',
+    headers: {
+      'x-user-email': 'admin@fonthabesha.local',
+    },
+  });
+  assert.equal(publishersAliasResponse.status, 200);
+  assert.ok(
+    publishersAliasResponse.body.some((entry) => entry.id === createPublisherAliasResponse.body.id),
+  );
+
+  const updatePublisherAliasResponse = await requestJson(context, {
+    method: 'PATCH',
+    path: `/api/v1/admin/publishers/${createPublisherAliasResponse.body.id}`,
+    headers: {
+      'x-user-email': 'admin@fonthabesha.local',
+    },
+    body: {
+      name: `Publisher Updated ${slugSeed}`,
+    },
+  });
+  assert.equal(updatePublisherAliasResponse.status, 200);
+  assert.equal(updatePublisherAliasResponse.body.name, `Publisher Updated ${slugSeed}`);
+
+  const designersAliasResponse = await requestJson(context, {
+    method: 'GET',
+    path: '/api/v1/admin/designers',
+    headers: {
+      'x-user-email': 'admin@fonthabesha.local',
+    },
+  });
+  assert.equal(designersAliasResponse.status, 200);
+  assert.ok(
+    designersAliasResponse.body.some((entry) => entry.id === createDesignerAliasResponse.body.id),
+  );
+
+  const updateDesignerAliasResponse = await requestJson(context, {
+    method: 'PATCH',
+    path: `/api/v1/admin/designers/${createDesignerAliasResponse.body.id}`,
+    headers: {
+      'x-user-email': 'admin@fonthabesha.local',
+    },
+    body: {
+      name: `Designer Updated ${slugSeed}`,
+    },
+  });
+  assert.equal(updateDesignerAliasResponse.status, 200);
+  assert.equal(updateDesignerAliasResponse.body.name, `Designer Updated ${slugSeed}`);
+
+  const licensesAliasResponse = await requestJson(context, {
+    method: 'GET',
+    path: '/api/v1/admin/licenses',
+    headers: {
+      'x-user-email': 'admin@fonthabesha.local',
+    },
+  });
+  assert.equal(licensesAliasResponse.status, 200);
+  assert.ok(
+    licensesAliasResponse.body.some((entry) => entry.id === createLicenseAliasResponse.body.id),
+  );
+
+  const updateLicenseAliasResponse = await requestJson(context, {
+    method: 'PATCH',
+    path: `/api/v1/admin/licenses/${createLicenseAliasResponse.body.id}`,
+    headers: {
+      'x-user-email': 'admin@fonthabesha.local',
+    },
+    body: {
+      code: `TEST-${slugSeed}`,
+      name: `Test License Updated ${slugSeed}`,
+      summaryEn: 'Updated summary',
+      fullTextUrl: 'https://example.com/license-updated',
+      allowsRedistribution: true,
+      allowsCommercialUse: false,
+      requiresAttribution: true,
+      isActive: true,
+    },
+  });
+  assert.equal(updateLicenseAliasResponse.status, 200);
+  assert.equal(updateLicenseAliasResponse.body.name, `Test License Updated ${slugSeed}`);
+
+  const deletePublisherAliasResponse = await requestJson(context, {
+    method: 'DELETE',
+    path: `/api/v1/admin/publishers/${createPublisherAliasResponse.body.id}`,
+    headers: {
+      'x-user-email': 'admin@fonthabesha.local',
+    },
+  });
+  assert.equal(deletePublisherAliasResponse.status, 200);
+  assert.equal(deletePublisherAliasResponse.body.success, true);
+
+  const deleteDesignerAliasResponse = await requestJson(context, {
+    method: 'DELETE',
+    path: `/api/v1/admin/designers/${createDesignerAliasResponse.body.id}`,
+    headers: {
+      'x-user-email': 'admin@fonthabesha.local',
+    },
+  });
+  assert.equal(deleteDesignerAliasResponse.status, 200);
+  assert.equal(deleteDesignerAliasResponse.body.success, true);
+
+  const deleteLicenseAliasResponse = await requestJson(context, {
+    method: 'DELETE',
+    path: `/api/v1/admin/licenses/${createLicenseAliasResponse.body.id}`,
+    headers: {
+      'x-user-email': 'admin@fonthabesha.local',
+    },
+  });
+  assert.equal(deleteLicenseAliasResponse.status, 200);
+  assert.equal(deleteLicenseAliasResponse.body.success, true);
 
   const deleteCollectionResponse = await requestJson(context, {
     method: 'DELETE',

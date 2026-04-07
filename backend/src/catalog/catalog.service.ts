@@ -170,6 +170,9 @@ export class CatalogService {
         select: {
           code: true,
           name: true,
+          summaryEn: true,
+          summaryAm: true,
+          fullTextUrl: true,
         },
       }),
       this.prisma.publisher.findMany({
@@ -234,7 +237,12 @@ export class CatalogService {
     return {
       categories: categories.map((category) => category.name),
       scripts: ['ethiopic'],
-      licenses,
+      licenses: licenses.map((license) => ({
+        code: license.code,
+        name: license.name,
+        summary: license.summaryEn ?? license.summaryAm ?? null,
+        url: license.fullTextUrl,
+      })),
       publishers,
       designers,
       tags: tags.map((tag) => ({
@@ -693,6 +701,11 @@ export class CatalogService {
       createdAt: collection.createdAt,
       updatedAt: collection.updatedAt,
       familyCount: publishedItems.length,
+      coverImageUrl: publishedItems[0] ? this.toAssetUrl(publishedItems[0].family.coverImageKey) : null,
+      specimenText:
+        publishedItems[0]?.family.specimenTextDefaultAm ??
+        publishedItems[0]?.family.specimenTextDefaultEn ??
+        null,
       featuredFamilies: publishedItems.slice(0, 4).map((item) => this.mapFamilyListItem(item.family)),
     };
   }

@@ -27,6 +27,8 @@ import { UpsertVocabularyEntryDto } from './dto/upsert-vocabulary-entry.dto';
 import { ListAdminFamiliesDto } from './dto/list-admin-families.dto';
 import { UpdateAdminFamilyDto } from './dto/update-admin-family.dto';
 import { UpdateAdminStyleDto } from './dto/update-admin-style.dto';
+import { UpsertAdminDirectoryEntryDto } from './dto/upsert-admin-directory-entry.dto';
+import { UpsertAdminLicenseDto } from './dto/upsert-admin-license.dto';
 
 @Controller('admin')
 export class AdminController {
@@ -40,6 +42,11 @@ export class AdminController {
   @Get('families')
   listFamilies(@Req() request: AuthenticatedRequest, @Query() query: ListAdminFamiliesDto) {
     return this.adminService.listFamilies(request, query);
+  }
+
+  @Get('failures')
+  listFailures(@Req() request: AuthenticatedRequest) {
+    return this.adminService.listReviewQueue(request, 'processing_failed');
   }
 
   @Get('families/:familyId')
@@ -146,6 +153,111 @@ export class AdminController {
     @Param('familyId') familyId: string,
   ) {
     return this.adminService.removeCollectionFamily(request, collectionId, familyId);
+  }
+
+  @Get('categories')
+  listCategories(@Req() request: AuthenticatedRequest) {
+    return this.adminService.listCategories(request);
+  }
+
+  @Post('categories')
+  createCategory(
+    @Req() request: AuthenticatedRequest,
+    @Body() payload: UpsertAdminDirectoryEntryDto,
+  ) {
+    return this.adminService.createCategory(request, payload);
+  }
+
+  @Patch('categories/:entryId')
+  updateCategory(
+    @Req() request: AuthenticatedRequest,
+    @Param('entryId') entryId: string,
+    @Body() payload: UpsertAdminDirectoryEntryDto,
+  ) {
+    return this.adminService.updateCategory(request, entryId, payload);
+  }
+
+  @Delete('categories/:entryId')
+  deleteCategory(@Req() request: AuthenticatedRequest, @Param('entryId') entryId: string) {
+    return this.adminService.deleteCategory(request, entryId);
+  }
+
+  @Get('publishers')
+  listPublishers(@Req() request: AuthenticatedRequest) {
+    return this.adminService.listPublishers(request);
+  }
+
+  @Post('publishers')
+  createPublisher(
+    @Req() request: AuthenticatedRequest,
+    @Body() payload: UpsertAdminDirectoryEntryDto,
+  ) {
+    return this.adminService.createPublisher(request, payload);
+  }
+
+  @Patch('publishers/:entryId')
+  updatePublisher(
+    @Req() request: AuthenticatedRequest,
+    @Param('entryId') entryId: string,
+    @Body() payload: UpsertAdminDirectoryEntryDto,
+  ) {
+    return this.adminService.updatePublisher(request, entryId, payload);
+  }
+
+  @Delete('publishers/:entryId')
+  deletePublisher(@Req() request: AuthenticatedRequest, @Param('entryId') entryId: string) {
+    return this.adminService.deletePublisher(request, entryId);
+  }
+
+  @Get('designers')
+  listDesigners(@Req() request: AuthenticatedRequest) {
+    return this.adminService.listDesigners(request);
+  }
+
+  @Post('designers')
+  createDesigner(
+    @Req() request: AuthenticatedRequest,
+    @Body() payload: UpsertAdminDirectoryEntryDto,
+  ) {
+    return this.adminService.createDesigner(request, payload);
+  }
+
+  @Patch('designers/:entryId')
+  updateDesigner(
+    @Req() request: AuthenticatedRequest,
+    @Param('entryId') entryId: string,
+    @Body() payload: UpsertAdminDirectoryEntryDto,
+  ) {
+    return this.adminService.updateDesigner(request, entryId, payload);
+  }
+
+  @Delete('designers/:entryId')
+  deleteDesigner(@Req() request: AuthenticatedRequest, @Param('entryId') entryId: string) {
+    return this.adminService.deleteDesigner(request, entryId);
+  }
+
+  @Get('licenses')
+  listLicenses(@Req() request: AuthenticatedRequest) {
+    return this.adminService.listLicenses(request);
+  }
+
+  @Post('licenses')
+  createLicense(@Req() request: AuthenticatedRequest, @Body() payload: UpsertAdminLicenseDto) {
+    return this.adminService.createLicense(request, payload);
+  }
+
+  @Patch('licenses/:licenseId')
+  updateLicense(
+    @Req() request: AuthenticatedRequest,
+    @Param('licenseId') licenseId: string,
+    @Body() payload: UpsertAdminLicenseDto,
+  ) {
+    return this.adminService.updateLicense(request, licenseId, payload);
+  }
+
+  @Delete('licenses/:licenseId')
+  deleteLicense(@Req() request: AuthenticatedRequest, @Param('licenseId') licenseId: string) {
+    return this.adminService.deleteLicense(request, licenseId);
   }
 
   @Get('vocabulary')

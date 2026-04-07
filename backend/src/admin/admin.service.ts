@@ -35,6 +35,8 @@ import { AddCollectionFamilyDto } from './dto/add-collection-family.dto';
 import { UpsertVocabularyEntryDto } from './dto/upsert-vocabulary-entry.dto';
 import { UpdateAdminFamilyDto } from './dto/update-admin-family.dto';
 import { UpdateAdminStyleDto } from './dto/update-admin-style.dto';
+import { UpsertAdminDirectoryEntryDto } from './dto/upsert-admin-directory-entry.dto';
+import { UpsertAdminLicenseDto } from './dto/upsert-admin-license.dto';
 
 @Injectable()
 export class AdminService {
@@ -1171,6 +1173,158 @@ export class AdminService {
       designers,
       licenses,
     };
+  }
+
+  async listCategories(request: AuthenticatedRequest) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
+    return this.prisma.category.findMany({ orderBy: { name: 'asc' } });
+  }
+
+  async createCategory(request: AuthenticatedRequest, payload: UpsertAdminDirectoryEntryDto) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin]);
+    return this.prisma.category.create({
+      data: {
+        name: payload.name.trim(),
+        slug: await this.ensureVocabularySlug('category', payload.slug ?? payload.name),
+      },
+    });
+  }
+
+  async updateCategory(
+    request: AuthenticatedRequest,
+    entryId: string,
+    payload: UpsertAdminDirectoryEntryDto,
+  ) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin]);
+    return this.prisma.category.update({
+      where: { id: entryId },
+      data: {
+        name: payload.name.trim(),
+        slug: await this.ensureVocabularySlug('category', payload.slug ?? payload.name, entryId),
+      },
+    });
+  }
+
+  async deleteCategory(request: AuthenticatedRequest, entryId: string) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin]);
+    await this.prisma.category.delete({ where: { id: entryId } });
+    return { success: true, id: entryId, type: 'category' as const };
+  }
+
+  async listPublishers(request: AuthenticatedRequest) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
+    return this.prisma.publisher.findMany({ orderBy: { name: 'asc' } });
+  }
+
+  async createPublisher(request: AuthenticatedRequest, payload: UpsertAdminDirectoryEntryDto) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin]);
+    return this.prisma.publisher.create({
+      data: {
+        name: payload.name.trim(),
+        slug: await this.ensureVocabularySlug('publisher', payload.slug ?? payload.name),
+        bioEn: payload.bioEn?.trim() || null,
+        bioAm: payload.bioAm?.trim() || null,
+        websiteUrl: payload.websiteUrl?.trim() || null,
+        countryCode: payload.countryCode?.trim().toUpperCase() || null,
+      },
+    });
+  }
+
+  async updatePublisher(
+    request: AuthenticatedRequest,
+    entryId: string,
+    payload: UpsertAdminDirectoryEntryDto,
+  ) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin]);
+    return this.prisma.publisher.update({
+      where: { id: entryId },
+      data: {
+        name: payload.name.trim(),
+        slug: await this.ensureVocabularySlug('publisher', payload.slug ?? payload.name, entryId),
+        bioEn: payload.bioEn?.trim() || null,
+        bioAm: payload.bioAm?.trim() || null,
+        websiteUrl: payload.websiteUrl?.trim() || null,
+        countryCode: payload.countryCode?.trim().toUpperCase() || null,
+      },
+    });
+  }
+
+  async deletePublisher(request: AuthenticatedRequest, entryId: string) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin]);
+    await this.prisma.publisher.delete({ where: { id: entryId } });
+    return { success: true, id: entryId, type: 'publisher' as const };
+  }
+
+  async listDesigners(request: AuthenticatedRequest) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
+    return this.prisma.designer.findMany({ orderBy: { name: 'asc' } });
+  }
+
+  async createDesigner(request: AuthenticatedRequest, payload: UpsertAdminDirectoryEntryDto) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin]);
+    return this.prisma.designer.create({
+      data: {
+        name: payload.name.trim(),
+        slug: await this.ensureVocabularySlug('designer', payload.slug ?? payload.name),
+        bioEn: payload.bioEn?.trim() || null,
+        bioAm: payload.bioAm?.trim() || null,
+        websiteUrl: payload.websiteUrl?.trim() || null,
+      },
+    });
+  }
+
+  async updateDesigner(
+    request: AuthenticatedRequest,
+    entryId: string,
+    payload: UpsertAdminDirectoryEntryDto,
+  ) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin]);
+    return this.prisma.designer.update({
+      where: { id: entryId },
+      data: {
+        name: payload.name.trim(),
+        slug: await this.ensureVocabularySlug('designer', payload.slug ?? payload.name, entryId),
+        bioEn: payload.bioEn?.trim() || null,
+        bioAm: payload.bioAm?.trim() || null,
+        websiteUrl: payload.websiteUrl?.trim() || null,
+      },
+    });
+  }
+
+  async deleteDesigner(request: AuthenticatedRequest, entryId: string) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin]);
+    await this.prisma.designer.delete({ where: { id: entryId } });
+    return { success: true, id: entryId, type: 'designer' as const };
+  }
+
+  async listLicenses(request: AuthenticatedRequest) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin, UserRole.reviewer]);
+    return this.prisma.license.findMany({ orderBy: { name: 'asc' } });
+  }
+
+  async createLicense(request: AuthenticatedRequest, payload: UpsertAdminLicenseDto) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin]);
+    return this.prisma.license.create({
+      data: this.buildLicenseWriteData(payload),
+    });
+  }
+
+  async updateLicense(
+    request: AuthenticatedRequest,
+    licenseId: string,
+    payload: UpsertAdminLicenseDto,
+  ) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin]);
+    return this.prisma.license.update({
+      where: { id: licenseId },
+      data: this.buildLicenseWriteData(payload),
+    });
+  }
+
+  async deleteLicense(request: AuthenticatedRequest, licenseId: string) {
+    await this.authContext.requireUserFromRequest(request, [UserRole.admin]);
+    await this.prisma.license.delete({ where: { id: licenseId } });
+    return { success: true, id: licenseId, type: 'license' as const };
   }
 
   async createVocabularyEntry(request: AuthenticatedRequest, payload: UpsertVocabularyEntryDto) {
@@ -3344,6 +3498,20 @@ export class AdminService {
     }
 
     return slug;
+  }
+
+  private buildLicenseWriteData(payload: UpsertAdminLicenseDto) {
+    return {
+      code: payload.code.trim().toUpperCase(),
+      name: payload.name.trim(),
+      summaryEn: payload.summaryEn?.trim() || null,
+      summaryAm: payload.summaryAm?.trim() || null,
+      fullTextUrl: payload.fullTextUrl?.trim() || null,
+      allowsRedistribution: payload.allowsRedistribution,
+      allowsCommercialUse: payload.allowsCommercialUse,
+      requiresAttribution: payload.requiresAttribution,
+      isActive: payload.isActive ?? true,
+    };
   }
 
   private normalizeSlug(value: string) {

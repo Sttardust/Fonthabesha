@@ -72,4 +72,9 @@ export class AuthController {
   updateCurrentUserProfile(@Req() request: AuthenticatedRequest, @Body() payload: UpdateProfileDto) {
     return this.authService.updateCurrentUserProfile(request, payload);
   }
+
+  @Patch('me')
+  updateCurrentUser(@Req() request: AuthenticatedRequest, @Body() payload: UpdateProfileDto) {
+    return this.authService.updateCurrentUserProfile(request, payload);
+  }
 }
