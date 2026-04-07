@@ -1,66 +1,63 @@
 /**
- * ProcessingWarnings — shows an alert when a submission has styles that
- * are still processing or have processing errors.
- * Renders nothing when all styles are ready.
+ * ProcessingWarnings — shows alerts when uploads have errors or are still processing.
+ * Used in the admin review detail page.
+ * Takes AdminUploadRecord[] from AdminReviewDetail.uploads.
  */
-import type { SubmissionStyle } from '@/lib/types';
-import { bilingualValue } from '@/lib/utils/bilingualValue';
+import type { AdminUploadRecord } from '@/lib/types';
 
 interface Props {
-  styles: SubmissionStyle[];
+  uploads: AdminUploadRecord[];
 }
 
-export default function ProcessingWarnings({ styles }: Props) {
-  const errorStyles     = styles.filter((s) => s.uploadStatus === 'error');
-  const pendingStyles   = styles.filter(
-    (s) => s.uploadStatus === 'pending' || s.uploadStatus === 'processing',
+export default function ProcessingWarnings({ uploads }: Props) {
+  const failed    = uploads.filter((u) => u.processingStatus === 'failed');
+  const pending   = uploads.filter(
+    (u) => u.processingStatus === 'queued' || u.processingStatus === 'processing',
   );
 
-  if (errorStyles.length === 0 && pendingStyles.length === 0) return null;
+  if (failed.length === 0 && pending.length === 0) return null;
 
   return (
     <div className="processing-warnings" role="alert">
-      {pendingStyles.length > 0 && (
+      {pending.length > 0 && (
         <div className="processing-warnings__block processing-warnings__block--pending">
           <span className="processing-warnings__icon" aria-hidden="true">⏳</span>
           <div>
             <strong>Still processing</strong>
             <ul className="processing-warnings__list">
-              {pendingStyles.map((s) => (
-                <li key={s.id}>
-                  {bilingualValue(s.name)} — {s.weight}
-                  {s.isItalic ? ' Italic' : ''}
-                  <span className={`upload-badge upload-badge--${s.uploadStatus}`}>
-                    {s.uploadStatus}
+              {pending.map((u) => (
+                <li key={u.id}>
+                  {u.originalFilename}
+                  <span className={`upload-badge upload-badge--${u.processingStatus}`}>
+                    {u.processingStatus}
                   </span>
                 </li>
               ))}
             </ul>
             <p className="processing-warnings__note">
-              These styles are not yet available for preview. You may still review the submission.
+              These uploads are not yet processed. You may still review the submission.
             </p>
           </div>
         </div>
       )}
 
-      {errorStyles.length > 0 && (
+      {failed.length > 0 && (
         <div className="processing-warnings__block processing-warnings__block--error">
           <span className="processing-warnings__icon" aria-hidden="true">⚠️</span>
           <div>
             <strong>Processing errors</strong>
             <ul className="processing-warnings__list">
-              {errorStyles.map((s) => (
-                <li key={s.id}>
-                  {bilingualValue(s.name)} — {s.weight}
-                  {s.isItalic ? ' Italic' : ''}
-                  {s.errorMessage && (
-                    <span className="processing-warnings__err">{s.errorMessage}</span>
+              {failed.map((u) => (
+                <li key={u.id}>
+                  {u.originalFilename}
+                  {u.processingError && (
+                    <span className="processing-warnings__err">{u.processingError}</span>
                   )}
                 </li>
               ))}
             </ul>
             <p className="processing-warnings__note">
-              These styles failed to process. Consider requesting changes from the contributor.
+              Consider requesting changes from the contributor.
             </p>
           </div>
         </div>

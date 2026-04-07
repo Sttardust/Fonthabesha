@@ -11,9 +11,8 @@
 
 import { useEffect, useState } from 'react';
 import * as Slider from '@radix-ui/react-slider';
-import { bilingualValue } from '@/lib/utils/bilingualValue';
 import { loadFontStyle } from '@/lib/utils/fontLoader';
-import type { FontFamilySummary, FontStyleSummary } from '@/lib/types';
+import type { FontFamilyDetail, FontStyleDetail } from '@/lib/types';
 
 const DEFAULT_HEADLINE =
   'ሰማይ አይታወሰ ሰሚ አይፈልግ';
@@ -27,7 +26,7 @@ const DEFAULT_BODY =
 interface LayoutBlockProps {
   label: string;
   familyId: string;
-  styles: FontStyleSummary[];
+  styles: FontStyleDetail[];
   defaultSize: number;
   defaultText: string;
   darkMode?: boolean;
@@ -67,8 +66,8 @@ function LayoutBlock({
         >
           {styles.map((s) => (
             <option key={s.id} value={s.id}>
-              {bilingualValue(s.name)} {s.weight}
-              {s.isItalic ? 'i' : ''}
+              {s.name} {s.weightLabel ?? (s.weightClass ? String(s.weightClass) : '')}
+              {s.isItalic ? ' Italic' : ''}
             </option>
           ))}
         </select>
@@ -118,16 +117,11 @@ function LayoutBlock({
 // ── Main component ─────────────────────────────────────────────────────────────
 
 interface LayoutsSectionProps {
-  family: FontFamilySummary;
+  family: FontFamilyDetail;
 }
 
 export default function LayoutsSection({ family }: LayoutsSectionProps) {
   const [darkMode, setDarkMode] = useState(false);
-
-  // Pick a heavier style for headline, lighter for body
-  const sortedStyles = [...family.styles].sort((a, b) => a.weight - b.weight);
-  const headlineStyle = sortedStyles.find((s) => s.weight >= 600) ?? sortedStyles.at(-1) ?? sortedStyles[0];
-  const bodyStyle = sortedStyles.find((s) => s.weight <= 400) ?? sortedStyles[0];
 
   return (
     <section id="layouts" className="detail-section">

@@ -39,12 +39,15 @@ export default function HomePage() {
     queryFn: () => collectionsApi.list(1, 8),
     staleTime: 5 * 60_000,
   });
-  const featuredCollections = collectionsData?.data ?? [];
+  const featuredCollections = collectionsData?.items ?? [];
 
   const gridClass =
     viewMode === 'grid'
       ? `font-card-grid font-grid-${columnCount}`
       : 'font-card-list';
+
+  const totalItems = data?.pagination.totalItems;
+  const totalPages = data?.pagination.totalPages ?? 1;
 
   return (
     <>
@@ -61,9 +64,9 @@ export default function HomePage() {
         <div className="home-hero__inner">
           <p className="home-hero__am">{t('home.tagline')}</p>
           <p className="home-hero__sub">{t('home.subTagline')}</p>
-          {data && (
+          {totalItems !== undefined && (
             <p className="home-hero__count">
-              {data.total.toLocaleString()} fonts and counting
+              {t('home.fontsCount', { count: totalItems.toLocaleString() })}
             </p>
           )}
         </div>
@@ -86,7 +89,7 @@ export default function HomePage() {
                 className="home-collection-chip"
               >
                 <span className="home-collection-chip__name">{col.name}</span>
-                {(col.familyCount > 0 || col.families?.length > 0) && (
+                {((col.familyCount ?? 0) > 0 || (col.families?.length ?? 0) > 0) && (
                   <span className="home-collection-chip__count">
                     {col.familyCount ?? col.families?.length}
                   </span>
@@ -100,7 +103,7 @@ export default function HomePage() {
       {/* ── Sticky filter bar (same as /fonts) ── */}
       <FilterBar
         filters={filters}
-        totalCount={data?.total}
+        totalCount={totalItems}
         onFiltersChange={setFilters}
         onReset={resetFilters}
       />
@@ -126,7 +129,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {!isLoading && !isError && data?.data.length === 0 && (
+        {!isLoading && !isError && data?.items.length === 0 && (
           <div className="catalog-status">
             <p>{t('catalog.noResults')}</p>
             <button
@@ -139,27 +142,16 @@ export default function HomePage() {
           </div>
         )}
 
-        {data && data.data.length > 0 && (
-          <>
-            <ul className={gridClass} role="list" aria-label="Font families">
-              {data.data.map((family) => (
-                <FontCard key={family.id} family={family} view={viewMode} />
-              ))}
-            </ul>
-
-            {/* Browse all CTA if showing only featured */}
-            {filters.isFeatured && (
-              <div className="home-browse-cta">
-                <Link to="/fonts" className="btn btn--primary">
-                  {t('home.browseAll')}
-                </Link>
-              </div>
-            )}
-          </>
+        {data && data.items.length > 0 && (
+          <ul className={gridClass} role="list" aria-label="Font families">
+            {data.items.map((family) => (
+              <FontCard key={family.id} family={family} view={viewMode} />
+            ))}
+          </ul>
         )}
 
         {/* Pagination */}
-        {data && data.totalPages > 1 && (
+        {data && totalPages > 1 && (
           <nav className="pagination" aria-label="Pagination">
             <button
               type="button"
@@ -171,12 +163,12 @@ export default function HomePage() {
             </button>
             <span className="pagination__info">
               {t('common.page')} <strong>{filters.page}</strong> {t('common.of')}{' '}
-              <strong>{data.totalPages}</strong>
+              <strong>{totalPages}</strong>
             </span>
             <button
               type="button"
               className="pagination__btn"
-              disabled={filters.page === data.totalPages}
+              disabled={filters.page === totalPages}
               onClick={() => setFilters({ page: (filters.page ?? 1) + 1 })}
             >
               {t('common.next')} →

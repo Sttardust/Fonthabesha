@@ -1,96 +1,162 @@
+/**
+ * RegisterPage — /register
+ *
+ * Contributor self-registration. On success the user is logged in
+ * automatically and redirected to /contributor.
+ * If emailVerificationRequired is returned, a "check your email" screen
+ * is shown with an option to proceed directly to the portal.
+ */
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useMutation } from '@tanstack/react-query';
-import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+
 import { authApi } from '@/lib/api/auth';
+import { ApiError } from '@/lib/api/client';
 import { useAuthStore } from '@/lib/store/authStore';
 
 // ── Schema ────────────────────────────────────────────────────────────────────
+// confirmPassword is validated manually in onSubmit to keep the inferred type
+// a simple flat object (avoids the optional/transform Zod-RHF type mismatch).
 
-const registerSchema = z
-  .object({
-    email:           z.string().email('Enter a valid email address'),
-    displayName:     z.string().min(2, 'At least 2 characters').max(80),
-    legalFullName:   z.string().max(120).optional().or(z.literal('')),
-    organizationName:z.string().max(120).optional().or(z.literal('')),
-    countryCode:     z.string().length(2).toUpperCase().optional().or(z.literal('')),
-    password:        z.string().min(8, 'Password must be at least 8 characters'),
-    confirmPassword: z.string(),
-  })
-  .refine((d) => d.password === d.confirmPassword, {
-    message: 'Passwords do not match',
-    path: ['confirmPassword'],
-  });
+const registerSchema = z.object({
+  email:            z.string().email().max(320),
+  password:         z.string().min(8, 'At least 8 characters').max(200),
+  confirmPassword:  z.string(),
+  displayName:      z.string().trim().min(2).max(120),
+  legalFullName:    z.string().trim().min(2).max(160),
+  countryCode:      z.string().length(2, 'Must be exactly 2 letters (e.g. ET)'),
+  organizationName: z.string().max(160),
+  phoneNumber:      z.string().refine((v) => v === '' || (v.length >= 7 && v.length <= 40), {
+    message: '7–40 characters',
+  }),
+});
 
 type RegisterFormData = z.infer<typeof registerSchema>;
 
-// ── Page ──────────────────────────────────────────────────────────────────────
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export default function RegisterPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const setSession = useAuthStore((s) => s.setSession);
+  const [searchParams] = useSearchParams();
+  const nextPath = searchParams.get('next') ?? '/contributor';
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
+    setError,
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
-  });
-
-  const mutation = useMutation({
-    mutationFn: (data: RegisterFormData) =>
-      authApi.registerContributor({
-        email:            data.email,
-        password:         data.password,
-        displayName:      data.displayName,
-        legalFullName:    data.legalFullName || undefined,
-        organizationName: data.organizationName || undefined,
-        countryCode:      data.countryCode || undefined,
-      }),
-    onSuccess: (res) => {
-      // Auto-login after registration
-      if (res.refreshToken) {
-        localStorage.setItem('fh_refresh', res.refreshToken);
-      }
-      setSession(res.accessToken, res.user);
-      navigate('/contributor');
+    defaultValues: {
+      countryCode: 'ET',
+      organizationName: '',
+      phoneNumber: '',
     },
   });
 
-  const onSubmit = (data: RegisterFormData) => mutation.mutate(data);
+  const onSubmit = async (data: RegisterFormData) => {
+    // Cross-field check (not in Zod to keep the inferred type clean)
+    if (data.password !== data.confirmPassword) {
+      setError('confirmPassword', { message: t('auth.passwordsDoNotMatch') });
+      return;
+    }
 
-  const serverError = mutation.isError
-    ? (mutation.error as any)?.status === 409
-      ? t('register.emailTaken')
-      : t('common.error')
-    : null;
+    try {
+      const res = await authApi.register({
+        email:            data.email,
+        password:         data.password,
+        displayName:      data.displayName,
+        legalFullName:    data.legalFullName,
+        countryCode:      data.countryCode.toUpperCase(),
+        organizationName: data.organizationName || null,
+        phoneNumber:      data.phoneNumber     || null,
+      });
+
+      if (res.emailVerificationRequired) {
+        setPendingEmail(data.email);
+        return;
+      }
+
+      const role = useAuthStore.getState().role;
+      if (role === 'admin' || role === 'reviewer') {
+        navigate('/admin', { replace: true });
+      } else {
+        navigate(nextPath.startsWith('/contributor') ? nextPath : '/contributor', { replace: true });
+      }
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.status === 409) {
+          setError('email', { message: t('auth.emailAlreadyRegistered') });
+        } else {
+          setError('root', { message: err.message || t('auth.registrationError') });
+        }
+        return;
+      }
+      setError('root', { message: t('auth.serverError') });
+    }
+  };
+
+  // ── Email verification pending screen ──────────────────────────────────────
+
+  if (pendingEmail) {
+    return (
+      <>
+        <Helmet><title>{t('auth.checkYourEmail')} — Fonthabesha</title></Helmet>
+        <div className="auth-shell">
+          <div className="auth-card">
+            <Link to="/" className="auth-card__brand" aria-label="Fonthabesha home">
+              <span className="auth-card__logo" aria-hidden="true">ፍ</span>
+            </Link>
+            <h1 className="auth-card__title">{t('auth.checkYourEmail')}</h1>
+            <p className="auth-card__subtitle">
+              {t('auth.emailVerificationPending', { email: pendingEmail })}
+            </p>
+            <button
+              type="button"
+              className="btn btn--primary btn--full"
+              onClick={() => navigate('/contributor', { replace: true })}
+            >
+              {t('auth.continueToPortal')}
+            </button>
+            <p className="form-hint">
+              {t('auth.haveAccount')}{' '}
+              <Link to="/login">{t('nav.login')}</Link>
+            </p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // ── Registration form ─────────────────────────────────────────────────────
 
   return (
     <>
       <Helmet>
-        <title>{t('register.title')} — Fonthabesha</title>
+        <title>{t('auth.register')} — Fonthabesha</title>
       </Helmet>
 
-      <div className="auth-page">
-        <div className="auth-card">
-          <div className="auth-card__header">
-            <Link to="/" className="auth-card__brand" aria-label="Fonthabesha home">
-              <span className="auth-card__logo" aria-hidden="true">ፍ</span>
-            </Link>
-            <h1 className="auth-card__title">{t('register.title')}</h1>
-            <p className="auth-card__sub">{t('register.subtitle')}</p>
-          </div>
+      <div className="auth-shell">
+        <div className="auth-card auth-card--wide">
+          <Link to="/" className="auth-card__brand" aria-label="Fonthabesha home">
+            <span className="auth-card__logo" aria-hidden="true">ፍ</span>
+          </Link>
 
-          <form className="auth-form" onSubmit={handleSubmit(onSubmit)} noValidate>
-            {/* Email */}
-            <div className="form-field">
+          <h1 className="auth-card__title">{t('auth.register')}</h1>
+          <p className="auth-card__subtitle">{t('auth.registerSubtitle')}</p>
+
+          <form onSubmit={handleSubmit(onSubmit)} noValidate>
+
+            {/* ── Account credentials ── */}
+            <div className="form-group">
               <label className="form-label" htmlFor="reg-email">
-                {t('auth.email')} <span aria-hidden="true">*</span>
+                {t('auth.email')} <span className="form-label__required" aria-hidden="true">*</span>
               </label>
               <input
                 id="reg-email"
@@ -99,78 +165,12 @@ export default function RegisterPage() {
                 className={`form-input${errors.email ? ' form-input--error' : ''}`}
                 {...register('email')}
               />
-              {errors.email && <p className="form-error">{errors.email.message}</p>}
+              {errors.email && <p className="form-error" role="alert">{errors.email.message}</p>}
             </div>
 
-            {/* Display name */}
-            <div className="form-field">
-              <label className="form-label" htmlFor="reg-displayName">
-                {t('profile.displayName')} <span aria-hidden="true">*</span>
-              </label>
-              <input
-                id="reg-displayName"
-                type="text"
-                autoComplete="name"
-                className={`form-input${errors.displayName ? ' form-input--error' : ''}`}
-                {...register('displayName')}
-              />
-              {errors.displayName && (
-                <p className="form-error">{errors.displayName.message}</p>
-              )}
-            </div>
-
-            {/* Legal full name */}
-            <div className="form-field">
-              <label className="form-label" htmlFor="reg-legalFullName">
-                {t('profile.legalFullName')}
-              </label>
-              <input
-                id="reg-legalFullName"
-                type="text"
-                autoComplete="name"
-                className="form-input"
-                {...register('legalFullName')}
-              />
-              <p className="form-hint">{t('profile.legalFullNameHint')}</p>
-            </div>
-
-            {/* Organization */}
-            <div className="form-field">
-              <label className="form-label" htmlFor="reg-org">
-                {t('profile.organization')}
-              </label>
-              <input
-                id="reg-org"
-                type="text"
-                autoComplete="organization"
-                className="form-input"
-                {...register('organizationName')}
-              />
-            </div>
-
-            {/* Country */}
-            <div className="form-field">
-              <label className="form-label" htmlFor="reg-country">
-                {t('profile.countryCode')}
-              </label>
-              <input
-                id="reg-country"
-                type="text"
-                maxLength={2}
-                placeholder="ET"
-                autoComplete="country"
-                className={`form-input form-input--short${errors.countryCode ? ' form-input--error' : ''}`}
-                {...register('countryCode')}
-              />
-              {errors.countryCode && (
-                <p className="form-error">{errors.countryCode.message}</p>
-              )}
-            </div>
-
-            {/* Password */}
-            <div className="form-field">
+            <div className="form-group">
               <label className="form-label" htmlFor="reg-password">
-                {t('auth.password')} <span aria-hidden="true">*</span>
+                {t('auth.password')} <span className="form-label__required" aria-hidden="true">*</span>
               </label>
               <input
                 id="reg-password"
@@ -179,48 +179,121 @@ export default function RegisterPage() {
                 className={`form-input${errors.password ? ' form-input--error' : ''}`}
                 {...register('password')}
               />
-              {errors.password && (
-                <p className="form-error">{errors.password.message}</p>
-              )}
+              {errors.password && <p className="form-error" role="alert">{errors.password.message}</p>}
             </div>
 
-            {/* Confirm password */}
-            <div className="form-field">
-              <label className="form-label" htmlFor="reg-confirm">
-                {t('register.confirmPassword')} <span aria-hidden="true">*</span>
+            <div className="form-group">
+              <label className="form-label" htmlFor="reg-confirm-password">
+                {t('auth.confirmPassword')} <span className="form-label__required" aria-hidden="true">*</span>
               </label>
               <input
-                id="reg-confirm"
+                id="reg-confirm-password"
                 type="password"
                 autoComplete="new-password"
                 className={`form-input${errors.confirmPassword ? ' form-input--error' : ''}`}
                 {...register('confirmPassword')}
               />
               {errors.confirmPassword && (
-                <p className="form-error">{errors.confirmPassword.message}</p>
+                <p className="form-error" role="alert">{errors.confirmPassword.message}</p>
               )}
             </div>
 
-            {serverError && (
-              <p className="form-error form-error--server" role="alert">
-                {serverError}
-              </p>
+            {/* ── Profile details ── */}
+            <div className="auth-section-divider">
+              <span>{t('profile.title')}</span>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" htmlFor="reg-displayName">
+                {t('profile.displayName')} <span className="form-label__required" aria-hidden="true">*</span>
+              </label>
+              <input
+                id="reg-displayName"
+                type="text"
+                autoComplete="nickname"
+                maxLength={120}
+                className={`form-input${errors.displayName ? ' form-input--error' : ''}`}
+                {...register('displayName')}
+              />
+              {errors.displayName && <p className="form-error" role="alert">{errors.displayName.message}</p>}
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" htmlFor="reg-legalFullName">
+                {t('profile.legalFullName')} <span className="form-label__required" aria-hidden="true">*</span>
+              </label>
+              <input
+                id="reg-legalFullName"
+                type="text"
+                autoComplete="name"
+                maxLength={160}
+                className={`form-input${errors.legalFullName ? ' form-input--error' : ''}`}
+                {...register('legalFullName')}
+              />
+              {errors.legalFullName && <p className="form-error" role="alert">{errors.legalFullName.message}</p>}
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" htmlFor="reg-countryCode">
+                {t('profile.countryCode')} <span className="form-label__required" aria-hidden="true">*</span>
+              </label>
+              <input
+                id="reg-countryCode"
+                type="text"
+                autoComplete="country"
+                placeholder="ET"
+                maxLength={2}
+                className={`form-input form-input--short${errors.countryCode ? ' form-input--error' : ''}`}
+                {...register('countryCode')}
+              />
+              <p className="form-hint">{t('profile.countryCodeHint')}</p>
+              {errors.countryCode && <p className="form-error" role="alert">{errors.countryCode.message}</p>}
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" htmlFor="reg-organizationName">
+                {t('profile.organizationName')}{' '}
+                <span className="form-label__optional">({t('common.optional')})</span>
+              </label>
+              <input
+                id="reg-organizationName"
+                type="text"
+                autoComplete="organization"
+                maxLength={160}
+                className={`form-input${errors.organizationName ? ' form-input--error' : ''}`}
+                {...register('organizationName')}
+              />
+              {errors.organizationName && <p className="form-error" role="alert">{errors.organizationName.message}</p>}
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" htmlFor="reg-phoneNumber">
+                {t('profile.phoneNumber')}{' '}
+                <span className="form-label__optional">({t('common.optional')})</span>
+              </label>
+              <input
+                id="reg-phoneNumber"
+                type="tel"
+                autoComplete="tel"
+                maxLength={40}
+                className={`form-input${errors.phoneNumber ? ' form-input--error' : ''}`}
+                {...register('phoneNumber')}
+              />
+              {errors.phoneNumber && <p className="form-error" role="alert">{errors.phoneNumber.message}</p>}
+            </div>
+
+            {errors.root && (
+              <p className="form-error form-error--global" role="alert">{errors.root.message}</p>
             )}
 
-            <button
-              type="submit"
-              className="btn btn--primary btn--full"
-              disabled={mutation.isPending}
-            >
-              {mutation.isPending ? t('register.submitting') : t('register.submit')}
+            <button type="submit" className="btn btn--primary btn--full" disabled={isSubmitting}>
+              {isSubmitting ? t('auth.registering') : t('auth.createAccount')}
             </button>
           </form>
 
-          <p className="auth-card__footer">
-            {t('register.haveAccount')}{' '}
-            <Link to="/login" className="auth-card__link">
-              {t('nav.login')}
-            </Link>
+          <p className="form-hint">
+            {t('auth.haveAccount')}{' '}
+            <Link to="/login">{t('nav.login')}</Link>
           </p>
         </div>
       </div>

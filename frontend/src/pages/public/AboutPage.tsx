@@ -1,10 +1,17 @@
+/**
+ * AboutPage — /about
+ *
+ * Static informational page covering the platform mission,
+ * how the review workflow works, and how to contribute.
+ */
+
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
-import { Link } from 'react-router-dom';
 
 export default function AboutPage() {
   const { t, i18n } = useTranslation();
-  const isAm = i18n.language === 'am';
+  const isAmharic = i18n.language === 'am';
 
   return (
     <>
@@ -12,122 +19,156 @@ export default function AboutPage() {
         <title>{t('about.title')} — Fonthabesha</title>
         <meta
           name="description"
-          content="Fonthabesha is a free, open-source platform for discovering, previewing, and downloading Ethiopic and Amharic fonts."
+          content="Fonthabesha is an open platform for discovering, reviewing, and downloading high-quality free Ethiopic and Amharic typefaces."
         />
+        <meta property="og:title"       content={`${t('about.title')} — Fonthabesha`} />
+        <meta property="og:description" content="Fonthabesha is an open platform for discovering, reviewing, and downloading high-quality free Ethiopic and Amharic typefaces." />
+        <meta property="og:type"        content="website" />
       </Helmet>
 
       <div className="page-container page-container--narrow">
 
         {/* ── Hero ── */}
-        <section className="about-hero">
-          <p className="eyebrow">{isAm ? 'ስለ እኛ' : 'About'}</p>
-          <h1 className="about-hero__title">
-            {isAm
-              ? 'ፎንትሃበሻ — የኢትዮጵያ ፊደሎች ቤት'
-              : 'Fonthabesha — Home of Ethiopian Fonts'}
-          </h1>
-          <p className="about-hero__lead">
-            {isAm
-              ? 'ፎንትሃበሻ ነፃ እና ክፍት ምንጭ ያለው የኢትዮጵያ ፊደሎች መድረክ ነው። ዲዛይነሮች፣ ገንቢዎች፣ ጋዜጠኞች፣ እና ማህበረሰቦች ጥራት ያለው አማርኛ እና ኢትዮጵያዊ ፊደሎችን በቀላሉ እንዲያገኙ ይረዳቸዋል።'
-              : 'Fonthabesha is a free, open-source platform dedicated to Ethiopic and Amharic script fonts. It helps designers, developers, journalists, and communities easily discover, preview, and download high-quality fonts.'}
-          </p>
-        </section>
+        <header className="about-hero">
+          <p className="eyebrow">Fonthabesha</p>
+          {isAmharic ? (
+            <>
+              <h1 className="about-hero__title" lang="am">ስለ ፎንትሃቤሻ</h1>
+              <p className="about-hero__lead">
+                ፎንትሃቤሻ — ነፃ የሆኑ አማርኛ እና ኢትዮጵያዊ ፊደሎችን ለሁሉም ተደራሽ ለማድረግ የተቋቋመ ክፍት መድረክ።
+              </p>
+            </>
+          ) : (
+            <>
+              <h1 className="about-hero__title">About Fonthabesha</h1>
+              <p className="about-hero__lead">
+                Fonthabesha is an open platform dedicated to making high-quality Ethiopic
+                and Amharic typefaces freely available to designers, developers, and
+                communities worldwide.
+              </p>
+            </>
+          )}
+        </header>
 
         {/* ── Mission ── */}
         <section className="about-section">
           <h2 className="about-section__title">
-            {isAm ? 'ተልዕኮዋ' : 'Our Mission'}
+            {isAmharic ? 'ተልዕኮ' : 'Mission'}
           </h2>
-          <p className="about-section__text">
-            {isAm
-              ? 'ኢትዮጵያዊ ፊደሎች በዲጂታል ዓለም ውስጥ ምቹ ቦታ ሊኖራቸው ይገባል። ዛሬ ብዙ ጥሩ ፊደሎች ቢኖሩም፣ ለማግኘትና ለማወዳደር ቀላል የሆነ ቦታ አልነበረም። ፎንትሃበሻ ይህንን ክፍተት ለመሙላት ተፈጠረ።'
-              : 'Ethiopic scripts deserve a prominent place in the digital world. While many excellent fonts exist, there was no easy, centralized place to find, compare, and download them. Fonthabesha was built to fill that gap.'}
-          </p>
-          <p className="about-section__text">
-            {isAm
-              ? 'ሁሉም ፊደሎቻችን ክፍት ፈቃዶች ስር ይሰጣሉ — SIL Open Font License ወይም Apache 2.0 — ስለዚህ ለምንም አይነት ፕሮጀክት፣ ንግድ ወይም ግል፣ ያለ ክፍያ ሊጠቀሙባቸው ይችላሉ።'
-              : 'Every font on Fonthabesha is published under an open license — SIL Open Font License or Apache 2.0 — so you can use them in any project, commercial or personal, completely free of charge.'}
-          </p>
+          {isAmharic ? (
+            <p>
+              የኢትዮጵያ ጽሑፍ ከ2,000 ዓመታት በላይ ያስቆጠረ ታሪካዊ ፊደል ቤተሰብ ነው። ሆኖም ከዲጂታሉ ዓለም
+              ጋር ለሚሠሩ ዲዛይነሮች እና ገንቢዎች ተደራሽ የሚሆን ጥራት ያለው ፊደል ማግኘት አሁንም ፈታኝ ሆኖ ይቆያል።
+              ፎንትሃቤሻ ይህን ክፍተት ለመሙላት ይሠራል — ፊደሎቹ ከምንጭ እስከ ሽልማት ድረስ ሙሉ ግልጽነት
+              ባለው ሂደት ውስጥ ሲሆን ለሁሉም ነፃ ሆነው ይቀርባሉ።
+            </p>
+          ) : (
+            <p>
+              Ethiopic script is one of the world's oldest writing systems, with a history
+              spanning over two millennia. Yet for designers and developers working with
+              digital products, finding high-quality, freely licensed Ethiopic typefaces
+              remains difficult. Fonthabesha exists to close that gap — every font on the
+              platform is openly licensed, peer-reviewed, and freely available.
+            </p>
+          )}
         </section>
 
         {/* ── How it works ── */}
         <section className="about-section">
           <h2 className="about-section__title">
-            {isAm ? 'እንዴት ይሰራል' : 'How It Works'}
+            {isAmharic ? 'እንዴት ይሠራል' : 'How It Works'}
           </h2>
-          <div className="about-steps">
-            <div className="about-step">
-              <span className="about-step__num">1</span>
-              <div>
-                <h3 className="about-step__title">
-                  {isAm ? 'ፊደሎቹን ያስሱ' : 'Browse Fonts'}
-                </h3>
-                <p className="about-step__desc">
-                  {isAm
-                    ? 'ፊደሎቹን በምድብ፣ ስክሪፕት፣ ወይም ፈቃድ ያጣሩ። ፊደሉ ከመጫን በፊት የናሙና ጽሑፉን ወደ የሚፈልጉት ቀይሩ።'
-                    : 'Filter fonts by category, script, or license. Change the specimen text to your own words to see how each font looks before downloading.'}
-                </p>
-              </div>
-            </div>
-            <div className="about-step">
-              <span className="about-step__num">2</span>
-              <div>
-                <h3 className="about-step__title">
-                  {isAm ? 'ያውርዱ' : 'Download'}
-                </h3>
-                <p className="about-step__desc">
-                  {isAm
-                    ? 'ሙሉ ቤተሰቡን ወይም ብቻ የሚፈልጉትን ዘይቤ ያውርዱ። ምንም ምዝገባ አያስፈልግም።'
-                    : 'Download the full family or just the styles you need. No account required to browse or download.'}
-                </p>
-              </div>
-            </div>
-            <div className="about-step">
-              <span className="about-step__num">3</span>
-              <div>
-                <h3 className="about-step__title">
-                  {isAm ? 'አስተዋጽዖ ያድርጉ' : 'Contribute'}
-                </h3>
-                <p className="about-step__desc">
-                  {isAm
-                    ? 'የፊደል ዲዛይነር ከሆኑ — ፊደሎቹን ወደ ፎንትሃበሻ ያስገቡ። ፊደሎቹ ከፀደቁ ሁሉም ሰው ሊያወርዳቸው ይችላል።'
-                    : 'If you design fonts, submit them to Fonthabesha. Once reviewed and approved, they become available to everyone.'}
-                </p>
-              </div>
-            </div>
-          </div>
+          {isAmharic ? (
+            <ol className="about-steps">
+              <li>
+                <strong>አስተዋጽዖ አበርካቾች</strong> ፊደሎቻቸውን ወደ ፖርታሉ ያቀርባሉ። ስለ ባለቤትነት
+                ማስረጃ፣ ፈቃድ እና ፊደሉ ስለ ሚሸፍናቸው ቋንቋዎች መረጃ ያካትታሉ።
+              </li>
+              <li>
+                <strong>ሥርዓቱ</strong> የቀረቡትን ፋይሎች አውቶማቲክ ያስኬዳቸዋል — የፊደሉ ሜትሪክስ፣
+                ቅርጽ እና ሽፋን ይፈተናሉ።
+              </li>
+              <li>
+                <strong>ገምጋሚዎቻችን</strong> እያንዳንዱን ቀረቤታ ያጠናሉ — ፊደሉ ከጥራት አቅጣጫ
+                ደረጃውን ጠብቆ ከሆነ ያጸድቃሉ፣ ካልሆነ ደግሞ ለውጥ ይጠይቃሉ ወይም ይቃወሙ።
+              </li>
+              <li>
+                <strong>ፊደሉ ከጸደቀ</strong> ወዲያውኑ ለሁሉም ዓለም ነፃ ለማውረድ ይቀርባል።
+              </li>
+            </ol>
+          ) : (
+            <ol className="about-steps">
+              <li>
+                <strong>Contributors</strong> submit their font families through the
+                contributor portal, providing ownership evidence, licensing information,
+                and metadata about script coverage.
+              </li>
+              <li>
+                <strong>Automated processing</strong> analyses each submission — checking
+                font metrics, file integrity, and script coverage.
+              </li>
+              <li>
+                <strong>Our reviewers</strong> inspect each submission in detail. They
+                can approve, request changes, or reject submissions based on quality
+                and licensing standards.
+              </li>
+              <li>
+                <strong>Approved fonts</strong> are immediately published to the catalog
+                and made available for free download by anyone.
+              </li>
+            </ol>
+          )}
         </section>
 
-        {/* ── Contribution CTA ── */}
-        <section className="about-section about-section--cta">
-          <h2 className="about-section__title">
-            {isAm ? 'ፊደሎቹን ያስገቡ' : 'Submit Your Fonts'}
-          </h2>
-          <p className="about-section__text">
-            {isAm
-              ? 'ኢትዮጵያዊ ፊደሎች ፈጥረዋልን? ፎንትሃበሻ ላይ ያስፍሯቸው። እያንዳንዱ ማቅረቢያ ከፀደቁ በፊት ጥራቱን እና ፈቃዱን እናረጋግጣለን።'
-              : 'Have you designed Ethiopic fonts? Publish them on Fonthabesha. We review every submission for quality and licensing compliance before approval.'}
-          </p>
-          <div className="about-section__actions">
-            <Link to="/register" className="btn btn--primary">
-              {isAm ? 'አስተዋጽዖ ጀምር' : 'Start Contributing'}
-            </Link>
-            <Link to="/faq" className="btn btn--outline">
-              {isAm ? 'ተደጋጋሚ ጥያቄዎች' : 'Read the FAQ'}
-            </Link>
-          </div>
-        </section>
-
-        {/* ── Open source ── */}
+        {/* ── Contribute ── */}
         <section className="about-section">
           <h2 className="about-section__title">
-            {isAm ? 'ክፍት ምንጭ' : 'Open Source'}
+            {isAmharic ? 'አስተዋጽዖ ያድርጉ' : 'Contribute a Font'}
           </h2>
-          <p className="about-section__text">
-            {isAm
-              ? 'ፎንትሃበሻ ክፍት ምንጭ ፕሮጀክት ነው። ኮዱ በ GitHub ላይ ሊገኝ ይችላል። አስተዋጽዖ ለማድረግ፣ ሪፖርት ለማቅረብ፣ ወይም ሐሳብ ለማካፈል ቀጥታ ወደ GitHub ሂዱ።'
-              : 'Fonthabesha is an open-source project. The source code is available on GitHub. Contributions, bug reports, and feature suggestions are welcome.'}
-          </p>
+          {isAmharic ? (
+            <>
+              <p>
+                ክፍት ፈቃድ ስር ያወጣዋቸው ፊደሎች ካሉዎት — OFL፣ Apache 2.0 ወይም MIT — ወደ ፎንትሃቤሻ
+                ካታሎጉ እንዲካተቱ ይጋብዘዎታለን። መለያ ያዘጋጁ፣ ወደ አስተዋጽዖ ፖርታሉ ይግቡ፣ ከዚያ ፊደሎቹን
+                አቅርቡ።
+              </p>
+              <Link to="/contributor" className="btn btn--primary">
+                ወደ አስተዋጽዖ ፖርታል →
+              </Link>
+            </>
+          ) : (
+            <>
+              <p>
+                If you have font families licensed under an open license — OFL, Apache 2.0,
+                or MIT — we welcome contributions to the Fonthabesha catalog. Create an
+                account, navigate to the contributor portal, and submit your fonts.
+                Our reviewers will guide the rest.
+              </p>
+              <Link to="/contributor" className="btn btn--primary">
+                Go to Contributor Portal →
+              </Link>
+            </>
+          )}
+        </section>
+
+        {/* ── Open source note ── */}
+        <section className="about-section">
+          <h2 className="about-section__title">
+            {isAmharic ? 'ክፍት ምንጭ' : 'Open Source'}
+          </h2>
+          {isAmharic ? (
+            <p>
+              ፎንትሃቤሻ ክፍት ምንጭ ፕሮጀክት ነው። መድረኩ ራሱ፣ የፊደሎቹ ፋይሎች እና ሁሉም ሜታዳታ
+              ሙሉ ግልጽነት ባለው ሁኔታ ይቀርባሉ። ለፕሮጀክቱ አስተዋጽዖ ለማድረግ ወይም ስለ ውሳኔዎቻችን
+              ለማወቅ ቅርብ ይሁኑ።
+            </p>
+          ) : (
+            <p>
+              Fonthabesha is an open project. The platform, the font files, and all
+              associated metadata are made available with full transparency. We welcome
+              contributions to the project and feedback on how we can improve.
+            </p>
+          )}
         </section>
 
       </div>

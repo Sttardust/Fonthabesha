@@ -62,7 +62,7 @@ export default function CollectionsPage() {
     queryFn: () => collectionsApi.list(),
   });
 
-  const collections = data?.data ?? [];
+  const collections = data?.items ?? [];
 
   return (
     <>
@@ -75,7 +75,7 @@ export default function CollectionsPage() {
           <h1 className="page-title">{t('nav.collections')}</h1>
           {data && (
             <p className="page-subtitle">
-              {data.total} {t('nav.collections').toLowerCase()}
+              {data.pagination.totalItems} {t('nav.collections').toLowerCase()}
             </p>
           )}
         </header>

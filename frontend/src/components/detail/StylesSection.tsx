@@ -16,11 +16,11 @@ import { useTranslation } from 'react-i18next';
 import { loadFontStyle } from '@/lib/utils/fontLoader';
 import { useSpecimenStore, SPECIMEN_PRESETS, type SpecimenPreset } from '@/lib/store/specimenStore';
 import { bilingualValue } from '@/lib/utils/bilingualValue';
-import type { FontStyleSummary, FontFamilySummary } from '@/lib/types';
+import type { FontStyleDetail, FontFamilyDetail } from '@/lib/types';
 
 interface StylesRowProps {
   familyId: string;
-  style: FontStyleSummary;
+  style: FontStyleDetail;
   specimenText: string;
   fontSize: number;
   darkMode: boolean;
@@ -37,7 +37,9 @@ function StyleRow({ familyId, style, specimenText, fontSize, darkMode }: StylesR
     loadFontStyle(familyId, style.id, style.assetUrl).then(setCssFamily);
   }, [familyId, style.id, style.assetUrl]);
 
-  const styleName = bilingualValue(style.name);
+  // style.name is a plain string (not BilingualString)
+  const styleName = style.name;
+  const weightDesc = style.weightLabel ?? (style.weightClass ? String(style.weightClass) : '');
 
   return (
     <div className="style-row">
@@ -45,7 +47,7 @@ function StyleRow({ familyId, style, specimenText, fontSize, darkMode }: StylesR
       <div className="style-row__header">
         <span className="style-row__name">{styleName}</span>
         <span className="style-row__weight">
-          {style.weight}{style.isItalic ? ' Italic' : ''}
+          {weightDesc}{style.isItalic ? ' Italic' : ''}
         </span>
 
         {/* Per-row size slider */}
@@ -90,7 +92,7 @@ function StyleRow({ familyId, style, specimenText, fontSize, darkMode }: StylesR
 // ── Main component ─────────────────────────────────────────────────────────────
 
 interface StylesSectionProps {
-  family: FontFamilySummary;
+  family: FontFamilyDetail;
 }
 
 const PRESETS: Array<{ key: SpecimenPreset; label: string }> = [
@@ -104,8 +106,7 @@ export default function StylesSection({ family }: StylesSectionProps) {
   const { text, setText, preset, setPreset, fontSize, setFontSize, darkMode, toggleDarkMode } =
     useSpecimenStore();
 
-  const staticStyles = family.styles.filter((s) => !s.isItalic || true); // all styles for now
-  const variableStyles = family.isVariable ? family.styles : [];
+  const familyName = bilingualValue(family.name);
 
   return (
     <section id="styles" className="detail-section">
@@ -174,19 +175,19 @@ export default function StylesSection({ family }: StylesSectionProps) {
 
       {/* Style rows */}
       <div className="style-rows">
-        {staticStyles.map((style) => (
+        {family.styles.map((style) => (
           <StyleRow
             key={style.id}
             familyId={family.id}
             style={style}
-            specimenText={text || bilingualValue(family.name)}
+            specimenText={text || familyName}
             fontSize={fontSize}
             darkMode={darkMode}
           />
         ))}
       </div>
 
-      {family.isVariable && variableStyles.length > 0 && (
+      {family.styles.some((s) => s.isVariable) && (
         <div className="style-rows__variable-badge">
           <span className="badge badge--variable">Variable font</span>
           <span style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>

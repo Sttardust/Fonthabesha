@@ -1,6 +1,6 @@
 /**
  * UploadDropzone — drag-and-drop font file upload zone.
- * Accepts .ttf .otf .woff .woff2 files.
+ * Accepts .ttf .otf and .woff files.
  * Renders a StyleMetaRow for each queued file.
  */
 import { useRef, useState, useCallback } from 'react';
@@ -8,7 +8,8 @@ import { useTranslation } from 'react-i18next';
 import type { UseUploadReturn } from '@/hooks/useUpload';
 import StyleMetaRow from './StyleMetaRow';
 
-const ACCEPT = '.ttf,.otf,.woff,.woff2';
+// .woff2 not accepted — backend only processes source formats (TTF/OTF/WOFF)
+const ACCEPT = '.ttf,.otf,.woff';
 
 interface Props extends UseUploadReturn {
   disabled?: boolean;

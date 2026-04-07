@@ -8,7 +8,7 @@
 import * as Slider from '@radix-ui/react-slider';
 import { useTranslation } from 'react-i18next';
 import { useSpecimenStore, SPECIMEN_PRESETS, type SpecimenPreset } from '@/lib/store/specimenStore';
-import type { SearchFilters, FontCategory, ScriptSupport } from '@/lib/types';
+import type { SearchFilters } from '@/lib/types';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface FilterBarProps {
@@ -18,7 +18,7 @@ interface FilterBarProps {
   onReset: () => void;
 }
 
-const CATEGORIES: Array<{ value: FontCategory; labelKey: string }> = [
+const CATEGORIES: Array<{ value: string; labelKey: string }> = [
   { value: 'serif',       labelKey: 'catalog.filters.serif' },
   { value: 'sans_serif',  labelKey: 'catalog.filters.sans_serif' },
   { value: 'display',     labelKey: 'catalog.filters.display' },
@@ -27,10 +27,10 @@ const CATEGORIES: Array<{ value: FontCategory; labelKey: string }> = [
   { value: 'decorative',  labelKey: 'catalog.filters.decorative' },
 ];
 
-const SCRIPTS: Array<{ value: ScriptSupport; labelKey: string }> = [
-  { value: 'ethiopic', labelKey: 'catalog.filters.ethiopic' },
-  { value: 'latin',    labelKey: 'catalog.filters.latin' },
-  { value: 'both',     labelKey: 'catalog.filters.both' },
+const SCRIPTS: Array<{ value: string; labelKey: string }> = [
+  { value: 'Ethiopic', labelKey: 'catalog.filters.ethiopic' },
+  { value: 'Latin',    labelKey: 'catalog.filters.latin' },
+  { value: 'Both',     labelKey: 'catalog.filters.both' },
 ];
 
 const PRESETS: Array<{ key: SpecimenPreset; label: string }> = [
@@ -132,11 +132,11 @@ export default function FilterBar({
         {/* Variable toggle */}
         <button
           type="button"
-          className={`filter-item filter-item--variable${filters.isVariable ? ' filter-item--active' : ''}`}
+          className={`filter-item filter-item--variable${filters.variable ? ' filter-item--active' : ''}`}
           onClick={() =>
-            onFiltersChange({ isVariable: filters.isVariable ? undefined : true, page: 1 })
+            onFiltersChange({ variable: filters.variable ? undefined : true, page: 1 })
           }
-          aria-pressed={!!filters.isVariable}
+          aria-pressed={!!filters.variable}
         >
           Variable
         </button>
@@ -240,7 +240,7 @@ export default function FilterBar({
         >
           <option value="newest">{t('catalog.sort.newest')}</option>
           <option value="popular">{t('catalog.sort.popular')}</option>
-          <option value="name">{t('catalog.sort.name')}</option>
+          <option value="alphabetical">{t('catalog.sort.name')}</option>
         </select>
 
         {/* Reset */}

@@ -3,14 +3,14 @@ import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { contributorApi } from '@/lib/api/contributor';
-import { bilingualValue } from '@/lib/utils/bilingualValue';
 
 export default function SubmissionsListPage() {
   const { t } = useTranslation();
 
+  // list() returns SubmissionSummary[] (flat array, not paginated)
   const { data, isLoading, isError } = useQuery({
     queryKey: ['contributor', 'submissions', 'all'],
-    queryFn: () => contributorApi.list(1, 50),
+    queryFn: () => contributorApi.list(),
   });
 
   return (
@@ -26,13 +26,13 @@ export default function SubmissionsListPage() {
       {isLoading && <p>{t('common.loading')}</p>}
       {isError && <p>{t('common.error')}</p>}
 
-      {data && data.data.length === 0 && (
+      {data && data.length === 0 && (
         <p style={{ color: 'var(--color-text-muted)' }}>
           No submissions yet. Start by uploading a font family.
         </p>
       )}
 
-      {data && data.data.length > 0 && (
+      {data && data.length > 0 && (
         <table className="data-table">
           <thead>
             <tr>
@@ -43,11 +43,11 @@ export default function SubmissionsListPage() {
             </tr>
           </thead>
           <tbody>
-            {data.data.map((s) => (
+            {data.map((s) => (
               <tr key={s.id}>
                 <td>
                   <Link to={`/contributor/submissions/${s.id}`}>
-                    {bilingualValue(s.familyName)}
+                    {s.family.nameAm ?? s.family.nameEn}
                   </Link>
                 </td>
                 <td>
@@ -55,7 +55,11 @@ export default function SubmissionsListPage() {
                     {t(`contributor.status.${s.status}`)}
                   </span>
                 </td>
-                <td>{new Date(s.createdAt).toLocaleDateString()}</td>
+                <td>
+                  {s.submittedAt
+                    ? new Date(s.submittedAt).toLocaleDateString()
+                    : '—'}
+                </td>
                 <td>{new Date(s.updatedAt).toLocaleDateString()}</td>
               </tr>
             ))}

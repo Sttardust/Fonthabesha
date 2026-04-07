@@ -2,52 +2,64 @@
  * SubmissionDetailPage — full contributor view of one submission.
  *
  * Sections:
- *  1. Header — family name, status badge, optional reviewer notes
- *  2. Upload zone — UploadDropzone (draft / changes_requested only)
+ *  1. Header — family name, status badge, optional reviewer feedback
+ *  2. Upload zone — UploadDropzone (editable states only)
  *  3. Uploaded styles — processing status list with polling
- *  4. Actions — Submit for Review / Edit metadata / Back
+ *  4. Actions — Submit for Review / Back
  */
 import { useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { contributorApi } from '@/lib/api/contributor';
-import { bilingualValue } from '@/lib/utils/bilingualValue';
 import { useUpload } from '@/hooks/useUpload';
 import UploadDropzone from '@/components/contributor/UploadDropzone';
 
-// ── Processing status badge labels ────────────────────────────────────────────
 const UPLOAD_STATUS_LABEL: Record<string, string> = {
-  pending:    'Queued',
+  queued:     'Queued',
   processing: 'Processing…',
-  ready:      'Ready ✓',
-  error:      'Error',
+  completed:  'Ready ✓',
+  failed:     'Error',
 };
+
+const REVIEW_PHASE_LABEL: Record<string, string> = {
+  idle: 'Draft in progress',
+  awaiting_contributor: 'Waiting for your changes',
+  awaiting_staff: 'Waiting for staff review',
+  closed: 'Review cycle closed',
+};
+
+/** Submission statuses where the contributor can still make changes */
+const EDITABLE_STATUSES = new Set([
+  'draft',
+  'uploaded',
+  'processing_failed',
+  'ready_for_submission',
+  'changes_requested',
+]);
 
 export default function SubmissionDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { t } = useTranslation();
   const queryClient = useQueryClient();
 
-  // ── Remote submission data ─────────────────────────────────────────────────
   const { data, isLoading, isError } = useQuery({
     queryKey: ['contributor', 'submission', id],
     queryFn: () => contributorApi.get(id!),
     enabled: !!id,
-    // Refresh every 5s while any style is still processing
+    // Refresh while any upload is still being processed
     refetchInterval: (query) => {
       const d = query.state.data;
       if (!d) return false;
-      return d.styles.some((s) => s.uploadStatus === 'processing' || s.uploadStatus === 'pending')
-        ? 5_000
-        : false;
+      const hasProcessing = d.uploads.some(
+        (u) => u.processingStatus === 'queued' || u.processingStatus === 'processing',
+      );
+      return hasProcessing ? 5_000 : false;
     },
   });
 
-  // ── Upload state machine ───────────────────────────────────────────────────
   const upload = useUpload(id ?? '');
 
-  // ── Submit for review mutation ─────────────────────────────────────────────
   const submitMutation = useMutation({
     mutationFn: () => contributorApi.submit(id!),
     onSuccess: () => {
@@ -56,10 +68,7 @@ export default function SubmissionDetailPage() {
     },
   });
 
-  // ── Loading / error guards ─────────────────────────────────────────────────
-  if (isLoading) {
-    return <div className="page-loading">{t('common.loading')}</div>;
-  }
+  if (isLoading) return <div className="page-loading">{t('common.loading')}</div>;
   if (isError || !data) {
     return (
       <div className="page-error">
@@ -71,13 +80,17 @@ export default function SubmissionDetailPage() {
     );
   }
 
-  const familyName = bilingualValue(data.familyName);
-  const isEditable = data.status === 'draft' || data.status === 'changes_requested';
+  const familyName  = data.family.nameAm ?? data.family.nameEn;
+  const isEditable  = EDITABLE_STATUSES.has(data.status);
 
-  // Can submit when editable + at least one server-side ready style + nothing uploading
-  const serverReadyCount = data.styles.filter((s) => s.uploadStatus === 'ready').length;
-  const localUploading   = upload.isUploading;
-  const canSubmit        = isEditable && serverReadyCount > 0 && !localUploading;
+  // Count completed uploads (backend: processingStatus === 'completed')
+  const completedUploadCount = data.analysis.completedUploadCount;
+  const canSubmit =
+    data.permissions.canSubmitForReview && !upload.isUploading;
+
+  // Latest reviewer feedback from review history
+  const latestFeedback = data.review.latestContributorFeedback;
+  const reviewCycle = data.review.cycle;
 
   return (
     <>
@@ -89,9 +102,9 @@ export default function SubmissionDetailPage() {
       <div className="portal-page-header">
         <div className="portal-page-header__titles">
           <h1 className="portal-page-title">{familyName}</h1>
-          {data.familyName.en && data.familyName.am && (
-            <span className="portal-page-subtitle" lang="am">
-              {data.familyName.am}
+          {data.family.nameAm && data.family.nameEn && (
+            <span className="portal-page-subtitle" lang="en">
+              {data.family.nameEn}
             </span>
           )}
         </div>
@@ -100,11 +113,71 @@ export default function SubmissionDetailPage() {
         </span>
       </div>
 
-      {/* ── Reviewer notes ── */}
-      {data.reviewNotes && (
+      {/* ── Reviewer feedback ── */}
+      {latestFeedback && (
         <div className="review-notes" role="note">
           <strong>{t('contributor.upload.reviewerNotes')}</strong>
-          <p>{data.reviewNotes}</p>
+          <p>{latestFeedback.notes ?? latestFeedback.summary}</p>
+        </div>
+      )}
+
+      {(reviewCycle.currentPhase !== 'idle' || data.review.issueResolutions.length > 0) && (
+        <section className="submission-section">
+          <h2 className="submission-section__title">Review Cycle</h2>
+          <div className="processing-warnings" role="status">
+            <p>
+              <strong>{REVIEW_PHASE_LABEL[reviewCycle.currentPhase] ?? reviewCycle.currentPhase}</strong>
+            </p>
+            {reviewCycle.awaitingReviewSince && (
+              <p>
+                Awaiting review since {new Date(reviewCycle.awaitingReviewSince).toLocaleString()}
+              </p>
+            )}
+            {reviewCycle.lastResubmittedAt && (
+              <p>
+                Last resubmitted at {new Date(reviewCycle.lastResubmittedAt).toLocaleString()}
+              </p>
+            )}
+          </div>
+        </section>
+      )}
+
+      {data.review.actionRequired && data.review.actionItems.length > 0 && (
+        <section className="submission-section">
+          <h2 className="submission-section__title">Action Items</h2>
+          <ul className="processing-list">
+            {data.review.actionItems.map((item) => (
+              <li key={item.id} className="processing-item">
+                <div className="processing-item__info">
+                  <span className="processing-item__name">{item.summary}</span>
+                  <span className="processing-item__meta">
+                    {item.issueCode ?? item.sourceAction}
+                  </span>
+                </div>
+                <div className="processing-item__status">
+                  {item.style && <span className="badge">{item.style.name}</span>}
+                  {item.upload && <span className="badge">{item.upload.originalFilename}</span>}
+                </div>
+                {item.note && (
+                  <p className="processing-item__error" style={{ color: 'var(--color-text-muted)' }}>
+                    {item.note}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* ── Processing / blocking issues ── */}
+      {data.analysis.blockingIssues.length > 0 && (
+        <div className="processing-warnings" role="alert">
+          <p><strong>Processing errors require attention:</strong></p>
+          <ul>
+            {data.analysis.blockingIssues.map((issue, i) => (
+              <li key={i}>{issue.message ?? 'Unknown processing error'}</li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -118,40 +191,90 @@ export default function SubmissionDetailPage() {
         </section>
       )}
 
-      {/* ── Uploaded styles from server ── */}
-      {data.styles.length > 0 && (
+      {/* ── Uploads from server ── */}
+      {data.uploads.length > 0 && (
         <section className="submission-section">
           <h2 className="submission-section__title">
             {t('contributor.upload.uploadedStyles')}
             <span className="submission-section__count">
-              {serverReadyCount}/{data.styles.length} ready
+              {completedUploadCount}/{data.uploads.length} ready
             </span>
           </h2>
 
           <ul className="processing-list">
-            {data.styles.map((style) => (
-              <li key={style.id} className="processing-item">
+            {data.uploads.map((upload) => (
+              <li key={upload.id} className="processing-item">
                 <div className="processing-item__info">
-                  <span className="processing-item__name">
-                    {bilingualValue(style.name)}
+                  <span className="processing-item__file">
+                    {upload.originalFilename}
                   </span>
                   <span className="processing-item__meta">
-                    {style.weight}
-                    {style.isItalic ? ' Italic' : ''}
+                    {(upload.fileSizeBytes / 1024).toFixed(1)} KB
                   </span>
-                  <span className="processing-item__file">{style.fileName}</span>
                 </div>
                 <div className="processing-item__status">
-                  <span className={`upload-badge upload-badge--${style.uploadStatus}`}>
-                    {UPLOAD_STATUS_LABEL[style.uploadStatus] ?? style.uploadStatus}
+                  <span className={`upload-badge upload-badge--${upload.processingStatus}`}>
+                    {UPLOAD_STATUS_LABEL[upload.processingStatus] ?? upload.processingStatus}
                   </span>
-                  {style.uploadStatus === 'processing' && (
+                  {(upload.processingStatus === 'queued' || upload.processingStatus === 'processing') && (
                     <span className="upload-processing__spinner" aria-label="Processing" />
                   )}
                 </div>
-                {style.errorMessage && (
+                {upload.processingError && (
                   <p className="processing-item__error form-error">
-                    {style.errorMessage}
+                    {upload.processingError}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* ── Styles (font records linked to uploads) ── */}
+      {data.styles.length > 0 && (
+        <section className="submission-section">
+          <h2 className="submission-section__title">Font Styles</h2>
+          <ul className="processing-list">
+            {data.styles.map((style) => (
+              <li key={style.id} className="processing-item">
+                <div className="processing-item__info">
+                  <span className="processing-item__name">{style.name}</span>
+                  <span className="processing-item__meta">
+                    {style.weightClass ?? '—'}{style.isItalic ? ' Italic' : ''}
+                  </span>
+                </div>
+                <div className="processing-item__status">
+                  <span className={`upload-badge upload-badge--${style.status}`}>
+                    {style.status}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {data.review.issueResolutions.length > 0 && (
+        <section className="submission-section">
+          <h2 className="submission-section__title">Issue Resolution Status</h2>
+          <ul className="processing-list">
+            {data.review.issueResolutions.map((item) => (
+              <li key={item.id} className="processing-item">
+                <div className="processing-item__info">
+                  <span className="processing-item__name">{item.summary}</span>
+                  <span className="processing-item__meta">
+                    {item.resolutionStatus === 'resubmitted' ? 'Resubmitted' : 'Open'}
+                  </span>
+                </div>
+                <div className="processing-item__status">
+                  <span className={`upload-badge upload-badge--${item.resolutionStatus === 'resubmitted' ? 'completed' : 'queued'}`}>
+                    {item.resolutionStatus}
+                  </span>
+                </div>
+                {item.resubmittedAt && (
+                  <p className="processing-item__meta">
+                    Resubmitted {new Date(item.resubmittedAt).toLocaleString()}
                   </p>
                 )}
               </li>
@@ -175,15 +298,11 @@ export default function SubmissionDetailPage() {
                 : t('contributor.upload.submitForReview')}
             </button>
 
-            {serverReadyCount === 0 && (
-              <p className="form-error">
-                {t('contributor.upload.needStyles')}
-              </p>
+            {completedUploadCount === 0 && (
+              <p className="form-error">{t('contributor.upload.needStyles')}</p>
             )}
-            {localUploading && (
-              <p className="form-hint">
-                {t('contributor.upload.waitForUploads')}
-              </p>
+            {upload.isUploading && (
+              <p className="form-hint">{t('contributor.upload.waitForUploads')}</p>
             )}
             {submitMutation.isError && (
               <p className="form-error">{t('common.error')}</p>

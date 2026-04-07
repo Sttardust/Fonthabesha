@@ -1,39 +1,26 @@
-import { apiClient } from './client';
+/**
+ * Collections API
+ *
+ * NOTE: The collections feature is not yet implemented in the backend.
+ * These stubs are kept so pages compile and show a graceful "not available"
+ * state rather than crashing. Remove this notice and implement when the
+ * backend /api/v1/collections routes are added.
+ */
+import { ApiError } from './client';
 import type { Collection, PaginatedResponse } from '@/lib/types';
 
-const PREFIX = '/api/v1/collections';
+const NOT_IMPLEMENTED = (..._args: unknown[]): never => {
+  throw new ApiError(501, 'NOT_IMPLEMENTED', 'Collections are not yet available.');
+};
 
 export const collectionsApi = {
-  /**
-   * List public collections — no auth required.
-   * Collections is a public-browsing feature per V1 spec.
-   */
-  list: (page = 1, pageSize = 20): Promise<PaginatedResponse<Collection>> =>
-    apiClient.get<PaginatedResponse<Collection>>(
-      `${PREFIX}?page=${page}&pageSize=${pageSize}`,
-    ),
-
-  /** Get a single collection by id (public) */
-  get: (id: string): Promise<Collection> =>
-    apiClient.get<Collection>(`${PREFIX}/${id}`),
-
-  /** Create a new collection (admin) */
-  create: (payload: { name: string; description?: string; isPublic?: boolean }): Promise<Collection> =>
-    apiClient.post<Collection>(PREFIX, payload),
-
-  /** Update a collection (admin) */
-  update: (id: string, payload: Partial<{ name: string; description: string; isPublic: boolean }>): Promise<Collection> =>
-    apiClient.patch<Collection>(`${PREFIX}/${id}`, payload),
-
-  /** Delete a collection (admin) */
-  delete: (id: string): Promise<void> =>
-    apiClient.delete(`${PREFIX}/${id}`),
-
-  /** Add a font family to a collection (admin) */
-  addFamily: (collectionId: string, familyId: string): Promise<void> =>
-    apiClient.post(`${PREFIX}/${collectionId}/families/${familyId}`),
-
-  /** Remove a font family from a collection (admin) */
-  removeFamily: (collectionId: string, familyId: string): Promise<void> =>
-    apiClient.delete(`${PREFIX}/${collectionId}/families/${familyId}`),
+  list: (_page?: number, _pageSize?: number): Promise<PaginatedResponse<Collection>> =>
+    NOT_IMPLEMENTED(),
+  get: (_id: string): Promise<Collection> =>
+    NOT_IMPLEMENTED(),
+  create: NOT_IMPLEMENTED,
+  update: NOT_IMPLEMENTED,
+  delete: NOT_IMPLEMENTED,
+  addFamily: NOT_IMPLEMENTED,
+  removeFamily: NOT_IMPLEMENTED,
 };

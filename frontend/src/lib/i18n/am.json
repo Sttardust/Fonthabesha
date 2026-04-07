@@ -3,6 +3,8 @@
     "fonts": "ፊደሎች",
     "collections": "ስብስቦች",
     "about": "ስለ እኛ",
+    "licenses": "ፈቃዶች",
+    "faq": "ጥያቄዎች",
     "login": "ግባ",
     "logout": "ውጣ",
     "dashboard": "ዳሽቦርድ",
@@ -12,13 +14,17 @@
     "tagline": "የኢትዮጵያ ፊደሎች ቤት",
     "subTagline": "ነፃ የሆኑ አማርኛ እና ኢትዮጵያዊ ፊደሎችን አግኝ፣ ፈትሽ፣ አውርድ።",
     "browseAll": "ሁሉንም ፊደሎች ይመልከቱ",
-    "featured": "ተለይቶ የቀረበ"
+    "featured": "ተለይቶ የቀረበ",
+    "fontsCount": "{{count}} ፊደሎች እና ከዚያ በላይ",
+    "collections": "ስብስቦች",
+    "viewAll": "ሁሉንም ይመልከቱ"
   },
   "catalog": {
     "title": "ፊደሎች",
     "searchPlaceholder": "ፊደሎችን ፈልግ…",
     "yourText": "ጽሑፍዎን ያስገቡ",
     "noResults": "ምንም ፊደሎች አልተገኙም።",
+    "clearAll": "ሁሉንም አጽዳ",
     "filters": {
       "all": "ሁሉም",
       "category": "ምድብ",
@@ -56,33 +62,99 @@
     "license": "ፈቃድ",
     "pairings": "ጥምረቶች",
     "designer": "ዲዛይነር",
-    "addToCollection": "ስብስብ ውስጥ አስገባ"
+    "publisher": "አሳታሚ",
+    "category": "ምድብ",
+    "scriptSupport": "ስክሪፕት ድጋፍ",
+    "tags": "መለያዎች",
+    "published": "የታተመበት ቀን",
+    "nameAmharic": "ስም (አማርኛ)",
+    "nameEnglish": "ስም (እንግሊዝኛ)",
+    "addToCollection": "ስብስብ ውስጥ አስገባ",
+    "loginToDownload": "ይህን የፊደል ቤተሰብ ለማውረድ ያስገቡ።"
   },
   "auth": {
     "login": "ስርዓቱ ውስጥ ግባ",
+    "loginSubtitle": "ወደ አስተዋጽዖ ወይም የአስተዳዳሪ ስራ ቦታዎ ይግቡ።",
+    "register": "የአስተዋጽዖ መለያ ፍጠር",
+    "registerSubtitle": "ፊደሎችን ለመስቀል፣ የትንተና ውጤቶችን ለማረጋገጥ እና ለክለሳ ለማቅረብ ይመዝገቡ።",
     "email": "ኢሜይል",
     "password": "የይለፍ ቃል",
+    "newPassword": "አዲስ የይለፍ ቃል",
+    "confirmPassword": "የይለፍ ቃሉን ያረጋግጡ",
     "submit": "ግባ",
+    "createAccount": "መለያ ፍጠር",
+    "registering": "መለያ በመፍጠር ላይ…",
+    "forgotPassword": "የይለፍ ቃል ረስተዋል?",
+    "forgotPasswordHelp": "የመለያ ኢሜይልዎን ያስገቡ እና የይለፍ ቃል መቀየሪያ አገናኝ እንልካለን።",
+    "sendResetLink": "መቀየሪያ አገናኝ ላክ",
+    "resetPassword": "የይለፍ ቃል ቀይር",
+    "resetPasswordHelp": "ለመለያዎ አዲስ የይለፍ ቃል ይምረጡ።",
+    "resetEmailSent": "ያ መለያ ካለ የይለፍ ቃል መቀየሪያ አገናኝ ተልኳል።",
+    "passwordResetSuccess": "የይለፍ ቃልዎ ተቀይሯል። አሁን መግባት ይችላሉ።",
+    "verifyEmail": "ኢሜይልዎን ያረጋግጡ",
+    "verifyingEmail": "ኢሜይልዎን በማረጋገጥ ላይ…",
+    "emailVerified": "የኢሜይል አድራሻዎ ተረጋግጧል።",
+    "backToLogin": "ወደ መግቢያ ተመለስ",
+    "noAccount": "የአስተዋጽዖ መለያ ይፈልጋሉ?",
+    "haveAccount": "መለያ አለዎት?",
+    "deliveryMethod": "የመላኪያ ዘዴ",
+    "invalidResetToken": "ይህ የይለፍ ቃል መቀየሪያ አገናኝ ጎድሎአል ወይም ልክ አይደለም።",
+    "invalidVerificationToken": "ይህ የኢሜይል ማረጋገጫ አገናኝ ጎድሎአል ወይም ልክ አይደለም።",
     "loggingIn": "በመግባት ላይ…",
     "invalidCredentials": "ኢሜይሉ ወይም የይለፍ ቃሉ ትክክለኛ አይደለም።",
-    "serverError": "የሰርቨር ስህተት። እባክዎ እንደገና ይሞክሩ።"
+    "serverError": "የሰርቨር ስህተት። እባክዎ እንደገና ይሞክሩ።",
+    "changePassword": "የይለፍ ቃል ቀይር",
+    "currentPassword": "የአሁኑ የይለፍ ቃል",
+    "changingPassword": "በመቀየር ላይ…",
+    "passwordChanged": "የይለፍ ቃሉ ተቀይሯል። እንደገና ይግቡ።",
+    "emailVerificationSent": "የማረጋገጫ አገናኝ ወደ ኢሜይልዎ ተልኳል።",
+    "resendVerification": "የማረጋገጫ ኢሜይል ድጋሚ ላክ",
+    "checkYourEmail": "ኢሜይልዎን ያረጋግጡ",
+    "emailVerificationPending": "ወደ {{email}} የማረጋገጫ አገናኝ ልከናል። ከመቀጠልዎ በፊት ሳጥንዎን ያረጋግጡ።",
+    "continueToPortal": "ወደ ፖርታሉ ቀጥል",
+    "passwordsDoNotMatch": "የይለፍ ቃሎቹ አይዛመዱም።",
+    "registrationError": "ምዝገባ አልተሳካም። ዝርዝሮቹን ያረጋግጡ እና እንደገና ይሞክሩ።",
+    "emailAlreadyRegistered": "ያ ኢሜይል አድራሻ ቀደም ብሎ ተመዝግቧል።",
+    "invalidToken": "ይህ አገናኝ ልክ ያልሆነ ወይም ጊዜ ያለፈው ነው።"
+  },
+  "profile": {
+    "title": "የእኔ መገለጫ",
+    "subtitle": "የአስተዋጽዖ ሰጪ መረጃዎን ያዘምኑ።",
+    "displayName": "የማሳያ ስም",
+    "legalFullName": "ሙሉ ህጋዊ ስም",
+    "legalFullNameHint": "ለቅጂ መብት ምስጋና ጥቅም ላይ ይውላል። ለህዝብ አይታይም።",
+    "countryCode": "የሀገር ኮድ",
+    "countryCodeHint": "ሁለት-ፊደል የ ISO ሀገር ኮድ (ለምሳሌ ET, US, GB)",
+    "organizationName": "ድርጅት",
+    "organization": "ድርጅት / ፋውንደሪ",
+    "phoneNumber": "ስልክ ቁጥር",
+    "phone": "ስልክ ቁጥር",
+    "emailNote": "የኢሜይል አድራሻዎ እዚህ ሊለወጥ አይችልም።",
+    "saved": "መገለጫ ተቀምጧል።",
+    "saving": "በማስቀመጥ ላይ…",
+    "saveProfile": "መገለጫ አስቀምጥ"
   },
   "contributor": {
     "portal": "አስተዋጽዖ ፖርታል",
     "mySubmissions": "ማቅረቢያዎቼ",
     "newSubmission": "አዲስ ማቅረቢያ",
+    "profile": "መገለጫ",
     "status": {
       "draft": "ረቂቅ",
-      "pending_review": "በክለሳ ላይ",
+      "uploaded": "ተጭኗል",
+      "processing": "በሂደት ላይ",
+      "processing_failed": "ሂደቱ ወድቋል",
+      "ready_for_submission": "ለማቅረብ ዝግጁ",
+      "needs_review": "ክለሳ ያስፈልጋል",
       "changes_requested": "ለውጥ ተጠይቋል",
       "approved": "ተቀባይነት አገኘ",
       "rejected": "ተነቅፏል",
-      "published": "ታትሟል"
+      "archived": "ተቀምጧል"
     },
     "upload": {
       "dropzone": "የፊደል ፋይሎችን ይጣሉ፣ ወይም ጠቅ ያድርጉ",
       "dropHere": "ፋይሎቹን ያጥሉ",
-      "accepted": ".ttf · .otf · .woff · .woff2 ይቀበላል",
+      "accepted": ".ttf · .otf · .woff (ምንጭ ቅርጸቶች ብቻ)",
       "uploadFile": "አውርድ",
       "uploadAll": "ሁሉንም አውርድ",
       "uploading": "በማስገባት ላይ…",
@@ -96,108 +168,6 @@
       "waitForUploads": "እባክዎ ሁሉም ስቀሎች እስኪጨርስ ይጠብቁ።",
       "reviewerNotes": "የገምጋሚ ማስታወሻዎች፦"
     }
-  },
-  "admin": {
-    "dashboard": "አስተዳደር ዳሽቦርድ",
-    "reviewQueue": "የክለሳ ወረፋ",
-    "manageFonts": "ፊደሎችን አስተዳድር",
-    "stats": {
-      "totalFamilies": "ጠቅላላ ቤተሰቦች",
-      "pendingReviews": "በወረፋ ላይ",
-      "totalDownloads": "ጠቅላላ ቅጂዎች",
-      "activeContributors": "ንቁ አስተዋጽዖ አበርካቾች"
-    },
-    "actions": {
-      "approve": "ተቀበል",
-      "requestChanges": "ለውጥ ጠይቅ",
-      "reject": "ንቀፍ"
-    },
-    "collections": {
-      "title": "ስብስቦች",
-      "new": "አዲስ ስብስብ",
-      "empty": "ምንም ስብስቦች የሉም።"
-    },
-    "vocabulary": {
-      "title": "መዝገበ ቃላት",
-      "addTag": "መለያ አክል",
-      "newTagPlaceholder": "አዲስ መለያ ስም…",
-      "empty": "ምንም መለያዎች የሉም።"
-    },
-    "analytics": {
-      "title": "ትንታኔ",
-      "totalDownloads": "ጠቅላላ ቅጂዎች",
-      "publishedFamilies": "የታተሙ ቤተሰቦች",
-      "contributors": "አስተዋጽዖ አበርካቾች",
-      "downloadTrend": "የቅጂ አዝማሚያ",
-      "topFonts": "ምርጥ ፊደሎች",
-      "monthlyBreakdown": "ወርሃዊ ዝርዝር"
-    }
-  },
-  "common": {
-    "loading": "በመጫን ላይ…",
-    "error": "ስህተት ተከስቷል።",
-    "retry": "እንደገና ሞክር",
-    "cancel": "ሰርዝ",
-    "save": "አስቀምጥ",
-    "saving": "በማስቀመጥ ላይ…",
-    "delete": "ሰርዝ",
-    "deleting": "በመሰረዝ ላይ…",
-    "edit": "አርትዕ",
-    "view": "ይመልከቱ",
-    "back": "ተመለስ",
-    "next": "ቀጣይ",
-    "previous": "ቀዳሚ",
-    "page": "ገጽ",
-    "of": "ከ"
-  },
-  "nav": {
-    "fonts": "ፊደሎች",
-    "collections": "ስብስቦች",
-    "about": "ስለ እኛ",
-    "licenses": "ፈቃዶች",
-    "faq": "ጥያቄዎች",
-    "login": "ግባ",
-    "logout": "ውጣ",
-    "dashboard": "ዳሽቦርድ",
-    "admin": "አስተዳዳሪ"
-  },
-  "collections": {
-    "empty": "ምንም ስብስቦች የሉም።"
-  },
-  "licenses": {
-    "title": "የፊደል ፈቃዶች",
-    "intro": "ሁሉም ፊደሎቻችን ክፍት ምንጭ ናቸው። ከዚህ በታች ስለ ፈቃዶቹ ቀላል መዝገበ ቃላት ያገኛሉ።",
-    "empty": "ምንም ፈቃዶች አልተገኙም።",
-    "redistribute": "ማሰራጨት",
-    "commercial": "ንግዳዊ አጠቃቀም",
-    "attribution": "ምስጋና ያስፈልጋል",
-    "readFull": "ሙሉ ፈቃዱን ያንብቡ"
-  },
-  "about": {
-    "title": "ስለ ፎንትሃበሻ"
-  },
-  "faq": {
-    "title": "ተደጋጋሚ ጥያቄዎች"
-  },
-  "profile": {
-    "title": "መለያዬ",
-    "subtitle": "የአስተዋጽዖ ሰጪ መረጃዎን ያዘምኑ።",
-    "displayName": "የሚታይ ስም",
-    "legalFullName": "ሕጋዊ ሙሉ ስም",
-    "legalFullNameHint": "ለቅጂ መብት ምስጋና ጥቅም ላይ ይውላል። ለህዝብ አይታይም።",
-    "organization": "ድርጅት / ፋውንደሪ",
-    "countryCode": "የሀገር ኮድ",
-    "phone": "ስልክ ቁጥር",
-    "saved": "መለያ በተሳካ ሁኔታ ተቀምጧል።"
-  },
-  "register": {
-    "title": "የአስተዋጽዖ ሰጪ መለያ ፍጠር",
-    "subtitle": "ኢትዮጵያዊ ፊደሎችን ወደ ፎንትሃበሻ አስገቡ።",
-    "confirmPassword": "የይለፍ ቃልዎን ያረጋግጡ",
-    "submit": "መለያ ፍጠር",
-    "submitting": "መለያ በመፍጠር ላይ…",
-    "emailTaken": "ይህ ኢሜይል ያለው መለያ አስቀድሞ አለ።",
-    "haveAccount": "አስቀድሞ መለያ አለዎት?"
   },
   "admin": {
     "dashboard": "አስተዳደር ዳሽቦርድ",
@@ -289,96 +259,83 @@
       "deleteConfirm": "\"{{name}}\" ሰርዘው እርግጠኛ ናቸው? ይህ ቀልብሰው ሊከለሰው አይቻልም።"
     }
   },
-  "home": {
-    "tagline": "የኢትዮጵያ ፊደሎች ቤት",
-    "subTagline": "ነፃ የሆኑ አማርኛ እና ኢትዮጵያዊ ፊደሎችን አግኝ፣ ፈትሽ፣ አውርድ።",
-    "browseAll": "ሁሉንም ፊደሎች ይመልከቱ",
-    "featured": "ተለይቶ የቀረበ",
-    "collections": "ስብስቦች",
-    "viewAll": "ሁሉንም ይመልከቱ"
-  },
-  "catalog": {
-    "title": "ፊደሎች",
-    "searchPlaceholder": "ፊደሎችን ፈልግ…",
-    "yourText": "ጽሑፍዎን ያስገቡ",
-    "noResults": "ምንም ፊደሎች አልተገኙም።",
-    "clearAll": "ሁሉንም አጽዳ",
-    "filters": {
-      "all": "ሁሉም",
-      "category": "ምድብ",
-      "script": "ስክሪፕት",
-      "variable": "ቫሪያብል",
-      "featured": "ተለይቶ የቀረበ",
-      "serif": "ሰሪፍ",
-      "sans_serif": "ሳንስ ሰሪፍ",
-      "display": "ዲስፕሌይ",
-      "handwriting": "ጽሑፍ",
-      "monospace": "ሞኖስፔስ",
-      "decorative": "ጌጣዊ",
-      "ethiopic": "ኢትዮጵያዊ",
-      "latin": "ላቲን",
-      "both": "ሁለቱም"
-    },
-    "sort": {
-      "newest": "አዲስ",
-      "popular": "ተወዳጅ",
-      "name": "ስም"
-    },
-    "view": {
-      "list": "ዝርዝር",
-      "grid": "ጥምቅ"
+  "licenses": {
+    "title": "የፊደል ፈቃዶች",
+    "intro": "በፎንትሃቤሻ ላይ ያሉ ሁሉም ፊደሎች ክፍት ምንጭ ናቸው። ከዚህ በታች በዚህ መድረክ ላይ ጥቅም ላይ ስለሚውሉ ፈቃዶች ቀለል ያለ ማብራሪያ አለ።",
+    "empty": "ምንም ፈቃዶች አልተገኙም።",
+    "redistribute": "ማሰራጨት",
+    "commercial": "ንግዳዊ አጠቃቀም",
+    "attribution": "ምስጋና ያስፈልጋል",
+    "readFull": "ሙሉ ፈቃዱን ያንብቡ",
+    "permissions": {
+      "redistribute": "ማሰራጨት",
+      "commercial": "ለንግድ አጠቃቀም",
+      "modify": "ማሻሻል",
+      "embed": "ወደ መተግበሪያ / ሰነዶች ማስገባት",
+      "attribution": "ምንጭ መጥቀስ ያስፈልጋል"
     }
   },
-  "fontDetail": {
-    "download": "አውርድ",
-    "downloading": "በማውረድ ላይ…",
-    "styles": "ዘይቤዎች",
-    "glyphs": "ፊደላት",
-    "layouts": "አቀማመጦች",
-    "details": "ዝርዝሮች",
-    "about": "ስለ ፊደሉ",
-    "license": "ፈቃድ",
-    "pairings": "ጥምረቶች",
-    "designer": "ዲዛይነር",
-    "addToCollection": "ስብስብ ውስጥ አስገባ"
+  "about": {
+    "title": "ስለ ፎንትሃቤሻ",
+    "mission": "ተልዕኮ",
+    "howItWorks": "እንዴት ይሠራል",
+    "contribute": "አስተዋጽዖ ያድርጉ",
+    "contact": "ያግኙን"
   },
-  "auth": {
-    "login": "ስርዓቱ ውስጥ ግባ",
-    "email": "ኢሜይል",
-    "password": "የይለፍ ቃል",
-    "submit": "ግባ",
-    "loggingIn": "በመግባት ላይ…",
-    "invalidCredentials": "ኢሜይሉ ወይም የይለፍ ቃሉ ትክክለኛ አይደለም።",
-    "serverError": "የሰርቨር ስህተት። እባክዎ እንደገና ይሞክሩ።"
+  "faq": {
+    "title": "ተደጋጋሚ ጥያቄዎች"
   },
-  "contributor": {
-    "portal": "አስተዋጽዖ ፖርታል",
-    "mySubmissions": "ማቅረቢያዎቼ",
-    "newSubmission": "አዲስ ማቅረቢያ",
-    "status": {
-      "draft": "ረቂቅ",
-      "pending_review": "በክለሳ ላይ",
-      "changes_requested": "ለውጥ ተጠይቋል",
-      "approved": "ተቀባይነት አገኘ",
-      "rejected": "ተነቅፏል",
-      "published": "ታትሟል"
-    },
-    "upload": {
-      "dropzone": "የፊደል ፋይሎችን ይጣሉ፣ ወይም ጠቅ ያድርጉ",
-      "dropHere": "ፋይሎቹን ያጥሉ",
-      "accepted": ".ttf · .otf · .woff · .woff2 ይቀበላል",
-      "uploadFile": "አውርድ",
-      "uploadAll": "ሁሉንም አውርድ",
-      "uploading": "በማስገባት ላይ…",
-      "processing": "ፊደሉን በማስኬድ ላይ…",
-      "clearUploaded": "የወጡትን አጽዳ",
-      "hasErrors": "አንዳንድ ፋይሎች አልተጫኑም። ስህተቶቹን አርትዕ ከዚያ እንደገና ሞክር።",
-      "addStyles": "የፊደል ዘይቤዎችን አክል",
-      "uploadedStyles": "የወጡ ዘይቤዎች",
-      "submitForReview": "ለክለሳ አቅርብ",
-      "needStyles": "ከማቅረብዎ በፊት ቢያንስ አንድ የፊደል ዘይቤ ያስገቡ።",
-      "waitForUploads": "እባክዎ ሁሉም ስቀሎች እስኪጨርስ ይጠብቁ።",
-      "reviewerNotes": "የገምጋሚ ማስታወሻዎች፦"
-    }
+  "notFound": {
+    "title": "ገጹ አልተገኘም",
+    "description": "እየፈለጉት ያለው ገጽ የለም፣ ወይም ተዛውሯል።",
+    "backHome": "ወደ መነሻ ተመለስ",
+    "browseFonts": "ፊደሎችን ያስሱ"
+  },
+  "collections": {
+    "empty": "ምንም ስብስቦች የሉም።"
+  },
+  "register": {
+    "title": "የአስተዋጽዖ ሰጪ መለያ ፍጠር",
+    "subtitle": "ኢትዮጵያዊ ፊደሎችን ወደ ፎንትሃበሻ አስገቡ።",
+    "confirmPassword": "የይለፍ ቃልዎን ያረጋግጡ",
+    "submit": "መለያ ፍጠር",
+    "submitting": "መለያ በመፍጠር ላይ…",
+    "emailTaken": "ይህ ኢሜይል ያለው መለያ አስቀድሞ አለ።",
+    "haveAccount": "አስቀድሞ መለያ አለዎት?"
+  },
+  "placeholder": {
+    "collections": "ስብስቦች በቅርቡ ይገኛሉ።",
+    "collectionDetail": "የስብስብ ዝርዝር በቅርቡ ይገኛል።",
+    "manageFonts": "ቀጥተኛ የፊደል አስተዳደር እስካሁን አይገኝም። ፊደሎችን ለማጽደቅ፣ ለማቅ ወይም ለማደስ የግምገማ ወረፋ ይጠቀሙ።",
+    "collectionsAdmin": "የስብስቦች አስተዳደር እስካሁን አይገኝም። የኋለኛው ክፍል ነጥብ ጥበቃ ላይ ነው።",
+    "vocabulary": "የቃላት አስተዳደር እስካሁን አይገኝም። የኋለኛው ክፍል ነጥብ ጥበቃ ላይ ነው።"
+  },
+  "footer": {
+    "tagline": "ለሁሉም ነፃ የኢትዮጵያ ፊደሎች።",
+    "colFonts": "ፊደሎች",
+    "colInfo": "መረጃ",
+    "browseAll": "ሁሉንም ያስሱ",
+    "featured": "ተለይተው የቀረቡ",
+    "madeWith": "ለኢትዮጵያ ማህበረሰብ በፍቅር ❤️"
+  },
+  "common": {
+    "loading": "በመጫን ላይ…",
+    "error": "ስህተት ተከስቷል።",
+    "retry": "እንደገና ሞክር",
+    "cancel": "ሰርዝ",
+    "save": "አስቀምጥ",
+    "saving": "በማስቀመጥ ላይ…",
+    "delete": "ሰርዝ",
+    "deleting": "በመሰረዝ ላይ…",
+    "edit": "አርትዕ",
+    "view": "ይመልከቱ",
+    "back": "ተመለስ",
+    "next": "ቀጣይ",
+    "previous": "ቀዳሚ",
+    "page": "ገጽ",
+    "of": "ከ",
+    "yes": "አዎ",
+    "no": "አይ",
+    "optional": "አማራጭ"
   }
 }

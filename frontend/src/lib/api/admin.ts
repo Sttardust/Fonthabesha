@@ -1,173 +1,176 @@
 import { apiClient } from './client';
 import type {
   ReviewQueueItem,
-  AdminStats,
-  AdminSubmissionDetail,
-  AdminCollection,
-  FontFamilyDetail,
-  AnalyticsResponse,
-  PaginatedResponse,
+  AdminReviewSummary,
+  AdminReviewDetail,
+  ReviewHistoryResponse,
+  ReviewAnalytics,
+  ReviewDecisionResponse,
+  ReprocessResponse,
   SubmissionStatus,
+  PaginatedResponse,
   VocabEntry,
-  LicenseAdmin,
   ProcessingFailure,
+  LicenseAdmin,
 } from '@/lib/types';
 
-const REVIEW_PREFIX = '/api/v1/admin/submissions';
-const FAMILIES_PREFIX = '/api/v1/admin/families';
-const STATS_PREFIX = '/api/v1/admin/stats';
+// All real admin routes live under /api/v1/admin/reviews
+const REVIEWS_PREFIX = '/api/v1/admin/reviews';
 
 export const adminApi = {
-  // ── Stats ────────────────────────────────────────────────────────────────────
-  stats: (): Promise<AdminStats> =>
-    apiClient.get<AdminStats>(STATS_PREFIX),
+  // ── Review summary (dashboard stats) ────────────────────────────────────────
+
+  /** GET /api/v1/admin/reviews/summary — pending/failed/changed/approved counts */
+  reviewSummary: (): Promise<AdminReviewSummary> =>
+    apiClient.get<AdminReviewSummary>(`${REVIEWS_PREFIX}/summary`),
 
   // ── Review queue ─────────────────────────────────────────────────────────────
-  reviewQueue: (
-    status?: SubmissionStatus,
-    page = 1,
-    pageSize = 20,
-  ): Promise<PaginatedResponse<ReviewQueueItem>> => {
-    const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+
+  /**
+   * GET /api/v1/admin/reviews — returns a flat array (not paginated).
+   * Pass a status to filter; defaults to pending statuses when omitted.
+   */
+  reviewQueue: (status?: SubmissionStatus): Promise<ReviewQueueItem[]> => {
+    const params = new URLSearchParams();
     if (status) params.set('status', status);
-    return apiClient.get<PaginatedResponse<ReviewQueueItem>>(
-      `${REVIEW_PREFIX}?${params.toString()}`,
-    );
+    const qs = params.toString();
+    return apiClient.get<ReviewQueueItem[]>(`${REVIEWS_PREFIX}${qs ? `?${qs}` : ''}`);
   },
 
-  getSubmission: (id: string): Promise<AdminSubmissionDetail> =>
-    apiClient.get<AdminSubmissionDetail>(`${REVIEW_PREFIX}/${id}`),
+  /** GET /api/v1/admin/reviews/:submissionId — full review detail */
+  getReview: (id: string): Promise<AdminReviewDetail> =>
+    apiClient.get<AdminReviewDetail>(`${REVIEWS_PREFIX}/${id}`),
 
-  /** Approve a submission → publishes it as a font family */
-  approve: (id: string, notes?: string): Promise<AdminSubmissionDetail> =>
-    apiClient.post<AdminSubmissionDetail>(`${REVIEW_PREFIX}/${id}/approve`, { notes }),
-
-  /** Request changes from the contributor */
-  requestChanges: (id: string, notes: string): Promise<AdminSubmissionDetail> =>
-    apiClient.post<AdminSubmissionDetail>(`${REVIEW_PREFIX}/${id}/request-changes`, { notes }),
-
-  /** Reject a submission */
-  reject: (id: string, notes: string): Promise<AdminSubmissionDetail> =>
-    apiClient.post<AdminSubmissionDetail>(`${REVIEW_PREFIX}/${id}/reject`, { notes }),
-
-  // ── Published families management ────────────────────────────────────────────
-  listFamilies: (page = 1, pageSize = 20): Promise<PaginatedResponse<FontFamilyDetail>> =>
-    apiClient.get<PaginatedResponse<FontFamilyDetail>>(
-      `${FAMILIES_PREFIX}?page=${page}&pageSize=${pageSize}`,
-    ),
-
-  unpublishFamily: (id: string): Promise<void> =>
-    apiClient.post(`${FAMILIES_PREFIX}/${id}/unpublish`),
-
-  deleteFamily: (id: string): Promise<void> =>
-    apiClient.delete(`${FAMILIES_PREFIX}/${id}`),
-
-  // ── Collections admin ─────────────────────────────────────────────────────────
-  listCollections: (page = 1, pageSize = 20): Promise<PaginatedResponse<AdminCollection>> =>
-    apiClient.get<PaginatedResponse<AdminCollection>>(
-      `/api/v1/admin/collections?page=${page}&pageSize=${pageSize}`,
-    ),
-
-  createCollection: (payload: {
-    name: string;
-    description?: string;
-    isPublic: boolean;
-  }): Promise<AdminCollection> =>
-    apiClient.post<AdminCollection>('/api/v1/admin/collections', payload),
-
-  updateCollection: (
+  /** GET /api/v1/admin/reviews/:submissionId/history */
+  getReviewHistory: (
     id: string,
-    payload: Partial<{ name: string; description: string; isPublic: boolean }>,
-  ): Promise<AdminCollection> =>
-    apiClient.patch<AdminCollection>(`/api/v1/admin/collections/${id}`, payload),
+    page = 1,
+    pageSize = 25,
+  ): Promise<ReviewHistoryResponse> =>
+    apiClient.get<ReviewHistoryResponse>(
+      `${REVIEWS_PREFIX}/${id}/history?page=${page}&pageSize=${pageSize}`,
+    ),
 
-  deleteCollection: (id: string): Promise<void> =>
-    apiClient.delete(`/api/v1/admin/collections/${id}`),
+  // ── Review decisions ─────────────────────────────────────────────────────────
 
-  addFamilyToCollection: (collectionId: string, familyId: string): Promise<void> =>
-    apiClient.post(`/api/v1/admin/collections/${collectionId}/families/${familyId}`),
+  /**
+   * POST /api/v1/admin/reviews/:id/approve
+   * Returns a lightweight decision confirmation, not the full review detail.
+   * Refetch getReview() afterwards to update UI.
+   */
+  approve: (id: string, notes?: string): Promise<ReviewDecisionResponse> =>
+    apiClient.post<ReviewDecisionResponse>(`${REVIEWS_PREFIX}/${id}/approve`, { notes }),
 
-  removeFamilyFromCollection: (collectionId: string, familyId: string): Promise<void> =>
-    apiClient.delete(`/api/v1/admin/collections/${collectionId}/families/${familyId}`),
+  /**
+   * POST /api/v1/admin/reviews/:id/request-changes (notes required)
+   * Returns a lightweight decision confirmation.
+   */
+  requestChanges: (id: string, notes: string): Promise<ReviewDecisionResponse> =>
+    apiClient.post<ReviewDecisionResponse>(`${REVIEWS_PREFIX}/${id}/request-changes`, { notes }),
 
-  // ── Analytics ─────────────────────────────────────────────────────────────────
-  analytics: (months = 12): Promise<AnalyticsResponse> =>
-    apiClient.get<AnalyticsResponse>(`/api/v1/admin/analytics?months=${months}`),
+  /**
+   * POST /api/v1/admin/reviews/:id/reject (notes required)
+   * Returns a lightweight decision confirmation.
+   */
+  reject: (id: string, notes: string): Promise<ReviewDecisionResponse> =>
+    apiClient.post<ReviewDecisionResponse>(`${REVIEWS_PREFIX}/${id}/reject`, { notes }),
+
+  /**
+   * POST /api/v1/admin/reviews/:id/reprocess
+   * Re-queues font processing for a failed or stuck submission.
+   */
+  reprocess: (id: string, notes?: string): Promise<ReprocessResponse> =>
+    apiClient.post<ReprocessResponse>(`${REVIEWS_PREFIX}/${id}/reprocess`, { notes }),
+
+  // ── Review analytics ─────────────────────────────────────────────────────────
+
+  /**
+   * GET /api/v1/admin/reviews/analytics
+   * @param from ISO date string (YYYY-MM-DD), defaults to 30 days ago
+   * @param to   ISO date string (YYYY-MM-DD), defaults to today
+   */
+  analytics: (from: string, to: string): Promise<ReviewAnalytics> =>
+    apiClient.get<ReviewAnalytics>(
+      `${REVIEWS_PREFIX}/analytics?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+    ),
+
+  // ── Search index ─────────────────────────────────────────────────────────────
+
+  /** POST /api/v1/admin/search/reindex — rebuild the search index */
+  reindex: (): Promise<void> =>
+    apiClient.post('/api/v1/admin/search/reindex'),
 
   // ── Processing failures ───────────────────────────────────────────────────────
-  failures: (page = 1, pageSize = 20): Promise<PaginatedResponse<ProcessingFailure>> =>
+
+  failures: (page = 1, pageSize = 25): Promise<PaginatedResponse<ProcessingFailure>> =>
     apiClient.get<PaginatedResponse<ProcessingFailure>>(
       `/api/v1/admin/failures?page=${page}&pageSize=${pageSize}`,
     ),
 
   retryFailure: (submissionId: string): Promise<void> =>
-    apiClient.post(`/api/v1/admin/uploads/${submissionId}/retry`),
+    apiClient.post(`/api/v1/admin/failures/${submissionId}/retry`),
 
   // ── Publishers ────────────────────────────────────────────────────────────────
-  listPublishers: (page = 1, pageSize = 50): Promise<PaginatedResponse<VocabEntry>> =>
+
+  listPublishers: (page = 1, pageSize = 25): Promise<PaginatedResponse<VocabEntry>> =>
     apiClient.get<PaginatedResponse<VocabEntry>>(
       `/api/v1/admin/publishers?page=${page}&pageSize=${pageSize}`,
     ),
+
   createPublisher: (payload: { name: string; description?: string }): Promise<VocabEntry> =>
     apiClient.post<VocabEntry>('/api/v1/admin/publishers', payload),
-  updatePublisher: (id: string, payload: Partial<{ name: string; description: string }>): Promise<VocabEntry> =>
+
+  updatePublisher: (id: string, payload: { name?: string; description?: string }): Promise<VocabEntry> =>
     apiClient.patch<VocabEntry>(`/api/v1/admin/publishers/${id}`, payload),
+
   deletePublisher: (id: string): Promise<void> =>
     apiClient.delete(`/api/v1/admin/publishers/${id}`),
 
   // ── Designers ─────────────────────────────────────────────────────────────────
-  listDesigners: (page = 1, pageSize = 50): Promise<PaginatedResponse<VocabEntry>> =>
+
+  listDesigners: (page = 1, pageSize = 25): Promise<PaginatedResponse<VocabEntry>> =>
     apiClient.get<PaginatedResponse<VocabEntry>>(
       `/api/v1/admin/designers?page=${page}&pageSize=${pageSize}`,
     ),
+
   createDesigner: (payload: { name: string; description?: string }): Promise<VocabEntry> =>
     apiClient.post<VocabEntry>('/api/v1/admin/designers', payload),
-  updateDesigner: (id: string, payload: Partial<{ name: string; description: string }>): Promise<VocabEntry> =>
+
+  updateDesigner: (id: string, payload: { name?: string; description?: string }): Promise<VocabEntry> =>
     apiClient.patch<VocabEntry>(`/api/v1/admin/designers/${id}`, payload),
+
   deleteDesigner: (id: string): Promise<void> =>
     apiClient.delete(`/api/v1/admin/designers/${id}`),
 
-  // ── Licenses (admin) ──────────────────────────────────────────────────────────
-  listLicenses: (page = 1, pageSize = 50): Promise<PaginatedResponse<LicenseAdmin>> =>
-    apiClient.get<PaginatedResponse<LicenseAdmin>>(
-      `/api/v1/admin/licenses?page=${page}&pageSize=${pageSize}`,
-    ),
-  createLicense: (payload: {
-    code: string;
-    name: string;
-    summaryEn: string;
-    summaryAm: string;
-    fullTextUrl: string;
-    allowsRedistribution: boolean;
-    allowsCommercialUse: boolean;
-    requiresAttribution: boolean;
-    isActive?: boolean;
-  }): Promise<LicenseAdmin> =>
-    apiClient.post<LicenseAdmin>('/api/v1/admin/licenses', payload),
-  updateLicense: (id: string, payload: Partial<{
-    code: string;
-    name: string;
-    summaryEn: string;
-    summaryAm: string;
-    fullTextUrl: string;
-    allowsRedistribution: boolean;
-    allowsCommercialUse: boolean;
-    requiresAttribution: boolean;
-    isActive: boolean;
-  }>): Promise<LicenseAdmin> =>
-    apiClient.patch<LicenseAdmin>(`/api/v1/admin/licenses/${id}`, payload),
-  deleteLicense: (id: string): Promise<void> =>
-    apiClient.delete(`/api/v1/admin/licenses/${id}`),
-
   // ── Categories ────────────────────────────────────────────────────────────────
-  listCategories: (page = 1, pageSize = 50): Promise<PaginatedResponse<VocabEntry>> =>
+
+  listCategories: (page = 1, pageSize = 25): Promise<PaginatedResponse<VocabEntry>> =>
     apiClient.get<PaginatedResponse<VocabEntry>>(
       `/api/v1/admin/categories?page=${page}&pageSize=${pageSize}`,
     ),
+
   createCategory: (payload: { name: string; description?: string }): Promise<VocabEntry> =>
     apiClient.post<VocabEntry>('/api/v1/admin/categories', payload),
-  updateCategory: (id: string, payload: Partial<{ name: string; description: string }>): Promise<VocabEntry> =>
+
+  updateCategory: (id: string, payload: { name?: string; description?: string }): Promise<VocabEntry> =>
     apiClient.patch<VocabEntry>(`/api/v1/admin/categories/${id}`, payload),
+
   deleteCategory: (id: string): Promise<void> =>
     apiClient.delete(`/api/v1/admin/categories/${id}`),
+
+  // ── Licenses (admin CRUD) ─────────────────────────────────────────────────────
+
+  listLicenses: (page = 1, pageSize = 25): Promise<PaginatedResponse<LicenseAdmin>> =>
+    apiClient.get<PaginatedResponse<LicenseAdmin>>(
+      `/api/v1/admin/licenses?page=${page}&pageSize=${pageSize}`,
+    ),
+
+  createLicense: (payload: Omit<LicenseAdmin, 'id' | 'createdAt'>): Promise<LicenseAdmin> =>
+    apiClient.post<LicenseAdmin>('/api/v1/admin/licenses', payload),
+
+  updateLicense: (id: string, payload: Partial<Omit<LicenseAdmin, 'id' | 'createdAt'>>): Promise<LicenseAdmin> =>
+    apiClient.patch<LicenseAdmin>(`/api/v1/admin/licenses/${id}`, payload),
+
+  deleteLicense: (id: string): Promise<void> =>
+    apiClient.delete(`/api/v1/admin/licenses/${id}`),
 };

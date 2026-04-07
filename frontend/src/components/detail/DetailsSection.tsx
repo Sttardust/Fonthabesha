@@ -2,7 +2,7 @@
  * DetailsSection  (#details anchor)
  *
  * Two-column layout:
- *   Left  — spec table (name, designer, category, styles, scripts, tags, license)
+ *   Left  — spec table (names, designers, publisher, category, styles, script support, tags, license, published)
  *   Right — bilingual description text
  */
 
@@ -40,13 +40,14 @@ export default function DetailsSection({ family }: DetailsSectionProps) {
 
   const amName = family.name.am;
   const enName = family.name.en;
-  const description = family.description ? bilingualValue(family.description, lang as 'am' | 'en') : null;
-  const designer = family.designer ? bilingualValue(family.designer) : null;
+  const description = family.description
+    ? bilingualValue(family.description, lang as 'am' | 'en')
+    : null;
 
   return (
     <section id="details" className="detail-section">
       <div className="detail-section__header">
-        <h2 className="detail-section__title">Details</h2>
+        <h2 className="detail-section__title">{t('fontDetail.details')}</h2>
       </div>
 
       <div className="details-body">
@@ -54,75 +55,89 @@ export default function DetailsSection({ family }: DetailsSectionProps) {
         <div className="details-spec">
           <table className="spec-table">
             <tbody>
-              {amName && <SpecRow label="ስም (አማርኛ)">{amName}</SpecRow>}
-              {enName && <SpecRow label="Name (English)">{enName}</SpecRow>}
-
-              {designer && (
-                <SpecRow label={t('fontDetail.designer')}>{designer}</SpecRow>
+              {amName && (
+                <SpecRow label={t('fontDetail.nameAmharic')}>{amName}</SpecRow>
+              )}
+              {enName && (
+                <SpecRow label={t('fontDetail.nameEnglish')}>{enName}</SpecRow>
               )}
 
-              <SpecRow label="Category">
-                <span className="badge">
-                  {t(`catalog.filters.${family.category}`)}
-                </span>
-              </SpecRow>
+              {family.designers.length > 0 && (
+                <SpecRow label={t('fontDetail.designer')}>
+                  {family.designers.map((d) => d.name).join(', ')}
+                </SpecRow>
+              )}
 
-              <SpecRow label="Styles">
+              {family.publisher && (
+                <SpecRow label={t('fontDetail.publisher')}>
+                  {family.publisher.name}
+                </SpecRow>
+              )}
+
+              {family.category && (
+                <SpecRow label={t('fontDetail.category')}>
+                  <span className="badge">
+                    {t(`catalog.filters.${family.category.toLowerCase()}`, {
+                      defaultValue: family.category,
+                    })}
+                  </span>
+                </SpecRow>
+              )}
+
+              <SpecRow label={t('fontDetail.styles')}>
                 {family.styles.length}
-                {family.isVariable && (
+                {family.styles.some((s) => s.isVariable) && (
                   <span className="badge badge--variable" style={{ marginLeft: 8 }}>
                     Variable
                   </span>
                 )}
               </SpecRow>
 
-              <SpecRow label="Script support">
+              <SpecRow label={t('fontDetail.scriptSupport')}>
                 <span style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                   <span>
-                    Ethiopic <Check ok={family.scriptSupport === 'ethiopic' || family.scriptSupport === 'both'} />
+                    {t('catalog.filters.ethiopic')} <Check ok={family.supports.ethiopic} />
                   </span>
                   <span>
-                    Latin <Check ok={family.scriptSupport === 'latin' || family.scriptSupport === 'both'} />
+                    {t('catalog.filters.latin')} <Check ok={family.supports.latin} />
                   </span>
                 </span>
               </SpecRow>
 
-              <SpecRow label={t('fontDetail.license')}>
-                {family.licenseUrl ? (
-                  <a
-                    href={family.licenseUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="spec-link"
-                  >
-                    {family.license}
-                  </a>
-                ) : (
-                  family.license
-                )}
-              </SpecRow>
+              {family.license && (
+                <SpecRow label={t('fontDetail.license')}>
+                  {family.license.name ?? family.license.code}
+                  {family.license.summary.en && (
+                    <span className="spec-license-summary">
+                      {' — '}
+                      {lang === 'am'
+                        ? (family.license.summary.am ?? family.license.summary.en)
+                        : family.license.summary.en}
+                    </span>
+                  )}
+                </SpecRow>
+              )}
 
               {family.tags.length > 0 && (
-                <SpecRow label="Tags">
+                <SpecRow label={t('fontDetail.tags')}>
                   <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                     {family.tags.map((tag) => (
-                      <span key={tag} className="badge">
-                        {tag}
+                      <span key={tag.id} className="badge">
+                        {lang === 'am' ? (tag.name.am ?? tag.name.en) : tag.name.en}
                       </span>
                     ))}
                   </div>
                 </SpecRow>
               )}
 
-              <SpecRow label="Added">
-                {new Date(family.createdAt).toLocaleDateString('en-GB', {
-                  year: 'numeric', month: 'long', day: 'numeric',
-                })}
-              </SpecRow>
-
-              <SpecRow label="Downloads">
-                {family.downloadCount.toLocaleString()}
-              </SpecRow>
+              {family.publishedAt && (
+                <SpecRow label={t('fontDetail.published')}>
+                  {new Date(family.publishedAt).toLocaleDateString(
+                    lang === 'am' ? 'am-ET' : 'en-GB',
+                    { year: 'numeric', month: 'long', day: 'numeric' },
+                  )}
+                </SpecRow>
+              )}
             </tbody>
           </table>
         </div>
@@ -132,7 +147,7 @@ export default function DetailsSection({ family }: DetailsSectionProps) {
           <div className="details-description">
             <p className="details-description__text">{description}</p>
 
-            {/* Show both languages if available */}
+            {/* Show both languages side-by-side when both are available */}
             {family.description?.am && family.description?.en && lang === 'en' && (
               <p className="details-description__alt" lang="am">
                 {family.description.am}

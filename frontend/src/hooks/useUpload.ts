@@ -1,12 +1,20 @@
 /**
- * useUpload — multi-file upload state machine for contributor portal.
+ * useUpload — multi-file upload state machine for the contributor portal.
  *
  * Pipeline per file:
  *   idle → hashing → uploading → processing → ready
  *                        ↘ error (any step)
+ *
+ * Real upload flow (aligned with backend):
+ *   1. POST /api/v1/uploads/init  → { uploadId, upload: { url } }
+ *   2. PUT <presigned S3 url>     (XHR with progress events)
+ *   3. POST /api/v1/uploads/complete  { uploadId, sha256 }
+ *   4. Poll GET /api/v1/submissions/:id until upload.processingStatus
+ *      transitions to 'completed' or 'failed'
  */
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { contributorApi } from '@/lib/api/contributor';
+import { uploadsApi } from '@/lib/api/uploads';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -19,13 +27,13 @@ export interface UploadFile {
   /** 0–100, meaningful during 'uploading' */
   progress: number;
   sha256: string | null;
-  /** styleId returned by the API after getUploadUrl */
-  styleId: string | null;
+  /** uploadId returned by POST /uploads/init, used for polling */
+  uploadId: string | null;
   errorMessage: string | null;
-  // user-editable metadata
+  // user-editable style metadata
   nameAm: string;
   nameEn: string;
-  weight: number;
+  weightClass: number;
   isItalic: boolean;
 }
 
@@ -48,6 +56,16 @@ function guessItalic(name: string): boolean {
   return /italic|oblique/i.test(name);
 }
 
+function guessMimeType(filename: string): string {
+  const ext = filename.split('.').pop()?.toLowerCase();
+  switch (ext) {
+    case 'ttf': return 'font/ttf';
+    case 'otf': return 'font/otf';
+    case 'woff': return 'font/woff';
+    default: return 'application/octet-stream';
+  }
+}
+
 async function hashFile(file: File): Promise<string> {
   const buf = await file.arrayBuffer();
   const digest = await crypto.subtle.digest('SHA-256', buf);
@@ -59,6 +77,7 @@ async function hashFile(file: File): Promise<string> {
 function uploadWithProgress(
   url: string,
   file: File,
+  contentType: string,
   onProgress: (pct: number) => void,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -72,12 +91,13 @@ function uploadWithProgress(
     });
     xhr.addEventListener('error', () => reject(new Error('Network error during upload')));
     xhr.open('PUT', url);
-    xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+    xhr.setRequestHeader('Content-Type', contentType);
     xhr.send(file);
   });
 }
 
-const ACCEPTED_EXTS = ['.ttf', '.otf', '.woff', '.woff2'];
+// .woff2 is NOT accepted — backend rejects it (not a source format)
+const ACCEPTED_EXTS = ['.ttf', '.otf', '.woff'];
 const POLL_INTERVAL_MS = 3_000;
 
 // ── Hook ───────────────────────────────────────────────────────────────────────
@@ -88,7 +108,7 @@ export interface UseUploadReturn {
   removeFile: (uid: string) => void;
   updateMeta: (
     uid: string,
-    meta: Partial<Pick<UploadFile, 'nameAm' | 'nameEn' | 'weight' | 'isItalic'>>,
+    meta: Partial<Pick<UploadFile, 'nameAm' | 'nameEn' | 'weightClass' | 'isItalic'>>,
   ) => void;
   uploadFile: (uid: string) => Promise<void>;
   uploadAll: () => Promise<void>;
@@ -100,14 +120,10 @@ export interface UseUploadReturn {
 
 export function useUpload(submissionId: string): UseUploadReturn {
   const [files, setFiles] = useState<UploadFile[]>([]);
-
-  // Keep a ref so async callbacks always see current state
   const filesRef = useRef<UploadFile[]>(files);
   filesRef.current = files;
-
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // ── Polling: resolve 'processing' → 'ready' | 'error' ──────────────────────
   useEffect(() => {
     const hasProcessing = files.some((f) => f.phase === 'processing');
 
@@ -117,23 +133,17 @@ export function useUpload(submissionId: string): UseUploadReturn {
           const detail = await contributorApi.get(submissionId);
           setFiles((prev) =>
             prev.map((f) => {
-              if (f.phase !== 'processing' || !f.styleId) return f;
-              const apiStyle = detail.styles.find((s) => s.id === f.styleId);
-              if (!apiStyle) return f;
-              if (apiStyle.uploadStatus === 'ready') return { ...f, phase: 'ready' };
-              if (apiStyle.uploadStatus === 'error') {
-                return {
-                  ...f,
-                  phase: 'error',
-                  errorMessage: apiStyle.errorMessage ?? 'Processing error',
-                };
+              if (f.phase !== 'processing' || !f.uploadId) return f;
+              const apiUpload = detail.uploads.find((u) => u.id === f.uploadId);
+              if (!apiUpload) return f;
+              if (apiUpload.processingStatus === 'completed') return { ...f, phase: 'ready' };
+              if (apiUpload.processingStatus === 'failed') {
+                return { ...f, phase: 'error', errorMessage: apiUpload.processingError ?? 'Processing failed' };
               }
               return f;
             }),
           );
-        } catch {
-          // ignore transient polling errors
-        }
+        } catch { /* ignore transient errors */ }
       }, POLL_INTERVAL_MS);
     }
 
@@ -150,7 +160,6 @@ export function useUpload(submissionId: string): UseUploadReturn {
     };
   }, [files, submissionId]);
 
-  // ── addFiles ────────────────────────────────────────────────────────────────
   const addFiles = useCallback((list: FileList | File[]) => {
     const incoming = Array.from(list).filter((f) =>
       ACCEPTED_EXTS.some((ext) => f.name.toLowerCase().endsWith(ext)),
@@ -163,40 +172,33 @@ export function useUpload(submissionId: string): UseUploadReturn {
         phase: 'idle',
         progress: 0,
         sha256: null,
-        styleId: null,
+        uploadId: null,
         errorMessage: null,
         nameAm: '',
         nameEn: baseName,
-        weight: guessWeight(baseName),
+        weightClass: guessWeight(baseName),
         isItalic: guessItalic(baseName),
       };
     });
     setFiles((prev) => [...prev, ...entries]);
   }, []);
 
-  // ── removeFile ──────────────────────────────────────────────────────────────
   const removeFile = useCallback((uid: string) => {
     setFiles((prev) => prev.filter((f) => f.uid !== uid));
   }, []);
 
-  // ── updateMeta ──────────────────────────────────────────────────────────────
   const updateMeta = useCallback(
-    (
-      uid: string,
-      meta: Partial<Pick<UploadFile, 'nameAm' | 'nameEn' | 'weight' | 'isItalic'>>,
-    ) => {
+    (uid: string, meta: Partial<Pick<UploadFile, 'nameAm' | 'nameEn' | 'weightClass' | 'isItalic'>>) => {
       setFiles((prev) => prev.map((f) => (f.uid === uid ? { ...f, ...meta } : f)));
     },
     [],
   );
 
-  // ── uploadFile ──────────────────────────────────────────────────────────────
   const uploadFile = useCallback(
     async (uid: string) => {
       const snapshot = filesRef.current.find((f) => f.uid === uid);
       if (!snapshot) return;
 
-      // Transition: idle/error → hashing
       setFiles((prev) =>
         prev.map((f) =>
           f.uid === uid ? { ...f, phase: 'hashing', progress: 0, errorMessage: null } : f,
@@ -204,52 +206,39 @@ export function useUpload(submissionId: string): UseUploadReturn {
       );
 
       try {
-        // 1. SHA-256 hash
         const sha256 = await hashFile(snapshot.file);
+        const contentType = guessMimeType(snapshot.file.name);
 
         setFiles((prev) =>
-          prev.map((f) =>
-            f.uid === uid ? { ...f, sha256, phase: 'uploading', progress: 0 } : f,
-          ),
+          prev.map((f) => f.uid === uid ? { ...f, sha256, phase: 'uploading', progress: 0 } : f),
         );
 
-        // 2. Get presigned upload URL from API
-        const { uploadUrl, styleId } = await contributorApi.getUploadUrl(submissionId, {
-          name: { am: snapshot.nameAm || null, en: snapshot.nameEn || null },
-          weight: snapshot.weight,
-          isItalic: snapshot.isItalic,
-          fileName: snapshot.file.name,
+        // Step 1: Init upload — get presigned S3 URL
+        const initRes = await uploadsApi.init({ submissionId, filename: snapshot.file.name, contentType });
+        const { uploadId } = initRes;
+        const presignedUrl = initRes.upload.url;
+
+        setFiles((prev) => prev.map((f) => (f.uid === uid ? { ...f, uploadId } : f)));
+
+        // Step 2: PUT to S3
+        await uploadWithProgress(presignedUrl, snapshot.file, contentType, (progress) => {
+          setFiles((prev) => prev.map((f) => (f.uid === uid ? { ...f, progress } : f)));
         });
 
-        setFiles((prev) =>
-          prev.map((f) => (f.uid === uid ? { ...f, styleId } : f)),
-        );
+        // Step 3: Signal completion → triggers backend processing
+        await uploadsApi.complete({ uploadId, sha256 });
 
-        // 3. PUT file to S3 with XHR progress
-        await uploadWithProgress(uploadUrl, snapshot.file, (progress) => {
-          setFiles((prev) =>
-            prev.map((f) => (f.uid === uid ? { ...f, progress } : f)),
-          );
-        });
-
-        // 4. Processing — poll will transition to ready/error
+        // Step 4: Enter processing phase — polling resolves to ready/error
         setFiles((prev) =>
           prev.map((f) =>
-            f.uid === uid
-              ? { ...f, phase: 'processing', progress: 100, styleId }
-              : f,
+            f.uid === uid ? { ...f, phase: 'processing', progress: 100, uploadId } : f,
           ),
         );
       } catch (err) {
         setFiles((prev) =>
           prev.map((f) =>
             f.uid === uid
-              ? {
-                  ...f,
-                  phase: 'error',
-                  errorMessage:
-                    err instanceof Error ? err.message : 'Upload failed',
-                }
+              ? { ...f, phase: 'error', errorMessage: err instanceof Error ? err.message : 'Upload failed' }
               : f,
           ),
         );
@@ -258,36 +247,20 @@ export function useUpload(submissionId: string): UseUploadReturn {
     [submissionId],
   );
 
-  // ── uploadAll ───────────────────────────────────────────────────────────────
   const uploadAll = useCallback(async () => {
-    const pending = filesRef.current.filter(
-      (f) => f.phase === 'idle' || f.phase === 'error',
-    );
+    const pending = filesRef.current.filter((f) => f.phase === 'idle' || f.phase === 'error');
     await Promise.allSettled(pending.map((f) => uploadFile(f.uid)));
   }, [uploadFile]);
 
-  // ── clearCompleted ──────────────────────────────────────────────────────────
   const clearCompleted = useCallback(() => {
     setFiles((prev) => prev.filter((f) => f.phase !== 'ready'));
   }, []);
 
-  // ── Derived ─────────────────────────────────────────────────────────────────
   const isUploading = files.some(
     (f) => f.phase === 'hashing' || f.phase === 'uploading' || f.phase === 'processing',
   );
   const allReady = files.length > 0 && files.every((f) => f.phase === 'ready');
   const hasErrors = files.some((f) => f.phase === 'error');
 
-  return {
-    files,
-    addFiles,
-    removeFile,
-    updateMeta,
-    uploadFile,
-    uploadAll,
-    clearCompleted,
-    isUploading,
-    allReady,
-    hasErrors,
-  };
+  return { files, addFiles, removeFile, updateMeta, uploadFile, uploadAll, clearCompleted, isUploading, allReady, hasErrors };
 }

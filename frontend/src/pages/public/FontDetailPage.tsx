@@ -8,7 +8,7 @@
  *   #details  — spec table + description
  *   #license  — license card
  *
- * The DetailNav floats above all sections and tracks the active one.
+ * Note: font pairings are not in scope — backend returns relatedFamilies: [].
  */
 
 import { useParams, Link } from 'react-router-dom';
@@ -21,14 +21,12 @@ import { catalogApi } from '@/lib/api/catalog';
 import { downloadsApi } from '@/lib/api/downloads';
 import { useAuthStore } from '@/lib/store/authStore';
 import { loadFontStyle } from '@/lib/utils/fontLoader';
-import { bilingualValue } from '@/lib/utils/bilingualValue';
 
 import DetailNav from '@/components/detail/DetailNav';
 import StylesSection from '@/components/detail/StylesSection';
 import GlyphsSection from '@/components/detail/GlyphsSection';
 import LayoutsSection from '@/components/detail/LayoutsSection';
 import DetailsSection from '@/components/detail/DetailsSection';
-import FontCard from '@/components/catalog/FontCard';
 
 export default function FontDetailPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -43,11 +41,14 @@ export default function FontDetailPage() {
     enabled: !!slug,
   });
 
-  // Load the first style for the hero specimen
+  // Load the first/default style for the hero specimen
   useEffect(() => {
     if (!family?.styles[0]) return;
-    const s = family.styles[0];
-    loadFontStyle(family.id, s.id, s.assetUrl).then(setHeroCssFamily);
+    const defaultStyle =
+      family.styles.find((s) => s.isDefault) ?? family.styles[0];
+    loadFontStyle(family.id, defaultStyle.id, defaultStyle.assetUrl).then(
+      setHeroCssFamily,
+    );
   }, [family]);
 
   const handleDownload = async () => {
@@ -60,7 +61,6 @@ export default function FontDetailPage() {
     }
   };
 
-  // ── Loading / error states ─────────────────────────────────────────────────
   if (isLoading) {
     return (
       <div className="page-loading" aria-live="polite">
@@ -80,27 +80,41 @@ export default function FontDetailPage() {
     );
   }
 
-  const familyDisplayName = bilingualValue(family.name);
-  const familyNameEn = family.name.en ?? familyDisplayName;
-  const familyNameAm = family.name.am ?? familyDisplayName;
+  // Derive display names — prefer am over en, fall back to native
+  const displayName =
+    family.name.am ?? family.name.en ?? family.name.native ?? family.slug;
+  const nameEn = family.name.en ?? displayName;
+  const nameAm = family.name.am ?? displayName;
 
   const heroFont = heroCssFamily
     ? `"${heroCssFamily}", "Noto Sans Ethiopic", sans-serif`
     : '"Noto Sans Ethiopic", sans-serif';
 
+  // License display
+  const licenseName = family.license?.name ?? family.license?.code ?? '—';
+  const licenseCode = family.license?.code ?? '—';
+
   return (
     <>
       <Helmet>
-        <title>{familyDisplayName} — Fonthabesha</title>
+        <title>{displayName} — Fonthabesha</title>
         <meta
           name="description"
-          content={`${familyDisplayName} — ${family.styles.length} styles. Free ${t(`catalog.filters.${family.category}`)} font for Ethiopic and Latin scripts.`}
+          content={`${displayName} — ${family.styles.length} ${family.styles.length === 1 ? 'style' : 'styles'}. Free ${family.category ?? 'Ethiopic'} font by ${family.designers.map((d) => d.name).join(', ') || 'Fonthabesha'}.`}
         />
+        <meta property="og:type"        content="article" />
+        <meta property="og:title"       content={`${displayName} — Fonthabesha`} />
+        <meta property="og:description" content={family.description?.en ?? `${displayName} — free Ethiopic font family with ${family.styles.length} styles.`} />
+        {family.coverImageUrl && (
+          <meta property="og:image" content={family.coverImageUrl} />
+        )}
+        <meta name="twitter:card"  content="summary_large_image" />
+        <meta name="twitter:title" content={`${displayName} — Fonthabesha`} />
       </Helmet>
 
       {/* ── Sticky detail nav ── */}
       <DetailNav
-        familyName={familyDisplayName}
+        familyName={displayName}
         hasGlyphs
         isAuthenticated={isAuthenticated}
         downloading={downloading}
@@ -110,38 +124,43 @@ export default function FontDetailPage() {
       {/* ── Hero section ── */}
       <header className="detail-hero">
         <div className="detail-hero__inner">
-          {/* Names */}
           <div className="detail-hero__names">
-            {familyNameAm && (
+            {nameAm && (
               <h1 className="detail-hero__name-am" lang="am">
-                {familyNameAm}
+                {nameAm}
               </h1>
             )}
-            {familyNameEn && familyNameEn !== familyNameAm && (
+            {nameEn && nameEn !== nameAm && (
               <p className="detail-hero__name-en" lang="en">
-                {familyNameEn}
+                {nameEn}
               </p>
             )}
           </div>
 
-          {/* Meta badges */}
           <div className="detail-hero__meta">
-            {family.designer && (
+            {family.designers.length > 0 && (
               <span className="detail-hero__designer">
-                {bilingualValue(family.designer)}
+                {family.designers.map((d) => d.name).join(', ')}
               </span>
             )}
-            <span className="badge">{t(`catalog.filters.${family.category}`)}</span>
-            <span className="badge">{t(`catalog.filters.${family.scriptSupport}`)}</span>
-            {family.isVariable && <span className="badge badge--variable">Variable</span>}
-            <span className="badge">{family.license}</span>
+            {family.category && (
+              <span className="badge">{family.category}</span>
+            )}
+            {family.script && (
+              <span className="badge">{family.script}</span>
+            )}
+            {family.styles.some((s) => s.isVariable) && (
+              <span className="badge badge--variable">Variable</span>
+            )}
+            <span className="badge">{licenseCode}</span>
             <span className="detail-hero__count">
-              {family.styles.length} {family.styles.length === 1 ? 'style' : 'styles'}
+              {family.styles.length}{' '}
+              {family.styles.length === 1 ? 'style' : 'styles'}
             </span>
           </div>
         </div>
 
-        {/* Giant hero specimen — font name rendered in itself */}
+        {/* Giant hero specimen */}
         <div className="detail-hero__specimen" aria-hidden="true">
           <span
             style={{
@@ -156,7 +175,7 @@ export default function FontDetailPage() {
               textOverflow: 'ellipsis',
             }}
           >
-            {familyNameAm || familyNameEn}
+            {nameAm || nameEn}
           </span>
         </div>
       </header>
@@ -180,38 +199,19 @@ export default function FontDetailPage() {
         </div>
         <div className="license-card">
           <div className="license-card__header">
-            <h3 className="license-card__title">{family.license}</h3>
+            <h3 className="license-card__title">{licenseName}</h3>
+            <code className="license-card__code">{licenseCode}</code>
           </div>
-          {family.licenseUrl ? (
-            <a
-              href={family.licenseUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="license-card__link"
-            >
-              Read full license →
-            </a>
-          ) : (
-            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
-              No license URL provided.
+          {family.license?.summary.en && (
+            <p className="license-card__summary">{family.license.summary.en}</p>
+          )}
+          {family.license?.summary.am && (
+            <p className="license-card__summary" lang="am">
+              {family.license.summary.am}
             </p>
           )}
         </div>
       </section>
-
-      {/* ── Related / pairings ── */}
-      {family.pairsWith.length > 0 && (
-        <section className="detail-section">
-          <div className="detail-section__header">
-            <h2 className="detail-section__title">{t('fontDetail.pairings')}</h2>
-          </div>
-          <ul className="font-card-list" role="list">
-            {family.pairsWith.map((paired) => (
-              <FontCard key={paired.id} family={paired} view="list" />
-            ))}
-          </ul>
-        </section>
-      )}
 
       {/* ── Download CTA (bottom) ── */}
       <div className="detail-download-cta">
@@ -222,11 +222,13 @@ export default function FontDetailPage() {
             onClick={handleDownload}
             disabled={downloading}
           >
-            {downloading ? t('fontDetail.downloading') : `↓ ${t('fontDetail.download')} ${familyDisplayName}`}
+            {downloading
+              ? t('fontDetail.downloading')
+              : `↓ ${t('fontDetail.download')} ${displayName}`}
           </button>
         ) : (
           <div className="detail-download-cta__locked">
-            <p>Log in to download this font family for free.</p>
+            <p>{t('fontDetail.loginToDownload')}</p>
             <Link to="/login" className="btn btn--primary">
               {t('nav.login')}
             </Link>

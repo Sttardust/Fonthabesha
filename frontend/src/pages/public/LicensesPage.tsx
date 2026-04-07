@@ -1,12 +1,61 @@
 import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
-import { useQuery } from '@tanstack/react-query';
-import { catalogApi } from '@/lib/api/catalog';
-import LoadingSpinner from '@/components/shared/LoadingSpinner';
-import ErrorState from '@/components/shared/ErrorState';
-import type { License } from '@/lib/types';
 
-// ── Permission check icon ─────────────────────────────────────────────────────
+/**
+ * Licenses page — static informational page about font licenses.
+ * In V2 this will pull live license data from GET /fonts/filters.
+ */
+
+const LICENSES = [
+  {
+    code: 'OFL-1.1',
+    name: 'SIL Open Font License 1.1',
+    permissions: {
+      redistribute: true,
+      commercial: true,
+      modify: true,
+      attribution: false,
+      embedding: true,
+    },
+    summary: {
+      am: 'ይህ ፈቃድ ፊደሎቹን በነፃ መጠቀም፣ ማሻሻልና ማሰራጨት ያስፈቅዳል። ስም ብቻ መቀየር አይፈቀድም።',
+      en: 'Allows use, modification, and redistribution of fonts freely. Cannot be sold standalone.',
+    },
+    url: 'https://scripts.sil.org/OFL',
+  },
+  {
+    code: 'Apache-2.0',
+    name: 'Apache License 2.0',
+    permissions: {
+      redistribute: true,
+      commercial: true,
+      modify: true,
+      attribution: true,
+      embedding: true,
+    },
+    summary: {
+      am: 'ሰፊ ፈቃድ — ለንግድ ጭምር መጠቀም ይቻላል። የደራሲውን ስም ማስቀመጥ ያስፈልጋል።',
+      en: 'Broad permissive license. Commercial use allowed. Attribution required.',
+    },
+    url: 'https://www.apache.org/licenses/LICENSE-2.0',
+  },
+  {
+    code: 'MIT',
+    name: 'MIT License',
+    permissions: {
+      redistribute: true,
+      commercial: true,
+      modify: true,
+      attribution: true,
+      embedding: true,
+    },
+    summary: {
+      am: 'በጣም ቀላልና ሰፊ ፈቃድ። ሁሉም ዓይነት አጠቃቀም ይፈቀዳል።',
+      en: 'Simple and permissive. Allows all uses including commercial.',
+    },
+    url: 'https://opensource.org/licenses/MIT',
+  },
+];
 
 function Check({ ok }: { ok: boolean }) {
   return (
@@ -19,98 +68,73 @@ function Check({ ok }: { ok: boolean }) {
   );
 }
 
-// ── License card ──────────────────────────────────────────────────────────────
-
-function LicenseCard({ license }: { license: License }) {
-  const { t } = useTranslation();
-
-  return (
-    <div className="license-card">
-      <div className="license-card__header">
-        <h2 className="license-card__title">{license.name}</h2>
-        <span className="badge license-card__badge">{license.code}</span>
-      </div>
-
-      {license.summary && (
-        <p className="license-card__summary">{license.summary}</p>
-      )}
-
-      <table className="license-card__table">
-        <tbody>
-          <tr>
-            <td>{t('licenses.redistribute')}</td>
-            <td><Check ok={license.allowsRedistribution} /></td>
-          </tr>
-          <tr>
-            <td>{t('licenses.commercial')}</td>
-            <td><Check ok={license.allowsCommercialUse} /></td>
-          </tr>
-          <tr>
-            <td>{t('licenses.attribution')}</td>
-            <td><Check ok={license.requiresAttribution} /></td>
-          </tr>
-        </tbody>
-      </table>
-
-      {license.url && (
-        <a
-          href={license.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="license-card__link"
-        >
-          {t('licenses.readFull')} →
-        </a>
-      )}
-    </div>
-  );
-}
-
-// ── Page ──────────────────────────────────────────────────────────────────────
-
 export default function LicensesPage() {
-  const { t } = useTranslation();
-
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['catalog-filters-licenses'],
-    queryFn: () => catalogApi.filters(),
-    staleTime: 10 * 60 * 1000, // 10 min — licenses rarely change
-  });
-
-  const licenses = data?.licenses ?? [];
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language === 'am' ? 'am' : 'en';
 
   return (
     <>
       <Helmet>
         <title>{t('nav.licenses')} — Fonthabesha</title>
+        <meta name="description" content="All fonts on Fonthabesha are open-source. A plain-language guide to OFL, Apache, MIT, and CC licenses used on this platform." />
+        <meta property="og:title"       content={`${t('nav.licenses')} — Fonthabesha`} />
+        <meta property="og:description" content="All fonts on Fonthabesha are open-source. A plain-language guide to OFL, Apache, MIT, and CC licenses used on this platform." />
+        <meta property="og:type"        content="website" />
       </Helmet>
 
       <div className="page-container page-container--narrow">
-        <header className="page-header">
-          <h1 className="page-title">{t('licenses.title')}</h1>
-          <p className="licenses-intro">{t('licenses.intro')}</p>
-        </header>
+        <h1 className="page-title">{t('nav.licenses')}</h1>
+        <p className="licenses-intro">
+          {t('licenses.intro')}
+        </p>
 
-        {isLoading && <LoadingSpinner label={t('common.loading')} />}
+        <div className="licenses-list">
+          {LICENSES.map((lic) => (
+            <div key={lic.code} className="license-card">
+              <div className="license-card__header">
+                <h2 className="license-card__title">{lic.name}</h2>
+                <span className="badge license-card__badge">{lic.code}</span>
+              </div>
 
-        {isError && (
-          <ErrorState
-            message={t('common.error')}
-            onRetry={() => refetch()}
-          />
-        )}
+              <p className="license-card__summary">{lic.summary[lang]}</p>
 
-        {!isLoading && !isError && licenses.length === 0 && (
-          <p className="empty-state">{t('licenses.empty')}</p>
-        )}
+              <table className="license-card__table">
+                <tbody>
+                  <tr>
+                    <td>{t('licenses.permissions.redistribute')}</td>
+                    <td><Check ok={lic.permissions.redistribute} /></td>
+                  </tr>
+                  <tr>
+                    <td>{t('licenses.permissions.commercial')}</td>
+                    <td><Check ok={lic.permissions.commercial} /></td>
+                  </tr>
+                  <tr>
+                    <td>{t('licenses.permissions.modify')}</td>
+                    <td><Check ok={lic.permissions.modify} /></td>
+                  </tr>
+                  <tr>
+                    <td>{t('licenses.permissions.embed')}</td>
+                    <td><Check ok={lic.permissions.embedding} /></td>
+                  </tr>
+                  <tr>
+                    <td>{t('licenses.permissions.attribution')}</td>
+                    <td><Check ok={lic.permissions.attribution} /></td>
+                  </tr>
+                </tbody>
+              </table>
 
-        {licenses.length > 0 && (
-          <div className="licenses-list">
-            {licenses.map((lic) => (
-              <LicenseCard key={lic.code} license={lic} />
-            ))}
-          </div>
-        )}
+              <a
+                href={lic.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="license-card__link"
+                aria-label={`Read full ${lic.name} license (opens in new tab)`}
+              >
+                {lang === 'am' ? 'ሙሉ ፈቃዱን ያንብቡ →' : 'Read full license →'}
+              </a>
+            </div>
+          ))}
+        </div>
       </div>
     </>
   );
